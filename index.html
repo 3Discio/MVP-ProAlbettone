@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vota il tuo MVP</title>
+<link rel="icon" href="logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -38,6 +39,7 @@ nav{background:color-mix(in srgb,var(--team) 12%,#000)}
 .mvp{background:linear-gradient(160deg,var(--team),color-mix(in srgb,var(--team) 55%,#000));color:#fff;border:2px solid #fff}
 button.r{background:#fff;color:color-mix(in srgb,var(--team) 60%,#000)}
 .err{background:#000;border:2px solid var(--team)}
+.lg{height:38px;vertical-align:middle;margin-right:6px}
 </style>
 </head>
 <body>
@@ -51,6 +53,7 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 const $ = id => document.getElementById(id), A = $('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const q = async p => { const r = await p; if (r.error) throw r.error; return r.data; };
+const LOGO = `<img class="lg" src="logo.png" alt="Logo" onerror="this.replaceWith('⚽')">`;
 let me, prof, tab = 'p', cur = null, pick = null, regMode = false;
 
 async function act(fn) { try { await fn(); } catch (e) { alert(e.message || e); } render(); }
@@ -65,7 +68,7 @@ async function authView(err = '') {
     opts = `<select id="pl"><option value="">Scegli il tuo nome…</option>${(ps.data || []).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
       <label class="mut"><input type="checkbox" id="nop" style="width:auto" onchange="$('pl').style.display=this.checked?'none':''"> Non sono un giocatore, ma voglio iscrivermi! </label>`;
   }
-  A.innerHTML = `<h1>⚽ Vota il tuo MVP</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
+  A.innerHTML = `<h1>${LOGO} Vota il tuo MVP</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
     ${regMode ? '<div class="row"><input id="fn" placeholder="Nome"><input id="ln" placeholder="Cognome"></div>' : ''}
     <input id="em" type="email" placeholder="Email" autocomplete="email"><input id="pw" type="password" placeholder="Password (min. 6 caratteri)">${opts}
@@ -98,7 +101,7 @@ async function render() {
   let body;
   try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'a' && admin ? await adminView() : await matchesView(admin); }
   catch (e) { body = `<div class="err">${esc(e.message)}</div>`; }
-  A.innerHTML = `<div class="top"><h1>⚽ MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
+  A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
     <button class="g s" onclick="sb.auth.signOut().then(()=>authView())">Esci</button></div></div>
     ${prof.can_vote ? '' : '<div class="card mut">Il tuo account non è ancora abilitato al voto: attendi il mister.</div>'}${body}
     <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">Classifica</button>
