@@ -54,7 +54,7 @@ async function authView(err = '') {
     opts = `<select id="pl"><option value="">Scegli il tuo nome…</option>${(ps.data || []).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>
       <label class="mut"><input type="checkbox" id="nop" style="width:auto" onchange="$('pl').style.display=this.checked?'none':''"> Non sono un giocatore, ma voglio iscrivermi! </label>`;
   }
-  A.innerHTML = `<h1>⚽ MVP della Partita</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
+  A.innerHTML = `<h1>⚽ Vota il tuo MVP</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
     ${regMode ? '<div class="row"><input id="fn" placeholder="Nome"><input id="ln" placeholder="Cognome"></div>' : ''}
     <input id="em" type="email" placeholder="Email" autocomplete="email"><input id="pw" type="password" placeholder="Password (min. 6 caratteri)">${opts}
