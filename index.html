@@ -56,6 +56,7 @@ async function authView(err = '') {
   }
   A.innerHTML = `<h1>⚽ MVP della Partita</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
+    ${regMode ? '<div class="row"><input id="fn" placeholder="Nome"><input id="ln" placeholder="Cognome"></div>' : ''}
     <input id="em" type="email" placeholder="Email" autocomplete="email"><input id="pw" type="password" placeholder="Password (min. 6 caratteri)">${opts}
     <button onclick="${regMode ? 'signUp()' : 'signIn()'}">${regMode ? 'Registrati' : 'Entra'}</button>
     <button class="g" onclick="regMode=!regMode;render()">${regMode ? 'Ho già un account' : 'Nuovo? Registrati'}</button></div>`;
@@ -66,9 +67,11 @@ async function signIn() {
   render();
 }
 async function signUp() {
+  const fn = v('fn'), ln = v('ln');
+  if (!fn || !ln) return authView('Scrivi nome e cognome.');
   const player_id = $('nop').checked ? '' : $('pl').value;
   if (!$('nop').checked && !player_id) return authView('Scegli il tuo nome dall\'elenco.');
-  const r = await sb.auth.signUp({ email: v('em'), password: $('pw').value, options: { data: { player_id } } });
+  const r = await sb.auth.signUp({ email: v('em'), password: $('pw').value, options: { data: { player_id, display_name: fn + ' ' + ln } } });
   if (r.error) return authView(r.error.message);
   if (!r.data.session) { regMode = false; return authView('Registrazione fatta! Controlla la mail per confermare, poi accedi. Poi aspetta l\'abilitazione al voto dal mister.'); }
   render();
