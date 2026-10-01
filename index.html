@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Vota il tuo MVP</title>
-<link rel="icon" href="logo.png">
+<title>MVP della Partita</title>
+<link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="apple-mobile-web-app-title" content="MVP">
 <meta name="theme-color" content="#d7142c">
@@ -12,7 +12,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
-:root{--bg:#0b3d24;--card:#0f5132;--line:#1d7048;--in:#083220;--acc:#ffd60a;--mut:#a9d6bd;--ink:#0b2b1a}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:#fff;font:16px/1.4 system-ui,sans-serif;padding-bottom:80px}
 h1,h2,h3,.big,button{font-family:Oswald,Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em}
@@ -46,20 +45,32 @@ button.r{background:#fff;color:color-mix(in srgb,var(--team) 60%,#000)}
 .lg{height:80px;max-width:100%;object-fit:contain;vertical-align:middle;margin-right:6px}
 .top .lg{height:52px;max-width:46vw}
 ol{padding-left:22px;margin:6px 0}li{margin:5px 0}
+#ov{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));overflow:auto;background:radial-gradient(circle at 50% 0,color-mix(in srgb,var(--team) 70%,#000),color-mix(in srgb,var(--team) 22%,#000) 70%)}
+#ov .x{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:12px;width:auto;margin:0;padding:6px 10px;background:transparent;color:var(--mut);font-size:18px}
+.sc{width:100%;max-width:400px;text-align:center}.sc .lg{height:64px;margin:0}
+.sc .t{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--hl);font-size:14px;margin-top:6px}
+.sc .vs{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:30px;line-height:1.1;margin:12px 0 2px}
+.sc .mvpbox{background:#fff;color:color-mix(in srgb,var(--team) 60%,#000);border-radius:20px;padding:22px 12px;margin:20px 0 12px}
+.sc .mvpbox .l{font-family:Oswald,Impact,sans-serif;letter-spacing:.2em;font-size:18px;color:var(--team)}
+.sc .mvpbox .n{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:clamp(30px,10vw,44px);line-height:1.05;margin:6px 0}
+.sc .r2{display:flex;justify-content:space-between;padding:9px 14px;margin:6px 0;border:1px solid var(--line);border-radius:12px;color:var(--mut)}
+.sc .foot{margin-top:16px;font-size:13px;color:var(--mut)}
 </style>
 </head>
 <body>
 <div class="w" id="app"></div>
 <script>
 const sb = supabase.createClient(SB_URL, SB_KEY);
+sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') { me = null; prof = null; authView(); } });
 const $ = id => document.getElementById(id), A = $('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const q = async p => { const r = await p; if (r.error) throw r.error; return r.data; };
 const LOGO = `<img class="lg" src="logo.png" alt="Logo" onerror="this.replaceWith('⚽')">`; // se logo.png manca, mostra ⚽
 let me, prof, tab = 'p', cur = null, pick = null, regMode = false;
 
-async function act(fn) { try { await fn(); } catch (e) { alert(e.message || e); } render(); }
-function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
+async function act(fn, keep = true) { try { await fn(); } catch (e) { alert(e.message || e); } render(keep); }
+const quiet = async (fn, el) => { try { await fn(); } catch (e) { if (el) el.checked = !el.checked; alert(e.message || e); } };
+function go(t, id = null) { tab = t; cur = id; pick = null; try { if (location.search) history.replaceState(null, '', location.pathname); } catch (e) {} render(); }
 const v = id => $(id).value.trim();
 
 // ---------- ACCESSO ----------
@@ -87,52 +98,75 @@ async function signUp() {
 }
 
 // ---------- SCHERMATE ----------
-async function render() {
+async function render(keep) {
+  const y = window.scrollY;
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return authView();
   me = session.user;
+  if (!clockOk) { try { const t = await sb.rpc('server_now'); if (t.data) { clockOffset = new Date(t.data) - Date.now(); clockOk = true; } } catch (e) {} }
   prof = await q(sb.from('profiles').select('*').eq('id', me.id).single());
   const admin = prof.is_admin;
   let body;
   try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'a' && admin ? await adminView() : await matchesView(admin); }
-  catch (e) { body = `<div class="err">${esc(e.message)}</div>`; }
+  catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
     <button class="g s" onclick="sb.auth.signOut().then(()=>authView())">Esci</button></div></div>
     ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
     <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">Classifica</button>
     ${admin ? `<button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')">Admin</button>` : ''}</nav>`;
+  window.scrollTo(0, keep ? y : 0);
+}
+const OUT = { vittoria: 'Vittoria', pareggio: 'Pareggio', sconfitta: 'Sconfitta' };
+let clockOffset = 0, clockOk = false;
+function cdText(d) {
+  const ms = new Date(d) - (Date.now() + clockOffset);
+  if (ms <= 0) return { text: 'Voto scaduto', expired: true };
+  const t = Math.floor(ms / 60000), dd = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60;
+  return { text: 'Scade tra ' + (dd ? dd + 'g ' : '') + (hh || dd ? hh + 'h ' : '') + mm + 'm', expired: false };
 }
 const ST = { draft: 'Bozza', open: 'Votazione aperta', closed: 'Chiusa' };
 
 async function matchesView(admin) {
   const ms = await q(sb.from('matches').select('*').order('played_on', { ascending: false }));
   const vis = admin ? ms : ms.filter(m => m.status !== 'draft');
-  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><input id="sc" placeholder="Risultato (3-2)"></div><button onclick="newMatch()">Crea partita</button></div>` : ''}
-  <h2>Partite</h2>${vis.map(m => `<div class="card row" onclick="go('p','${m.id}')" style="cursor:pointer"><div><b>vs ${esc(m.opponent)}</b> ${esc(m.score || '')}<div class="mut">${m.played_on}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
+  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><select id="sc"><option value="">Esito…</option><option value="vittoria">Vittoria</option><option value="pareggio">Pareggio</option><option value="sconfitta">Sconfitta</option></select></div><button onclick="newMatch()">Crea partita</button></div>` : ''}
+  <h2>Partite</h2>${vis.map(m => `<div class="card row" onclick="go('p','${m.id}')" style="cursor:pointer"><div><b>vs ${esc(m.opponent)}</b> ${m.outcome ? '· ' + OUT[m.outcome] : ''}<div class="mut">${m.played_on}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
 }
 function newMatch() {
   if (!v('op')) return alert('Scrivi l\'avversario');
-  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), score: v('sc') || null }).select().single()); cur = m.id; });
+  if (!v('sc')) return alert('Scegli l’esito: vittoria, pareggio o sconfitta');
+  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), outcome: v('sc') }).select().single()); cur = m.id; }, false);
 }
 
 async function matchView(id) {
   const [m, conv, players, mine, extras] = await Promise.all([
     q(sb.from('matches').select('*').eq('id', id).single()), q(sb.from('match_players').select('player_id').eq('match_id', id)),
     q(sb.from('players').select('*').order('name')), q(sb.from('votes').select('*').eq('match_id', id).order('rank')), q(sb.from('match_voters').select('profile_id').eq('match_id', id))]);
+  curMatch = m;
   const cids = conv.map(c => c.player_id), my = players.find(p => p.profile_id === me.id), admin = prof.is_admin;
   if (pick === null) pick = mine.map(x => x.player_id);
   const eligible = prof.can_vote && (m.voters === 'tutti' || prof.is_coach || (my && cids.includes(my.id)) || (m.voters === 'extra' && extras.some(e => e.profile_id === me.id)));
-  let h = `<button class="g s" onclick="go('p')">← Partite</button><h2>Vs ${esc(m.opponent)} ${esc(m.score || '')}</h2><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span>
+  let h = `<button class="g s" onclick="go('p')">← Partite</button><h2>Vs ${esc(m.opponent)} ${m.outcome ? '· ' + OUT[m.outcome] : ''}</h2><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span>
     <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
+  if (m.status === 'open' && m.voting_deadline) h += `<div class="card"><b class="cd" data-live="1" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</b> <span class="mut">(${new Date(m.voting_deadline).toLocaleString('it-IT', { weekday: 'long', hour: '2-digit', minute: '2-digit' })})</span></div>`;
+  if (m.status !== 'draft') {
+    const el = await q(sb.rpc('eligible_voters', { p_match: id }));
+    h += `<details class="card"><summary><b>Chi può votare (${el.length})</b></summary><div class="mut" style="margin-top:6px">${el.map(x => esc(x.display)).join(', ') || '—'}</div></details>`;
+  }
   if (m.status === 'closed') {
     const rs = (await q(sb.from('match_results').select('*').eq('match_id', id).order('position').order('points', { ascending: false }))).filter(r => r.position <= 3);
+    curResults = rs;
     const top = rs.filter(r => r.position === 1);
     h += rs.length ? `<div class="mvp"><div class="big">MVP</div><b>${top.map(r => esc(r.name)).join(' & ')}</b><div>${top[0].points} punti${top.length > 1 ? ' · ex aequo' : ''}</div></div>
       <div class="card">${rs.map(r => `<div class="row" style="padding:6px 0"><div class="rk">${r.position}</div><div class="f"><b>${esc(r.name)}</b></div><b>${r.points} pt</b></div>`).join('')}</div>` : '<div class="card">Nessun voto ricevuto.</div>';
+    if (m.eligible_final != null) h += `<p class="mut">Hanno votato ${m.voted_final} su ${m.eligible_final}.</p>`;
+    if (rs.length) h += '<button onclick="showCard()">Card da condividere</button>';
   } else if (m.status === 'open') {
     const pr = await q(sb.from('voting_progress').select('*').eq('match_id', id).single());
     h += `<div class="card">Hanno votato <b>${pr.voted}</b> su <b>${pr.eligible}</b>. I risultati restano segreti fino alla chiusura.</div>`;
     if (!eligible) h += '<div class="card mut">Non puoi votare in questa partita.</div>';
+    else if (m.outcome === 'sconfitta' && !m.force_vote) h += '<div class="card mut">Partita persa: l’MVP non si vota.</div>';
+    else if (m.voting_deadline && new Date(m.voting_deadline) <= Date.now() + clockOffset) h += '<div class="card mut"><b>Tempo scaduto.</b> Non si può più votare: attendi la chiusura da parte dell’admin.</div>';
     else {
       const cand = players.filter(p => cids.includes(p.id) && p.id !== (my && my.id));
       h += `<h3>Come si vota</h3><div class="card mut"><ol><li>Tocca il giocatore che ha giocato meglio: è il tuo <b>MVP</b> (3 punti).</li><li>Se vuoi, tocca un secondo (2 punti) e un terzo (1 punto). L’ordine in cui tocchi i nomi è il tuo ordine di preferenza.</li><li>Tocca di nuovo un nome per toglierlo. Tu non compari nell’elenco: non puoi votare te stesso.</li><li>Premi il pulsante di conferma. Puoi cambiare il voto finché la votazione è aperta.</li><li>Il vincitore resta segreto finché l’admin non chiude la votazione.</li></ol></div>
@@ -140,32 +174,66 @@ async function matchView(id) {
         <button onclick="saveVote('${id}')" ${pick.length ? '' : 'disabled style="opacity:.5"'}>${mine.length ? 'Aggiorna il voto' : 'Conferma il voto'}</button>${mine.length ? '<div class="mut">Hai già votato: puoi cambiare finché è aperta.</div>' : ''}`;
     }
   } else h += '<div class="card mut">Votazione non ancora aperta.</div>';
+  if (admin && m.status !== 'draft') {
+    const vr = await q(sb.rpc('voting_roster', { p_match: id }));
+    const yes = vr.filter(x => x.did_vote), no = vr.filter(x => !x.did_vote);
+    h += `<h3>Chi ha votato (solo admin)</h3><div class="card"><b>Hanno votato (${yes.length})</b><div class="mut">${yes.map(x => esc(x.display)).join(', ') || '—'}</div>
+      <p><b>${m.status === 'closed' ? 'Non hanno votato' : 'Non hanno ancora votato'} (${no.length})</b></p><div class="mut">${no.map(x => esc(x.display)).join(', ') || 'Nessuno'}</div></div>`;
+  }
+  const outBlock = `<p class="mut">Esito della partita:</p><select onchange="setM('${id}',{outcome:this.value||null})">${m.outcome ? '' : '<option value="" selected>—</option>'}${Object.keys(OUT).map(k => `<option value="${k}" ${m.outcome === k ? 'selected' : ''}>${OUT[k]}</option>`).join('')}</select>${m.outcome === 'sconfitta' ? `<label class="row" style="justify-content:flex-start;padding:6px 0"><input type="checkbox" style="width:auto" ${m.force_vote ? 'checked' : ''} onchange="setM('${id}',{force_vote:this.checked})"> Consenti comunque il voto MVP (forzatura)</label>` : ''}`;
+  const durBlock = `<p class="mut">${m.status === 'open' ? 'Scadenza del voto (conta da adesso):' : 'Durata della votazione:'}</p><div class="row"><select id="dur" style="flex:1"><option value="">Nessuna scadenza</option>${[3, 6, 12, 24, 48, 72].map(n => `<option value="${n}">${n} ore</option>`).join('')}</select><button class="s" onclick="openVote('${id}')">${m.status === 'open' ? 'Aggiorna' : 'Apri voto'}</button></div>`;
   let extraList = '';
   if (admin && m.voters === 'extra') {
     const pfs = await q(sb.from('profiles').select('*').eq('can_vote', true).order('display_name'));
     const xs = extras.map(e => e.profile_id);
     extraList = '<p class="mut">Extra (oltre ai convocati):</p>' + (pfs.filter(u => { const pl = players.find(p => p.profile_id === u.id); return !(pl && cids.includes(pl.id)); })
-      .map(u => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${xs.includes(u.id) ? 'checked' : ''} onchange="extraV('${id}','${u.id}',this.checked)"> ${esc(u.display_name)}</label>`).join('') || '<span class="mut">Nessun altro account abilitato al voto.</span>');
+      .map(u => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${xs.includes(u.id) ? 'checked' : ''} onchange="extraV('${id}','${u.id}',this)"> ${esc(u.display_name)}</label>`).join('') || '<span class="mut">Nessun altro account abilitato al voto.</span>');
   }
-  if (admin) h += `<h3>Gestione partita</h3><div class="card">
-    <div class="row">${m.status !== 'open' ? `<button class="s" onclick="setM('${id}',{status:'open'})">Apri voto</button>` : ''}${m.status === 'open' ? `<button class="s" onclick="if(confirm('Chiudere e proclamare l\\'MVP?'))setM('${id}',{status:'closed'})">Chiudi e proclama MVP</button>` : ''}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
-    <p class="mut">Chi vota:</p><select onchange="setM('${id}',{voters:this.value})"><option value="convocati" ${m.voters === 'convocati' ? 'selected' : ''}>Solo i convocati</option><option value="extra" ${m.voters === 'extra' ? 'selected' : ''}>Convocati + extra scelti</option><option value="tutti" ${m.voters === 'tutti' ? 'selected' : ''}>Tutti quelli che possono votare</option></select>${extraList}
-    <p class="mut">Convocati:</p>${players.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this.checked)"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}
+  if (admin) h += `<h3>Gestione partita</h3><div class="card">${outBlock}${durBlock}
+    <div class="row">${m.status === 'open' ? `<button class="s" onclick="if(confirm('Chiudere e proclamare l\\'MVP?'))closeVote('${id}')">Chiudi e proclama MVP</button>` : ''}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
+    <button class="g" onclick="shareLink('${id}')">Condividi link della partita</button><button class="g" onclick="copyLink('${id}')">Copia link</button><p class="mut">Chi vota:</p><select onchange="setM('${id}',{voters:this.value})"><option value="convocati" ${m.voters === 'convocati' ? 'selected' : ''}>Solo i convocati</option><option value="extra" ${m.voters === 'extra' ? 'selected' : ''}>Convocati + extra scelti</option><option value="tutti" ${m.voters === 'tutti' ? 'selected' : ''}>Tutti quelli che possono votare</option></select>${extraList}
+    <p class="mut">Convocati:</p>${players.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this)"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}
     <button class="r" onclick="if(confirm('Eliminare la partita e i suoi voti?'))delM('${id}')">Elimina partita</button></div>`;
   return h;
 }
-function tog(id) { const i = pick.indexOf(id); if (i >= 0) pick.splice(i, 1); else if (pick.length < 3) pick.push(id); render(); }
+function tog(id) { const i = pick.indexOf(id); if (i >= 0) pick.splice(i, 1); else if (pick.length < 3) pick.push(id); render(true); }
 function saveVote(mid) {
   act(async () => {
-    await q(sb.from('votes').delete().eq('match_id', mid).eq('voter_id', me.id));
-    await q(sb.from('votes').insert(pick.map((player_id, i) => ({ match_id: mid, player_id, rank: i + 1 }))));
+    await q(sb.rpc('cast_votes', { p_match: mid, p_players: pick }));
     pick = null; alert('Voto registrato ✓');
   });
 }
+const closeVote = id => act(() => q(sb.rpc('close_voting', { p_match: id })));
+const openVote = id => act(() => q(sb.rpc('set_voting', { p_match: id, p_hours: $('dur').value === '' ? null : Number($('dur').value) })));
 const setM = (id, o) => act(() => q(sb.from('matches').update(o).eq('id', id)));
-const conv = (mid, pid, on) => act(() => q(on ? sb.from('match_players').insert({ match_id: mid, player_id: pid }) : sb.from('match_players').delete().eq('match_id', mid).eq('player_id', pid)));
-const extraV = (mid, uid, on) => act(() => q(on ? sb.from('match_voters').insert({ match_id: mid, profile_id: uid }) : sb.from('match_voters').delete().eq('match_id', mid).eq('profile_id', uid)));
-const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; });
+const conv = (mid, pid, el) => quiet(() => q(el.checked ? sb.from('match_players').insert({ match_id: mid, player_id: pid }) : sb.from('match_players').delete().eq('match_id', mid).eq('player_id', pid)), el);
+let curMatch = null, curResults = [];
+function shareLink(id) {
+  const u = location.origin + location.pathname + '?match=' + id;
+  const t = 'Vota l’MVP di vs ' + (curMatch ? curMatch.opponent : 'la partita') + ':';
+  if (navigator.share) navigator.share({ title: 'MVP della Partita', text: t, url: u }).catch(() => {});
+  else copyLink(id);
+}
+function showCard() {
+  const m = curMatch, rs = curResults, top = rs.filter(r => r.position === 1), rest = rs.filter(r => r.position > 1);
+  if (!rs.length) return;
+  const d = new Date(m.played_on + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const ov = document.createElement('div'); ov.id = 'ov';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<button class="x" onclick="this.parentNode.remove()">✕</button><div class="sc">
+    ${LOGO}<div class="t">MVP della Partita</div>
+    <div class="vs">vs ${esc(m.opponent)}</div><div class="mut">${d}${m.outcome ? ' · ' + OUT[m.outcome] : ''}</div>
+    <div class="mvpbox"><div class="l">🏆 MVP</div><div class="n">${top.map(r => esc(r.name)).join('<br>')}</div><div>${top[0].points} punti${top.length > 1 ? ' · ex aequo' : ''}</div></div>
+    ${rest.map(r => `<div class="r2"><span>${r.position}° ${esc(r.name)}</span><span>${r.points} pt</span></div>`).join('')}
+    ${m.eligible_final != null ? `<div class="foot">Hanno votato ${m.voted_final} su ${m.eligible_final}</div>` : ''}</div>`;
+  document.body.appendChild(ov);
+}
+function copyLink(id) {
+  const u = location.origin + location.pathname + '?match=' + id;
+  (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => alert('Link copiato!\n' + u), () => prompt('Copia il link:', u));
+}
+const extraV = (mid, uid, el) => quiet(() => q(el.checked ? sb.from('match_voters').insert({ match_id: mid, profile_id: uid }) : sb.from('match_voters').delete().eq('match_id', mid).eq('profile_id', uid)), el);
+const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; }, false);
 
 async function rankView() {
   let r = await q(sb.from('season_ranking').select('*'));
@@ -183,15 +251,23 @@ async function adminView() {
     <h2>Utenti registrati</h2><p class="mut">Per ogni utente: collegalo al suo giocatore, poi abilitalo al voto. Senza collegamento non si può impedire che voti se stesso.</p>
     ${pf.map(u => { const mp = pl.find(p => p.profile_id === u.id); return `<div class="card"><b>${esc(u.display_name)}</b>${u.is_admin ? ' <span class="tag">admin</span>' : ''}
       ${mp ? `<div class="mut">Giocatore: ${esc(mp.name)}</div>` : `<div class="mut">⚠ Nessun giocatore collegato</div><select onchange="linkP(this.value,'${u.id}')"><option value="">Collega a un giocatore…</option>${free.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`}
-      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.can_vote ? 'checked' : ''} onchange="setU('${u.id}',{can_vote:this.checked})"> Può votare</label>
-      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.is_coach ? 'checked' : ''} onchange="setU('${u.id}',{is_coach:this.checked})"> È il mister (voto doppio)</label></div>`; }).join('')}`;
+      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.can_vote ? 'checked' : ''} onchange="setU('${u.id}','can_vote',this)"> Può votare</label>
+      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.is_coach ? 'checked' : ''} onchange="setU('${u.id}','is_coach',this)"> È il mister (voto doppio)</label></div>`; }).join('')}`;
 }
 const linkP = (pid, uid) => pid && act(() => q(sb.from('players').update({ profile_id: uid }).eq('id', pid)));
 const addP = () => v('pn') && act(() => q(sb.from('players').insert({ name: v('pn') })));
 const delP = id => confirm('Eliminare il giocatore?') && act(() => q(sb.from('players').delete().eq('id', id)));
 const unlink = id => act(() => q(sb.from('players').update({ profile_id: null }).eq('id', id)));
-const setU = (id, o) => act(() => q(sb.from('profiles').update(o).eq('id', id)));
+const setU = (id, k, el) => quiet(() => q(sb.from('profiles').update({ [k]: el.checked }).eq('id', id)), el);
 
+setInterval(() => document.querySelectorAll('.cd').forEach(el => {
+  const t = cdText(el.dataset.d);
+  el.textContent = t.text;
+  if (t.expired && el.dataset.live && !el.dataset.x) { el.dataset.x = 1; render(true); }
+}), 15000);
+const _m = new URLSearchParams(location.search).get('match');
+if (/^[0-9a-f-]{36}$/i.test(_m || '')) cur = _m;
+A.innerHTML = '<p class="mut" style="padding:40px;text-align:center">Caricamento…</p>';
 render();
 </script>
 </body>
