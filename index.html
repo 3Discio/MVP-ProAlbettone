@@ -76,7 +76,7 @@ const v = id => $(id).value.trim();
 // ---------- ACCESSO ----------
 function authView(err = '') {
   A.innerHTML = `<h1>${LOGO} MVP della Partita</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
-    ${regMode ? `<ol class="mut"><li>Scrivi nome e cognome, come ti chiamano in squadra.</li><li>Inserisci email e password (minimo 6 caratteri) e premi Registrati.</li><li>Aspetta che l’admin ti colleghi al tuo giocatore e ti abiliti al voto: fino ad allora puoi entrare, ma non votare.</li><li>A partita finita apri il sito, tocca la partita e vota.</li></ol>` : ''}
+    ${regMode ? `<ol class="mut"><li>Scrivi nome e cognome, come ti chiamano in squadra.</li><li>Inserisci email e password (minimo 6 caratteri) e premi Registrati.</li><li>Aspetta che l’admin ti colleghi al tuo giocatore e ti abiliti al voto: fino ad allora puoi entrare, ma non votare.</li><li>Quando l’admin condivide nel gruppo il link di una partita, aprilo: se la votazione è aperta, puoi votare.</li><li>Consiglio: aggiungi il sito alla schermata Home del telefono.</li></ol>` : ''}
     ${err ? `<div class="err">${esc(err)}</div>` : ''}
     ${regMode ? '<div class="row"><input id="fn" placeholder="Nome"><input id="ln" placeholder="Cognome"></div>' : ''}
     <input id="em" type="email" placeholder="Email" autocomplete="email"><input id="pw" type="password" placeholder="Password (min. 6 caratteri)">
@@ -129,13 +129,12 @@ const ST = { draft: 'Bozza', open: 'Votazione aperta', closed: 'Chiusa' };
 async function matchesView(admin) {
   const ms = await q(sb.from('matches').select('*').order('played_on', { ascending: false }));
   const vis = admin ? ms : ms.filter(m => m.status !== 'draft');
-  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><select id="sc"><option value="">Esito…</option><option value="vittoria">Vittoria</option><option value="pareggio">Pareggio</option><option value="sconfitta">Sconfitta</option></select></div><button onclick="newMatch()">Crea partita</button></div>` : ''}
+  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><select id="sc"><option value="">Esito: da decidere</option><option value="vittoria">Vittoria</option><option value="pareggio">Pareggio</option><option value="sconfitta">Sconfitta</option></select></div><p class="mut">Puoi creare la partita in anticipo: resta in bozza, visibile solo a te, finché non apri il voto.</p><button onclick="newMatch()">Crea partita</button></div>` : ''}
   <h2>Partite</h2>${vis.map(m => `<div class="card row" onclick="go('p','${m.id}')" style="cursor:pointer"><div><b>vs ${esc(m.opponent)}</b> ${m.outcome ? '· ' + OUT[m.outcome] : ''}<div class="mut">${m.played_on}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
 }
 function newMatch() {
   if (!v('op')) return alert('Scrivi l\'avversario');
-  if (!v('sc')) return alert('Scegli l’esito: vittoria, pareggio o sconfitta');
-  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), outcome: v('sc') }).select().single()); cur = m.id; }, false);
+  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), outcome: v('sc') || null }).select().single()); cur = m.id; }, false);
 }
 
 async function matchView(id) {
@@ -169,7 +168,7 @@ async function matchView(id) {
     else if (m.voting_deadline && new Date(m.voting_deadline) <= Date.now() + clockOffset) h += '<div class="card mut"><b>Tempo scaduto.</b> Non si può più votare: attendi la chiusura da parte dell’admin.</div>';
     else {
       const cand = players.filter(p => cids.includes(p.id) && p.id !== (my && my.id));
-      h += `<h3>Come si vota</h3><div class="card mut"><ol><li>Tocca il giocatore che ha giocato meglio: è il tuo <b>MVP</b> (3 punti).</li><li>Se vuoi, tocca un secondo (2 punti) e un terzo (1 punto). L’ordine in cui tocchi i nomi è il tuo ordine di preferenza.</li><li>Tocca di nuovo un nome per toglierlo. Tu non compari nell’elenco: non puoi votare te stesso.</li><li>Premi il pulsante di conferma. Puoi cambiare il voto finché la votazione è aperta.</li><li>Il vincitore resta segreto finché l’admin non chiude la votazione.</li></ol></div>
+      h += `<h3>Come si vota</h3><div class="card mut"><ol><li>Controlla di essere nell’elenco «Chi può votare» della partita: solo chi c’è può votare.</li><li>Tocca il giocatore che ha giocato meglio: è il tuo <b>MVP</b> (3 punti). Puoi scegliere solo tra i convocati di quella partita.</li><li>Se vuoi, tocca un secondo (2 punti) e un terzo (1 punto): l’ordine in cui li tocchi è la tua preferenza. Puoi votarne anche solo uno.</li><li>Tocca di nuovo un nome per toglierlo. Tu non compari nell’elenco: non puoi votare te stesso.</li><li>Premi «Conferma il voto». Finché la votazione è aperta e il tempo non è scaduto, puoi cambiarlo.</li><li>Il vincitore e il podio compaiono solo quando l’admin chiude la votazione. Gli altri non vedono il tuo voto.</li></ol></div>
         ${cand.map(p => { const i = pick.indexOf(p.id); return `<button class="p ${i >= 0 ? 'on' : ''}" onclick="tog('${p.id}')"><span class="rk">${i >= 0 ? i + 1 : '·'}</span><b class="f">${esc(p.name)}</b>${i >= 0 ? `<span class="mut">${[3, 2, 1][i]} pt</span>` : ''}</button>`; }).join('')}
         <button onclick="saveVote('${id}')" ${pick.length ? '' : 'disabled style="opacity:.5"'}>${mine.length ? 'Aggiorna il voto' : 'Conferma il voto'}</button>${mine.length ? '<div class="mut">Hai già votato: puoi cambiare finché è aperta.</div>' : ''}`;
     }
@@ -181,7 +180,7 @@ async function matchView(id) {
       <p><b>${m.status === 'closed' ? 'Non hanno votato' : 'Non hanno ancora votato'} (${no.length})</b></p><div class="mut">${no.map(x => esc(x.display)).join(', ') || 'Nessuno'}</div></div>`;
   }
   const outBlock = `<p class="mut">Esito della partita:</p><select onchange="setM('${id}',{outcome:this.value||null})">${m.outcome ? '' : '<option value="" selected>—</option>'}${Object.keys(OUT).map(k => `<option value="${k}" ${m.outcome === k ? 'selected' : ''}>${OUT[k]}</option>`).join('')}</select>${m.outcome === 'sconfitta' ? `<label class="row" style="justify-content:flex-start;padding:6px 0"><input type="checkbox" style="width:auto" ${m.force_vote ? 'checked' : ''} onchange="setM('${id}',{force_vote:this.checked})"> Consenti comunque il voto MVP (forzatura)</label>` : ''}`;
-  const durBlock = `<p class="mut">${m.status === 'open' ? 'Scadenza del voto (conta da adesso):' : 'Durata della votazione:'}</p><div class="row"><select id="dur" style="flex:1"><option value="">Nessuna scadenza</option>${[3, 6, 12, 24, 48, 72].map(n => `<option value="${n}">${n} ore</option>`).join('')}</select><button class="s" onclick="openVote('${id}')">${m.status === 'open' ? 'Aggiorna' : 'Apri voto'}</button></div>`;
+  const durBlock = `<p class="mut">${m.status === 'open' ? 'Scadenza del voto (conta da adesso):' : 'Durata della votazione:'}</p><div class="row"><select id="dur" style="flex:1"><option value="">Nessuna scadenza</option>${[3, 6, 12, 24, 48, 72].map(n => `<option value="${n}">${n} ore</option>`).join('')}</select><button class="s" ${m.outcome ? '' : 'disabled style="opacity:.5"'} onclick="openVote('${id}')">${m.status === 'open' ? 'Aggiorna' : 'Apri voto'}</button></div>${m.outcome ? '' : '<p class="mut">Per aprire il voto imposta prima l’esito (qui sopra): serve a sapere se l’MVP si può votare.</p>'}`;
   let extraList = '';
   if (admin && m.voters === 'extra') {
     const pfs = await q(sb.from('profiles').select('*').eq('can_vote', true).order('display_name'));
