@@ -141,7 +141,7 @@ async function matchView(id) {
   const [m, conv, players, mine, extras] = await Promise.all([
     q(sb.from('matches').select('*').eq('id', id).single()), q(sb.from('match_players').select('player_id').eq('match_id', id)),
     q(sb.from('players').select('*').order('name')), q(sb.from('votes').select('*').eq('match_id', id).order('rank')), q(sb.from('match_voters').select('profile_id').eq('match_id', id))]);
-  curMatch = m;
+  curMatch = m; curProg = null;
   const cids = conv.map(c => c.player_id), my = players.find(p => p.profile_id === me.id), admin = prof.is_admin;
   if (pick === null) pick = mine.map(x => x.player_id);
   const eligible = prof.can_vote && (m.voters === 'tutti' || prof.is_coach || (my && cids.includes(my.id)) || (m.voters === 'extra' && extras.some(e => e.profile_id === me.id)));
@@ -152,17 +152,21 @@ async function matchView(id) {
     const el = await q(sb.rpc('eligible_voters', { p_match: id }));
     h += `<details class="card"><summary><b>Chi può votare (${el.length})</b></summary><div class="mut" style="margin-top:6px">${el.map(x => esc(x.display)).join(', ') || '—'}</div></details>`;
   }
-  if (m.status === 'closed') {
+  if (m.status === 'closed' && m.quorum_met === false) {
+    h += `<div class="card"><b>Votanti insufficienti</b><p class="mut">Hanno votato ${m.voted_final} su ${m.eligible_final}: il minimo era ${Math.max(1, Math.ceil(m.eligible_final * (m.min_pct ?? 50) / 100))}. Per questa partita non viene proclamato nessun MVP.</p></div>`;
+  } else if (m.status === 'closed') {
     const rs = (await q(sb.from('match_results').select('*').eq('match_id', id).order('position').order('points', { ascending: false }))).filter(r => r.position <= 3);
     curResults = rs;
     const top = rs.filter(r => r.position === 1);
     h += rs.length ? `<div class="mvp"><div class="big">MVP</div><b>${top.map(r => esc(r.name)).join(' & ')}</b><div>${top[0].points} punti${top.length > 1 ? ' · ex aequo' : ''}</div></div>
       <div class="card">${rs.map(r => `<div class="row" style="padding:6px 0"><div class="rk">${r.position}</div><div class="f"><b>${esc(r.name)}</b></div><b>${r.points} pt</b></div>`).join('')}</div>` : '<div class="card">Nessun voto ricevuto.</div>';
     if (m.eligible_final != null) h += `<p class="mut">Hanno votato ${m.voted_final} su ${m.eligible_final}.</p>`;
+    if (m.quorum_forced) h += '<p class="mut">MVP proclamato dall’admin: la soglia minima di votanti non era stata raggiunta.</p>';
     if (rs.length) h += '<button onclick="showCard()">Card da condividere</button>';
   } else if (m.status === 'open') {
     const pr = await q(sb.from('voting_progress').select('*').eq('match_id', id).single());
-    h += `<div class="card">Hanno votato <b>${pr.voted}</b> su <b>${pr.eligible}</b>. I risultati restano segreti fino alla chiusura.</div>`;
+    curProg = pr;
+    h += `<div class="card">Hanno votato <b>${pr.voted}</b> su <b>${pr.eligible}</b>. Per proclamare l’MVP servono almeno <b>${Math.max(1, Math.ceil(pr.eligible * (m.min_pct ?? 50) / 100))}</b> voti. I risultati restano segreti fino alla chiusura.</div>`;
     if (!eligible) h += '<div class="card mut">Non puoi votare in questa partita.</div>';
     else if (m.outcome === 'sconfitta' && !m.force_vote) h += '<div class="card mut">Partita persa: l’MVP non si vota.</div>';
     else if (m.voting_deadline && new Date(m.voting_deadline) <= Date.now() + clockOffset) h += '<div class="card mut"><b>Tempo scaduto.</b> Non si può più votare: attendi la chiusura da parte dell’admin.</div>';
@@ -180,6 +184,11 @@ async function matchView(id) {
       <p><b>${m.status === 'closed' ? 'Non hanno votato' : 'Non hanno ancora votato'} (${no.length})</b></p><div class="mut">${no.map(x => esc(x.display)).join(', ') || 'Nessuno'}</div></div>`;
   }
   const outBlock = `<p class="mut">Esito della partita:</p><select onchange="setM('${id}',{outcome:this.value||null})">${m.outcome ? '' : '<option value="" selected>—</option>'}${Object.keys(OUT).map(k => `<option value="${k}" ${m.outcome === k ? 'selected' : ''}>${OUT[k]}</option>`).join('')}</select>${m.outcome === 'sconfitta' ? `<label class="row" style="justify-content:flex-start;padding:6px 0"><input type="checkbox" style="width:auto" ${m.force_vote ? 'checked' : ''} onchange="setM('${id}',{force_vote:this.checked})"> Consenti comunque il voto MVP (forzatura)</label>` : ''}`;
+  const need = curProg ? Math.max(1, Math.ceil(curProg.eligible * (m.min_pct ?? 50) / 100)) : 1;
+  const closeBtns = m.status !== 'open' ? '' : (!curProg || curProg.voted >= need)
+    ? `<button class="s" onclick="if(confirm('Chiudere la votazione e proclamare l’MVP?'))closeVote('${id}',false)">Chiudi e proclama MVP</button>`
+    : `<button class="s" onclick="if(confirm('Chiudere SENZA proclamare l’MVP?'))closeVote('${id}',false)">Chiudi senza MVP</button><button class="g s" onclick="if(confirm('Proclamare comunque l’MVP?'))closeVote('${id}',true)">Proclama comunque</button>`;
+  const quorumBlock = `<p class="mut">Votanti minimi: <input type="number" min="0" max="100" step="5" value="${m.min_pct ?? 50}" style="width:84px;display:inline-block" onchange="setM('${id}',{min_pct:Math.min(100,Math.max(0,Number(this.value)||0))})"> % degli aventi diritto (0 = basta 1 voto)</p>${curProg ? `<p class="mut">${curProg.voted < need ? '⚠ ' : ''}Ora hanno votato ${curProg.voted} su ${curProg.eligible}: servono almeno ${need}.</p>` : ''}`;
   const durBlock = `<p class="mut">${m.status === 'open' ? 'Scadenza del voto (conta da adesso):' : 'Durata della votazione:'}</p><div class="row"><select id="dur" style="flex:1"><option value="">Nessuna scadenza</option>${[3, 6, 12, 24, 48, 72].map(n => `<option value="${n}">${n} ore</option>`).join('')}</select><button class="s" ${m.outcome ? '' : 'disabled style="opacity:.5"'} onclick="openVote('${id}')">${m.status === 'open' ? 'Aggiorna' : 'Apri voto'}</button></div>${m.outcome ? '' : '<p class="mut">Per aprire il voto imposta prima l’esito (qui sopra): serve a sapere se l’MVP si può votare.</p>'}`;
   let extraList = '';
   if (admin && m.voters === 'extra') {
@@ -188,8 +197,8 @@ async function matchView(id) {
     extraList = '<p class="mut">Extra (oltre ai convocati):</p>' + (pfs.filter(u => { const pl = players.find(p => p.profile_id === u.id); return !(pl && cids.includes(pl.id)); })
       .map(u => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${xs.includes(u.id) ? 'checked' : ''} onchange="extraV('${id}','${u.id}',this)"> ${esc(u.display_name)}</label>`).join('') || '<span class="mut">Nessun altro account abilitato al voto.</span>');
   }
-  if (admin) h += `<h3>Gestione partita</h3><div class="card">${outBlock}${durBlock}
-    <div class="row">${m.status === 'open' ? `<button class="s" onclick="if(confirm('Chiudere e proclamare l\\'MVP?'))closeVote('${id}')">Chiudi e proclama MVP</button>` : ''}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
+  if (admin) h += `<h3>Gestione partita</h3><div class="card">${outBlock}${durBlock}${quorumBlock}
+    <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
     <button class="g" onclick="shareLink('${id}')">Condividi link della partita</button><button class="g" onclick="copyLink('${id}')">Copia link</button><p class="mut">Chi vota:</p><select onchange="setM('${id}',{voters:this.value})"><option value="convocati" ${m.voters === 'convocati' ? 'selected' : ''}>Solo i convocati</option><option value="extra" ${m.voters === 'extra' ? 'selected' : ''}>Convocati + extra scelti</option><option value="tutti" ${m.voters === 'tutti' ? 'selected' : ''}>Tutti quelli che possono votare</option></select>${extraList}
     <p class="mut">Convocati:</p>${players.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this)"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}
     <button class="r" onclick="if(confirm('Eliminare la partita e i suoi voti?'))delM('${id}')">Elimina partita</button></div>`;
@@ -202,11 +211,11 @@ function saveVote(mid) {
     pick = null; alert('Voto registrato ✓');
   });
 }
-const closeVote = id => act(() => q(sb.rpc('close_voting', { p_match: id })));
+const closeVote = (id, force) => act(() => q(sb.rpc('close_voting', { p_match: id, p_force: !!force })));
 const openVote = id => act(() => q(sb.rpc('set_voting', { p_match: id, p_hours: $('dur').value === '' ? null : Number($('dur').value) })));
 const setM = (id, o) => act(() => q(sb.from('matches').update(o).eq('id', id)));
 const conv = (mid, pid, el) => quiet(() => q(el.checked ? sb.from('match_players').insert({ match_id: mid, player_id: pid }) : sb.from('match_players').delete().eq('match_id', mid).eq('player_id', pid)), el);
-let curMatch = null, curResults = [];
+let curMatch = null, curResults = [], curProg = null;
 function shareLink(id) {
   const u = location.origin + location.pathname + '?match=' + id;
   const t = 'Vota l’MVP di vs ' + (curMatch ? curMatch.opponent : 'la partita') + ':';
