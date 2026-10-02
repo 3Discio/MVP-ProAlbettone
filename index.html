@@ -297,7 +297,7 @@ async function adminView() {
   return `<h2>Da sistemare (${nuovi.length})</h2>${nuovi.length
       ? `<p class="mut">Nuovi iscritti non ancora collegati a un giocatore. Collegali alla rosa, oppure segnali come staff se non giocano. Se il giocatore non è in rosa, aggiungilo qui sotto.</p>${nuovi.map(card).join('')}`
       : '<p class="mut">Nessun nuovo iscritto da sistemare.</p>'}
-    <h2>Rosa</h2><div class="card"><input id="pn" placeholder="Nome Cognome"><button onclick="addP()">Aggiungi giocatore</button></div>
+    <h2>Rosa</h2><p class="mut">Iscritti <b>${pl.filter(p => p.profile_id).length}</b> su <b>${pl.length}</b> giocatori</p><div class="card"><input id="pn" placeholder="Nome Cognome"><button onclick="addP()">Aggiungi giocatore</button></div>
     ${pl.map(p => `<div class="card row"><div><b>${esc(p.name)}</b><div class="mut">${p.profile_id ? 'Account: ' + esc(nm(p.profile_id)) : 'Nessun account collegato'}</div></div><div>
       ${p.profile_id ? `<button class="g s" onclick="unlink('${p.id}')">Scollega</button>` : ''} <button class="r s" onclick="delP('${p.id}')">Elimina</button></div></div>`).join('')}
     <h2>Giocatori con account (${gioc.length})</h2><p class="mut">Abilitali al voto dopo averli collegati: senza collegamento non si può impedire che votino se stessi.</p>
