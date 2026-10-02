@@ -58,6 +58,11 @@ ol{padding-left:22px;margin:6px 0}li{margin:5px 0}
 /* banner "Vista giocatore" per l'admin */
 .pv{display:flex;gap:10px;align-items:center;justify-content:space-between;border:2px dashed #fff;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px;background:var(--in)}
 .pv button{flex:none}
+/* admin: nuovi iscritti e staff */
+:root{--staff:#3d7fd6}
+.card.nuovo{border-color:#fff}
+.card.staff{background:color-mix(in srgb,var(--staff) 22%,#000);border-color:var(--staff)}
+.tag.st{background:var(--staff);color:#fff}
 </style>
 </head>
 <body>
@@ -276,15 +281,32 @@ async function adminView() {
   const [pl, pf] = await Promise.all([q(sb.from('players').select('*').order('name')), q(sb.from('profiles').select('*').order('display_name'))]);
   const nm = id => (pf.find(x => x.id === id) || {}).display_name;
   const free = pl.filter(p => !p.profile_id);
-  return `<h2>Rosa</h2><div class="card"><input id="pn" placeholder="Nome Cognome"><button onclick="addP()">Aggiungi giocatore</button></div>
+  const linked = u => pl.find(p => p.profile_id === u.id);
+  // Da sistemare: non collegati a un giocatore e non segnati come staff. I più recenti in alto (se esiste created_at).
+  const nuovi = pf.filter(u => !linked(u) && !u.is_staff).sort((x, y) => String(y.created_at || '').localeCompare(String(x.created_at || '')));
+  const gioc = pf.filter(u => linked(u)), staff = pf.filter(u => !linked(u) && u.is_staff);
+  const card = u => {
+    const mp = linked(u), kind = mp ? 'pl' : u.is_staff ? 'st' : 'new';
+    return `<div class="card ${kind === 'st' ? 'staff' : kind === 'new' ? 'nuovo' : ''}"><b>${esc(u.display_name)}</b>${u.is_admin ? ' <span class="tag">admin</span>' : ''}${kind === 'st' ? ' <span class="tag st">staff</span>' : ''}${kind === 'new' && u.created_at ? `<span class="mut"> · iscritto il ${new Date(u.created_at).toLocaleDateString('it-IT')}</span>` : ''}
+      ${mp ? `<div class="mut">Giocatore: ${esc(mp.name)}</div>`
+        : kind === 'st' ? `<div class="row"><span class="mut f">Non è un giocatore</span><button class="g s" onclick="setStaff('${u.id}',false)">È un giocatore</button></div>`
+        : `<select onchange="assign(this.value,'${u.id}')"><option value="">Collega a un giocatore…</option>${free.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}<option disabled>──────────</option><option value="__staff">Non è un giocatore (staff)</option></select>`}
+      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.can_vote ? 'checked' : ''} onchange="setU('${u.id}','can_vote',this)"> Può votare</label>
+      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.is_coach ? 'checked' : ''} onchange="setU('${u.id}','is_coach',this)"> È il mister (voto doppio)</label></div>`;
+  };
+  return `<h2>Da sistemare (${nuovi.length})</h2>${nuovi.length
+      ? `<p class="mut">Nuovi iscritti non ancora collegati a un giocatore. Collegali alla rosa, oppure segnali come staff se non giocano. Se il giocatore non è in rosa, aggiungilo qui sotto.</p>${nuovi.map(card).join('')}`
+      : '<p class="mut">Nessun nuovo iscritto da sistemare.</p>'}
+    <h2>Rosa</h2><div class="card"><input id="pn" placeholder="Nome Cognome"><button onclick="addP()">Aggiungi giocatore</button></div>
     ${pl.map(p => `<div class="card row"><div><b>${esc(p.name)}</b><div class="mut">${p.profile_id ? 'Account: ' + esc(nm(p.profile_id)) : 'Nessun account collegato'}</div></div><div>
       ${p.profile_id ? `<button class="g s" onclick="unlink('${p.id}')">Scollega</button>` : ''} <button class="r s" onclick="delP('${p.id}')">Elimina</button></div></div>`).join('')}
-    <h2>Utenti registrati</h2><p class="mut">Per ogni utente: collegalo al suo giocatore, poi abilitalo al voto. Senza collegamento non si può impedire che voti se stesso.</p>
-    ${pf.map(u => { const mp = pl.find(p => p.profile_id === u.id); return `<div class="card"><b>${esc(u.display_name)}</b>${u.is_admin ? ' <span class="tag">admin</span>' : ''}
-      ${mp ? `<div class="mut">Giocatore: ${esc(mp.name)}</div>` : `<div class="mut">⚠ Nessun giocatore collegato</div><select onchange="linkP(this.value,'${u.id}')"><option value="">Collega a un giocatore…</option>${free.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`}
-      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.can_vote ? 'checked' : ''} onchange="setU('${u.id}','can_vote',this)"> Può votare</label>
-      <label class="row" style="justify-content:flex-start"><input type="checkbox" style="width:auto" ${u.is_coach ? 'checked' : ''} onchange="setU('${u.id}','is_coach',this)"> È il mister (voto doppio)</label></div>`; }).join('')}`;
+    <h2>Giocatori con account (${gioc.length})</h2><p class="mut">Abilitali al voto dopo averli collegati: senza collegamento non si può impedire che votino se stessi.</p>
+    ${gioc.map(card).join('') || '<p class="mut">Nessuno.</p>'}
+    <h2>Staff (${staff.length})</h2><p class="mut">Dirigenti, aiutanti e chi non gioca. Non compaiono tra i candidati MVP.</p>
+    ${staff.map(card).join('') || '<p class="mut">Nessuno.</p>'}`;
 }
+const setStaff = (uid, val) => act(() => q(sb.from('profiles').update({ is_staff: val }).eq('id', uid)));
+const assign = (val, uid) => val === '__staff' ? setStaff(uid, true) : linkP(val, uid);
 const linkP = (pid, uid) => pid && act(() => q(sb.from('players').update({ profile_id: uid }).eq('id', pid)));
 const addP = () => v('pn') && act(() => q(sb.from('players').insert({ name: v('pn') })));
 const delP = id => confirm('Eliminare il giocatore?') && act(() => q(sb.from('players').delete().eq('id', id)));
