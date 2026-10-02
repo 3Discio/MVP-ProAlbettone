@@ -137,6 +137,7 @@ async function render(keep) {
   window.scrollTo(0, keep ? y : 0);
 }
 const OUT = { vittoria: 'Vittoria', pareggio: 'Pareggio', sconfitta: 'Sconfitta' };
+const PH = { andata: 'Andata', ritorno: 'Ritorno' };
 let clockOffset = 0, clockOk = false;
 function cdText(d) {
   const ms = new Date(d) - (Date.now() + clockOffset);
@@ -150,12 +151,12 @@ const stLabel = s => s === 'draft' && !isAdmin() ? 'Convocazioni' : ST[s];
 async function matchesView(admin) {
   const ms = await q(sb.from('matches').select('*').order('played_on', { ascending: false }));
   const vis = ms; // le bozze sono visibili a tutti (solo convocati, voto chiuso)
-  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><select id="sc"><option value="">Esito: da decidere</option><option value="vittoria">Vittoria</option><option value="pareggio">Pareggio</option><option value="sconfitta">Sconfitta</option></select></div><p class="mut">Puoi creare la partita in anticipo: resta in bozza finché non apri il voto: i compagni la vedono già, con l’elenco dei convocati, ma non possono votare.</p><button onclick="newMatch()">Crea partita</button></div>` : ''}
-  <h2>Partite</h2>${vis.map(m => `<div class="card row" onclick="go('p','${m.id}')" style="cursor:pointer"><div><b>vs ${esc(m.opponent)}</b> ${m.outcome ? '· ' + OUT[m.outcome] : ''}<div class="mut">${m.played_on}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
+  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><select id="sc"><option value="">Esito: da decidere</option><option value="vittoria">Vittoria</option><option value="pareggio">Pareggio</option><option value="sconfitta">Sconfitta</option></select></div><select id="ph">${Object.keys(PH).map(k => `<option value="${k}" ${(ms[0] && ms[0].phase || 'andata') === k ? 'selected' : ''}>Girone di ${PH[k].toLowerCase()}</option>`).join('')}</select><p class="mut">Puoi creare la partita in anticipo: resta in bozza finché non apri il voto: i compagni la vedono già, con l’elenco dei convocati, ma non possono votare.</p><button onclick="newMatch()">Crea partita</button></div>` : ''}
+  <h2>Partite</h2>${vis.map(m => `<div class="card row" onclick="go('p','${m.id}')" style="cursor:pointer"><div><b>vs ${esc(m.opponent)}</b> ${m.outcome ? '· ' + OUT[m.outcome] : ''}<div class="mut">${m.played_on}${m.phase ? ' · ' + PH[m.phase] : ''}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
 }
 function newMatch() {
   if (!v('op')) return alert('Scrivi l\'avversario');
-  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), outcome: v('sc') || null }).select().single()); cur = m.id; }, false);
+  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), outcome: v('sc') || null, phase: v('ph') }).select().single()); cur = m.id; }, false);
 }
 
 async function matchView(id) {
@@ -211,7 +212,7 @@ async function matchView(id) {
     h += `<h3>Chi ha votato (solo admin)</h3><div class="card"><b>Hanno votato (${yes.length})</b><div class="mut">${yes.map(x => esc(x.display)).join(', ') || '—'}</div>
       <p><b>${m.status === 'closed' ? 'Non hanno votato' : 'Non hanno ancora votato'} (${no.length})</b></p><div class="mut">${no.map(x => esc(x.display)).join(', ') || 'Nessuno'}</div></div>`;
   }
-  const outBlock = `<p class="mut">Esito della partita:</p><select onchange="setM('${id}',{outcome:this.value||null})">${m.outcome ? '' : '<option value="" selected>—</option>'}${Object.keys(OUT).map(k => `<option value="${k}" ${m.outcome === k ? 'selected' : ''}>${OUT[k]}</option>`).join('')}</select>${m.outcome === 'sconfitta' ? `<label class="row" style="justify-content:flex-start;padding:6px 0"><input type="checkbox" style="width:auto" ${m.force_vote ? 'checked' : ''} onchange="setM('${id}',{force_vote:this.checked})"> Consenti comunque il voto MVP (forzatura)</label>` : ''}`;
+  const outBlock = `<p class="mut">Girone:</p><select onchange="setM('${id}',{phase:this.value})">${Object.keys(PH).map(k => `<option value="${k}" ${(m.phase || 'andata') === k ? 'selected' : ''}>${PH[k]}</option>`).join('')}</select><p class="mut">Esito della partita:</p><select onchange="setM('${id}',{outcome:this.value||null})">${m.outcome ? '' : '<option value="" selected>—</option>'}${Object.keys(OUT).map(k => `<option value="${k}" ${m.outcome === k ? 'selected' : ''}>${OUT[k]}</option>`).join('')}</select>${m.outcome === 'sconfitta' ? `<label class="row" style="justify-content:flex-start;padding:6px 0"><input type="checkbox" style="width:auto" ${m.force_vote ? 'checked' : ''} onchange="setM('${id}',{force_vote:this.checked})"> Consenti comunque il voto MVP (forzatura)</label>` : ''}`;
   const need = curProg ? Math.max(1, Math.ceil(curProg.eligible * (m.min_pct ?? 50) / 100)) : 1;
   const closeBtns = m.status !== 'open' ? '' : (!curProg || curProg.voted >= need)
     ? `<button class="s" onclick="if(confirm('Chiudere la votazione e proclamare l’MVP?'))closeVote('${id}',false)">Chiudi e proclama MVP</button>`
@@ -271,10 +272,20 @@ function copyLink(id) {
 const extraV = (mid, uid, el) => quiet(() => q(el.checked ? sb.from('match_voters').insert({ match_id: mid, profile_id: uid }) : sb.from('match_voters').delete().eq('match_id', mid).eq('profile_id', uid)), el);
 const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; }, false);
 
+let rkPh = null; // 'andata' | 'ritorno' | 'tot'
 async function rankView() {
-  let r = await q(sb.from('season_ranking').select('*'));
-  r = r.filter(x => x.mvp_count > 0).map(x => ({ ...x, pos: 1 + r.filter(y => y.mvp_count > x.mvp_count).length })).filter(x => x.pos <= 3).sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
-  return `<h2>Podio di stagione</h2><p class="mut">Ogni MVP di una partita vale +1. A pari merito compaiono tutti.</p><div class="card">${r.map(x => `<div class="row" style="padding:6px 0"><div class="rk">${x.pos}</div><div class="f"><b>${esc(x.name)}</b></div><b>${x.mvp_count} 🏆</b></div>`).join('') || '<span class="mut">Il podio appare dopo la prima partita chiusa.</span>'}</div>`;
+  // MVP valido: partita chiusa e quorum raggiunto (o MVP proclamato comunque dall'admin)
+  const ms = (await q(sb.from('matches').select('id,phase,status,quorum_met,played_on').order('played_on', { ascending: false }))).filter(m => m.status === 'closed' && m.quorum_met !== false);
+  if (!rkPh) rkPh = ms.some(m => m.phase === 'ritorno') ? 'ritorno' : 'andata';
+  const sel = ms.filter(m => rkPh === 'tot' || (m.phase || 'andata') === rkPh);
+  const rs = sel.length ? await q(sb.from('match_results').select('*').in('match_id', sel.map(m => m.id)).eq('position', 1)) : [];
+  const cnt = {};
+  rs.forEach(r => { const k = r.player_id ?? r.name; (cnt[k] = cnt[k] || { name: r.name, mvp_count: 0 }).mvp_count++; });
+  let r = Object.values(cnt);
+  r = r.map(x => ({ ...x, pos: 1 + r.filter(y => y.mvp_count > x.mvp_count).length })).filter(x => x.pos <= 3).sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
+  const tabs = [['andata', 'Andata'], ['ritorno', 'Ritorno'], ['tot', 'Stagione']].map(([k, l]) => `<button class="s ${rkPh === k ? '' : 'g'}" onclick="rkPh='${k}';render(true)">${l}</button>`).join('');
+  const title = rkPh === 'tot' ? 'Podio di stagione' : `Podio del girone di ${PH[rkPh].toLowerCase()}`;
+  return `<h2>${title}</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div><p class="mut">Ogni MVP di una partita vale +1. A pari merito compaiono tutti. Partite contate: ${sel.length}.</p><div class="card">${r.map(x => `<div class="row" style="padding:6px 0"><div class="rk">${x.pos}</div><div class="f"><b>${esc(x.name)}</b></div><b>${x.mvp_count} 🏆</b></div>`).join('') || '<span class="mut">Il podio appare dopo la prima partita chiusa di questo girone.</span>'}</div>`;
 }
 
 async function adminView() {
