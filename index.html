@@ -55,6 +55,9 @@ ol{padding-left:22px;margin:6px 0}li{margin:5px 0}
 .sc .mvpbox .n{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:clamp(30px,10vw,44px);line-height:1.05;margin:6px 0}
 .sc .r2{display:flex;justify-content:space-between;padding:9px 14px;margin:6px 0;border:1px solid var(--line);border-radius:12px;color:var(--mut)}
 .sc .foot{margin-top:16px;font-size:13px;color:var(--mut)}
+/* banner "Vista giocatore" per l'admin */
+.pv{display:flex;gap:10px;align-items:center;justify-content:space-between;border:2px dashed #fff;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px;background:var(--in)}
+.pv button{flex:none}
 </style>
 </head>
 <body>
@@ -67,6 +70,17 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const q = async p => { const r = await p; if (r.error) throw r.error; return r.data; };
 const LOGO = `<img class="lg" src="logo.png" alt="Logo" onerror="this.replaceWith('⚽')">`; // se logo.png manca, mostra ⚽
 let me, prof, tab = 'p', cur = null, pick = null, regMode = false;
+// ---------- VISTA GIOCATORE (solo per admin) ----------
+// Se attiva, l'admin vede l'interfaccia come un compagno di squadra. Viene ricordata sul dispositivo.
+let asPlayer = false;
+try { asPlayer = localStorage.getItem('mvp_asPlayer') === '1'; } catch (e) {}
+const isAdmin = () => !!(prof && prof.is_admin && !asPlayer);
+function togglePreview() {
+  asPlayer = !asPlayer;
+  try { localStorage.setItem('mvp_asPlayer', asPlayer ? '1' : '0'); } catch (e) {}
+  if (asPlayer && tab === 'a') tab = 'p';
+  render(true);
+}
 
 async function act(fn, keep = true) { try { await fn(); } catch (e) { alert(e.message || e); } render(keep); }
 const quiet = async (fn, el) => { try { await fn(); } catch (e) { if (el) el.checked = !el.checked; alert(e.message || e); } };
@@ -105,12 +119,13 @@ async function render(keep) {
   me = session.user;
   if (!clockOk) { try { const t = await sb.rpc('server_now'); if (t.data) { clockOffset = new Date(t.data) - Date.now(); clockOk = true; } } catch (e) {} }
   prof = await q(sb.from('profiles').select('*').eq('id', me.id).single());
-  const admin = prof.is_admin;
+  const admin = isAdmin();
   let body;
   try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'a' && admin ? await adminView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
-    <button class="g s" onclick="sb.auth.signOut().then(()=>authView())">Esci</button></div></div>
+    ${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}<button class="g s" onclick="sb.auth.signOut().then(()=>authView())">Esci</button></div></div>
+    ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
     ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
     <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">Classifica</button>
     ${admin ? `<button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')">Admin</button>` : ''}</nav>`;
@@ -125,12 +140,13 @@ function cdText(d) {
   return { text: 'Scade tra ' + (dd ? dd + 'g ' : '') + (hh || dd ? hh + 'h ' : '') + mm + 'm', expired: false };
 }
 const ST = { draft: 'Bozza', open: 'Votazione aperta', closed: 'Chiusa' };
+const stLabel = s => s === 'draft' && !isAdmin() ? 'Convocazioni' : ST[s];
 
 async function matchesView(admin) {
   const ms = await q(sb.from('matches').select('*').order('played_on', { ascending: false }));
-  const vis = admin ? ms : ms.filter(m => m.status !== 'draft');
-  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><select id="sc"><option value="">Esito: da decidere</option><option value="vittoria">Vittoria</option><option value="pareggio">Pareggio</option><option value="sconfitta">Sconfitta</option></select></div><p class="mut">Puoi creare la partita in anticipo: resta in bozza, visibile solo a te, finché non apri il voto.</p><button onclick="newMatch()">Crea partita</button></div>` : ''}
-  <h2>Partite</h2>${vis.map(m => `<div class="card row" onclick="go('p','${m.id}')" style="cursor:pointer"><div><b>vs ${esc(m.opponent)}</b> ${m.outcome ? '· ' + OUT[m.outcome] : ''}<div class="mut">${m.played_on}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
+  const vis = ms; // le bozze sono visibili a tutti (solo convocati, voto chiuso)
+  return `${admin ? `<h2>Nuova partita</h2><div class="card"><input id="op" placeholder="Avversario"><div class="row"><input id="dt" type="date" value="${new Date().toISOString().slice(0, 10)}"><select id="sc"><option value="">Esito: da decidere</option><option value="vittoria">Vittoria</option><option value="pareggio">Pareggio</option><option value="sconfitta">Sconfitta</option></select></div><p class="mut">Puoi creare la partita in anticipo: resta in bozza finché non apri il voto: i compagni la vedono già, con l’elenco dei convocati, ma non possono votare.</p><button onclick="newMatch()">Crea partita</button></div>` : ''}
+  <h2>Partite</h2>${vis.map(m => `<div class="card row" onclick="go('p','${m.id}')" style="cursor:pointer"><div><b>vs ${esc(m.opponent)}</b> ${m.outcome ? '· ' + OUT[m.outcome] : ''}<div class="mut">${m.played_on}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
 }
 function newMatch() {
   if (!v('op')) return alert('Scrivi l\'avversario');
@@ -142,10 +158,10 @@ async function matchView(id) {
     q(sb.from('matches').select('*').eq('id', id).single()), q(sb.from('match_players').select('player_id').eq('match_id', id)),
     q(sb.from('players').select('*').order('name')), q(sb.from('votes').select('*').eq('match_id', id).order('rank')), q(sb.from('match_voters').select('profile_id').eq('match_id', id))]);
   curMatch = m; curProg = null;
-  const cids = conv.map(c => c.player_id), my = players.find(p => p.profile_id === me.id), admin = prof.is_admin;
+  const cids = conv.map(c => c.player_id), my = players.find(p => p.profile_id === me.id), admin = isAdmin();
   if (pick === null) pick = mine.map(x => x.player_id);
   const eligible = prof.can_vote && (m.voters === 'tutti' || prof.is_coach || (my && cids.includes(my.id)) || (m.voters === 'extra' && extras.some(e => e.profile_id === me.id)));
-  let h = `<button class="g s" onclick="go('p')">← Partite</button><h2>Vs ${esc(m.opponent)} ${m.outcome ? '· ' + OUT[m.outcome] : ''}</h2><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span>
+  let h = `<button class="g s" onclick="go('p')">← Partite</button><h2>Vs ${esc(m.opponent)} ${m.outcome ? '· ' + OUT[m.outcome] : ''}</h2><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
     <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
   if (m.status === 'open' && m.voting_deadline) h += `<div class="card"><b class="cd" data-live="1" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</b> <span class="mut">(${new Date(m.voting_deadline).toLocaleString('it-IT', { weekday: 'long', hour: '2-digit', minute: '2-digit' })})</span></div>`;
   if (m.status !== 'draft') {
@@ -176,7 +192,14 @@ async function matchView(id) {
         ${cand.map(p => { const i = pick.indexOf(p.id); return `<button class="p ${i >= 0 ? 'on' : ''}" onclick="tog('${p.id}')"><span class="rk">${i >= 0 ? i + 1 : '·'}</span><b class="f">${esc(p.name)}</b>${i >= 0 ? `<span class="mut">${[3, 2, 1][i]} pt</span>` : ''}</button>`; }).join('')}
         <button onclick="saveVote('${id}')" ${pick.length ? '' : 'disabled style="opacity:.5"'}>${mine.length ? 'Aggiorna il voto' : 'Conferma il voto'}</button>${mine.length ? '<div class="mut">Hai già votato: puoi cambiare finché è aperta.</div>' : ''}`;
     }
-  } else h += '<div class="card mut">Votazione non ancora aperta.</div>';
+  } else {
+    const cl = players.filter(p => cids.includes(p.id));
+    const imIn = my && cids.includes(my.id);
+    h += `<h3>Convocati (${cl.length})</h3><div class="card">${cl.length
+      ? `${my ? `<p style="margin:0 0 8px"><b>${imIn ? 'Sei tra i convocati.' : 'Non sei tra i convocati.'}</b></p>` : ''}<ol>${cl.map(p => `<li>${p.id === (my && my.id) ? `<b>${esc(p.name)}</b>` : esc(p.name)}</li>`).join('')}</ol>`
+      : '<span class="mut">I convocati non sono ancora stati decisi.</span>'}</div>
+      <div class="card mut">La votazione non è ancora aperta: quando l’admin la apre, da qui potrai votare l’MVP.</div>`;
+  }
   if (admin && m.status !== 'draft') {
     const vr = await q(sb.rpc('voting_roster', { p_match: id }));
     const yes = vr.filter(x => x.did_vote), no = vr.filter(x => !x.did_vote);
