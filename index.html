@@ -692,22 +692,22 @@ const POSTER = {
   textW: .44,                            // larghezza massima delle scritte
   // Riga delle squadre: chi gioca in casa a sinistra
   rowY: .50,                             // centro verticale della riga (0.5 = metà pagina)
-  logoSlot: { w: .25 }, logoH: .27,      // misure massime del logo Pro Albettone
-  oppSlot: { w: .21 },                   // larghezza massima del nome avversario
-  opp: { size: .085, lineH: .98 },       // dimensione massima del nome avversario
-  gap: .028,                             // spazio tra logo, separatore e avversario
-  sep: 'vs',                             // separatore: 'vs' (corsivo), 'punto' oppure 'nessuno'
-  vsSize: .12, dot: .011,                // misura del "vs" e raggio del punto
+  logoSlot: { w: .29 }, logoH: .34,      // misure massime del logo Pro Albettone (i bordi vuoti del PNG vengono tagliati da soli)
+  oppSlot: { w: .17 },                   // larghezza massima del nome avversario
+  opp: { size: .062, lineH: .98 },       // dimensione massima del nome avversario (più piccolo del logo)
+  gap: .024,                             // spazio tra logo, separatore e avversario
+  sep: 'vs',                             // separatore: 'vs' (corsivo bianco nel cerchio rosso), 'punto' oppure 'nessuno'
+  vsCircle: .042, vsSize: .055, dot: .011, // raggio del cerchio, misura del "vs", raggio del punto
   // Scritte, dall'alto in basso. font: 'display' o 'text'; color: 'red', 'ink', 'soft' o 'grey';
   // track = spaziatura tra le lettere; upper = tutto maiuscolo. Una riga vuota non viene scritta.
   texts: [
     { y: .165, size: .04, font: 'display', color: 'red', track: .35, upper: true, text: c => 'AICS' },
     { y: .228, size: .085, font: 'display', color: 'ink', track: .03, upper: true, text: c => 'Campionato Amatori' },
     { y: .283, size: .03, font: 'text', color: 'grey', track: .14, upper: true, text: c => ['Stagione ' + seasonOf(c.date), c.phase && PH[c.phase] ? 'Girone di ' + PH[c.phase].toLowerCase() : ''].filter(Boolean).join('   \u00B7   ') },
-    { y: .70, size: .085, font: 'display', color: 'ink', track: .03, upper: true, text: c => c.date ? dayTxt(c.date) : '' },
-    { y: .765, size: .06, font: 'display', color: 'red', track: .06, upper: true, text: c => c.kickoff ? 'Ore ' + hd(c.kickoff) : '' },
-    { y: .838, size: .036, font: 'text', color: 'ink', track: .02, text: c => c.venue_name || '' },
-    { y: .872, size: .027, font: 'text', color: 'grey', track: .02, text: c => c.venue_address || '' }
+    { y: .70, size: .075, font: 'display', color: 'ink', track: .03, upper: true, text: c => c.date ? dayTxt(c.date) : '' },
+    { y: .762, size: .052, font: 'display', color: 'red', track: .06, upper: true, text: c => c.kickoff ? 'Ore ' + hd(c.kickoff) : '' },
+    { y: .835, size: .033, font: 'text', color: 'ink', track: .02, text: c => c.venue_name || '' },
+    { y: .868, size: .025, font: 'text', color: 'grey', track: .02, text: c => c.venue_address || '' }
   ],
   // Bande sopra e sotto: compaiono solo se la grafica non riempie il foglio (con la base in A4 non servono)
   bands: { style: 'pieno', top: c => '', bottom: c => '' },
@@ -726,6 +726,27 @@ const fetchBytes = async url => {
   if (!r.ok) throw new Error('manca il file «' + url + '» sul sito (errore ' + r.status + '). Controlla nome e cartella su GitHub.');
   return r.arrayBuffer();
 };
+// Taglia i bordi vuoti (trasparenti o bianchi) del logo, così occupa davvero lo spazio previsto
+async function trimPng(bytes) {
+  try {
+    const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+    const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height;
+    const g = cv.getContext('2d'); g.drawImage(bmp, 0, 0);
+    const d = g.getImageData(0, 0, cv.width, cv.height).data;
+    let x0 = cv.width, y0 = cv.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+      const i = (y * cv.width + x) * 4;
+      if (d[i + 3] > 20 && !(d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return bytes;
+    const pad = 2, out = document.createElement('canvas');
+    x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(cv.width - 1, x1 + pad); y1 = Math.min(cv.height - 1, y1 + pad);
+    out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+    out.getContext('2d').drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+    const blob = await new Promise(ok => out.toBlob(ok, 'image/png'));
+    return blob ? await blob.arrayBuffer() : bytes;
+  } catch (e) { return bytes; } // se qualcosa va storto usa il logo così com'è
+}
 // Stagione sportiva dalla data della partita: da luglio inizia la nuova (2026-10-12 -> "2026/27")
 const seasonOf = d => { const t = new Date((d || new Date().toISOString().slice(0, 10)) + 'T12:00:00'), y = t.getFullYear() - (t.getMonth() < 6 ? 1 : 0); return y + '/' + String(y + 1).slice(2); };
 // "Polisportiva San Germano dei Berici" -> ["POLISPORTIVA SAN", "GERMANO DEI BERICI"] (stessa regola delle card)
@@ -774,19 +795,22 @@ async function makePosterPdf(c) {
   };
   // riga centrale: [casa] separatore [ospiti], composta e centrata nella cornice
   const home = c.home !== false, cy = Y(POSTER.rowY), cx = POSTER.cx;
-  const img = await pdf.embedPng(await fetchBytes(POSTER.logo));
+  const img = await pdf.embedPng(await trimPng(await fetchBytes(POSTER.logo)));
   const lk = Math.min(WD(POSTER.logoSlot.w) / img.width, S(POSTER.logoH) / img.height), logoW = img.width * lk, logoH = img.height * lk;
   const D = F.display, lines = oppLines(c.opp).map(D.plain), maxW = WD(POSTER.oppSlot.w);
   const size = Math.min(S(POSTER.opp.size), ...lines.map(l => maxW / Math.max(1, D.f.widthOfTextAtSize(l, 1))));
   const oppW = Math.max(...lines.map(l => D.f.widthOfTextAtSize(l, size))), lh = size * POSTER.opp.lineH;
-  const vsSz = S(POSTER.vsSize), sepW = POSTER.sep === 'vs' ? F.vs.f.widthOfTextAtSize('vs', vsSz) : POSTER.sep === 'punto' ? S(POSTER.dot) * 2 : 0;
+  const vsSz = S(POSTER.vsSize), sepW = POSTER.sep === 'vs' ? S(POSTER.vsCircle) * 2 : POSTER.sep === 'punto' ? S(POSTER.dot) * 2 : 0;
   const gap = WD(POSTER.gap), parts = (home ? ['logo', 'sep', 'opp'] : ['opp', 'sep', 'logo']).filter(p => p !== 'sep' || sepW);
   const wOf = { logo: logoW, sep: sepW, opp: oppW };
   let x = X(cx) - (parts.reduce((t, p) => t + wOf[p], 0) + gap * (parts.length - 1)) / 2;
   for (const p of parts) {
     const mid = x + wOf[p] / 2;
     if (p === 'logo') page.drawImage(img, { x, y: cy - logoH / 2, width: logoW, height: logoH }); // logo Pro Albettone, il protagonista
-    if (p === 'sep' && POSTER.sep === 'vs') page.drawText('vs', { x, y: cy - vsSz * .22, size: vsSz, font: F.vs.f, color: red }); // corsivo rosso
+    if (p === 'sep' && POSTER.sep === 'vs') { // cerchio rosso con "vs" bianco in corsivo
+      page.drawCircle({ x: mid, y: cy, size: S(POSTER.vsCircle), color: red });
+      page.drawText('vs', { x: mid - F.vs.f.widthOfTextAtSize('vs', vsSz) / 2, y: cy - vsSz * .2, size: vsSz, font: F.vs.f, color: rgb(1, 1, 1) });
+    }
     if (p === 'sep' && POSTER.sep === 'punto') page.drawCircle({ x: mid, y: cy, size: S(POSTER.dot), color: red });
     if (p === 'opp') lines.forEach((l, i) => center(l, D, size, mid, cy + (lines.length - 1) * lh / 2 - i * lh, soft)); // avversario, più contenuto del logo
     x += wOf[p] + gap;
