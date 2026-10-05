@@ -87,11 +87,11 @@ select:disabled{opacity:.45}
 .sc .cbox{background:#fff;color:color-mix(in srgb,var(--team) 60%,#000);border-radius:16px;padding:10px 14px;margin:6px 0 4px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;text-align:left;align-items:baseline}
 .sc .cbox b{font-family:Oswald,Impact,sans-serif;font-size:21px;line-height:1.15;white-space:nowrap}.sc .cbox span{font-weight:600;font-size:15px;line-height:1.25}
 .sc .mh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:6px}
-.sc .lgw{justify-self:start;display:inline-flex}.sc .lgw .lg{height:118px;max-width:100%;object-fit:contain;object-position:left center;margin:0}.sc .lgw.box{background:#fff;border-radius:16px;padding:6px 8px}.sc .lgw.box .lg{height:56px}
+.sc .lgw{justify-self:center;display:inline-flex}.sc .lgw .lg{height:118px;max-width:100%;object-fit:contain;object-position:center;margin:0}.sc .lgw.box{background:#fff;border-radius:16px;padding:6px 8px}.sc .lgw.box .lg{height:56px}
 .sc .md{font-family:Oswald,Impact,sans-serif;font-size:18px;color:#fff;letter-spacing:.03em;margin-bottom:4px}
 .sc .mvn{font-size:14px;font-weight:600;color:#fff;margin-bottom:10px}.sc .mvn span{display:block;font-weight:400;font-size:13px;color:var(--mut)}.sc .md:first-letter{text-transform:uppercase}
 .sc .mv{min-width:46px;height:46px;padding:0 10px;border-radius:999px;white-space:nowrap;background:#fff;color:var(--team);display:flex;align-items:center;justify-content:center;font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em;box-shadow:0 0 0 4px color-mix(in srgb,#fff 25%,transparent)}
-.sc .mo{justify-self:center;text-align:center;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:clamp(20px,6.5vw,28px);line-height:1.05;word-break:break-word}
+.sc .mo{justify-self:center;text-align:center;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:clamp(16px,5vw,21px);line-height:1.1;word-break:break-word}
 .sc .cl{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:5px 10px;text-align:left;margin-top:10px}.sc .cl div{min-width:0;display:flex;align-items:center;gap:8px;padding:3px 8px;border:1px solid var(--line);border-radius:10px}
 .sc .cl .nm{min-width:0;line-height:1.1}.sc .cl .nm b{display:block;font-family:Oswald,Impact,sans-serif;font-size:16px;letter-spacing:.02em;overflow-wrap:anywhere}.sc .cl .nm small{display:block;font-size:12px;color:var(--mut)}
 .sc .cl i{font-style:normal;color:var(--mut);font-family:Oswald,Impact,sans-serif;font-size:15px;min-width:18px;text-align:right}
@@ -513,9 +513,17 @@ function fitOverlay(ov) {
   fit(); setTimeout(fit, 300); // ripete dopo il caricamento del logo
   sc.querySelectorAll('img').forEach(im => im.addEventListener('load', fit));
 }
+// Nome avversario su due righe se ha più parole ("ROBUR / ROVEREDO"); con 3+ parole divide in due righe equilibrate
+function oppHtml(name) {
+  const w = String(name || '').trim().split(/\s+/);
+  if (w.length < 2) return esc(name || '');
+  let best = 1, diff = Infinity;
+  for (let k = 1; k < w.length; k++) { const d = Math.abs(w.slice(0, k).join(' ').length - w.slice(k).join(' ').length); if (d < diff) { diff = d; best = k; } }
+  return esc(w.slice(0, best).join(' ')) + '<br>' + esc(w.slice(best).join(' '));
+}
 // Intestazione comune alle card: data e ora, campo, logo · VS (o risultato) · avversario
 const cardHead = (date, ko, vn, va, opp, mid = 'VS') => `<div class="md">${whenTxt(date, ko)}</div>${vn || va ? `<div class="mvn">🏟️ ${esc(vn || '')}${va ? `<span>${esc(va)}</span>` : ''}</div>` : ''}
-  <div class="mh"><div class="lgw"><img class="lg" src="logo-bianco.png" alt="Logo" onerror="logoFallback(this)"></div><div class="mv">${mid}</div><div class="mo">${esc(opp)}</div></div>`;
+  <div class="mh"><div class="lgw"><img class="lg" src="logo-bianco.png" alt="Logo" onerror="logoFallback(this)"></div><div class="mv">${mid}</div><div class="mo">${oppHtml(opp)}</div></div>`;
 // Card da condividere con uno screenshot
 function showCallupCard(id) {
   const c = callupNow(id);
@@ -546,9 +554,9 @@ body{margin:0;padding:8mm 16mm 12mm;font-family:system-ui,sans-serif;color:#111}
 .dt{text-align:center;font-family:Oswald,Impact,sans-serif;font-size:18pt;margin-bottom:0}
 .vn{text-align:center;font-size:12pt;font-weight:600;margin-top:1mm}.vn span{font-weight:400;color:#555}.dt:first-letter{text-transform:uppercase}
 .hv{width:17mm;height:17mm;border-radius:50%;background:${team};color:#fff;display:flex;align-items:center;justify-content:center;font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:18pt;letter-spacing:.04em}
-.ho{text-align:center;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:30pt;line-height:1.05;word-break:break-word}
-.lg{width:100%;max-width:75mm;height:44mm;object-fit:contain;object-position:left center;flex:none;display:block}
-.lgf{width:40mm;height:40mm;border-radius:50%;border:2mm solid ${team};display:none;align-items:center;justify-content:center;font-size:16mm;flex:none}
+.ho{text-align:center;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:22pt;line-height:1.05;word-break:break-word}
+.lg{width:100%;max-width:75mm;height:44mm;object-fit:contain;object-position:center;flex:none;display:block;margin:0 auto}
+.lgf{margin:0 auto;width:40mm;height:40mm;border-radius:50%;border:2mm solid ${team};display:none;align-items:center;justify-content:center;font-size:16mm;flex:none}
 .k{font-family:Oswald,Impact,sans-serif;letter-spacing:.3em;font-size:11pt;color:${team};font-weight:700}
 h1{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:28pt;line-height:1.05;margin:1mm 0}
 .d{font-size:12pt;color:#444;text-transform:capitalize}
@@ -565,7 +573,7 @@ h2{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:
 <div class="dt">${whenTxt(c.date, c.kickoff)}</div>${c.venue_name || c.venue_address ? `<div class="vn">${esc(c.venue_name || '')}${c.venue_name && c.venue_address ? ' · ' : ''}<span>${esc(c.venue_address || '')}</span></div>` : ''}
 <div class="hd"><div><img class="lg" src="${logo}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="lgf">⚽</div></div>
 <div class="hv">VS</div>
-<div class="ho">${esc(c.opp)}</div></div>
+<div class="ho">${oppHtml(c.opp)}</div></div>
 ${mr.length ? `<h2>Ritrovo</h2><div class="tm">${mr.map(([t, p]) => `<div><span>${t ? 'ore ' + t.replace(':', '.') : '—'}</span><b>${esc(p || '')}</b></div>`).join('')}</div>` : ''}
 <h2>Convocati · ${c.names.length}</h2>
 <div class="cl">${c.names.map((n, i) => `<div><i>${i + 1}</i>${nameHtml(n)}</div>`).join('')}</div>
