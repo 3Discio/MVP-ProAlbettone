@@ -701,7 +701,9 @@ const POSTER = {
   gap: .018,                             // spazio tra il cerchio e le squadre
   sep: 'vs',                             // separatore: 'vs' (corsivo bianco nel cerchio rosso), 'punto' oppure 'nessuno'
   vsCircle: .028, vsSize: .036, dot: .011, // raggio del cerchio, grandezza del "vs", raggio del punto
-  vsColor: 'soft',                       // colore del cerchio: 'soft' (grigio scuro, come l'avversario), 'ink' (nero), 'grey' o 'red'
+  // Colori: 'red' (rosso squadra), 'mute' (rosso attenuato), 'ink' (nero), 'soft' (grigio scuro), 'grey' (grigio)
+  oppColor: 'mute', vsColor: 'mute',     // colore dell'avversario e del cerchio del vs
+  muteMix: .45,                          // quanto è attenuato il rosso attenuato (0 = rosso pieno, 1 = grigio)
   // Scritte, dall'alto in basso. font: 'display' o 'text'; color: 'red', 'ink', 'soft' o 'grey';
   // track = spaziatura tra le lettere; upper = tutto maiuscolo. Una riga vuota non viene scritta.
   texts: [
@@ -727,8 +729,12 @@ const posterTune = () => [
   ['vsCircle', 'Cerchio vs: grandezza', .008, .07, .001],
   ['vsSize', 'Scritta vs: grandezza', .008, .09, .001],
   ['gap', 'Spazio intorno al cerchio', 0, .08, .002],
+  ['muteMix', 'Rosso attenuato: quanto spento', 0, 1, .01],
   ...POSTER.texts.flatMap((t, i) => [[`texts.${i}.y`, `${t.name}: altezza`, .04, .96, .002], [`texts.${i}.size`, `${t.name}: grandezza`, .008, .14, .001]])
 ];
+// Colori tra cui scegliere nel pannello
+const POSTER_COLORS = { red: 'Rosso squadra', mute: 'Rosso attenuato', ink: 'Nero', soft: 'Grigio scuro', grey: 'Grigio' };
+const posterTuneColors = () => [['oppColor', 'Avversario: colore'], ['vsColor', 'Cerchio vs: colore'], ...POSTER.texts.map((t, i) => [`texts.${i}.color`, `${t.name}: colore`])];
 // Regolazioni salvate (Supabase, tabella app_settings, chiave "poster"); se la tabella non c'è valgono i predefiniti
 let posterOv = null;
 async function posterOverrides(force) {
@@ -740,8 +746,9 @@ async function posterOverrides(force) {
 // Predefiniti + regolazioni (solo numeri)
 const posterConfig = ov => {
   ov = ov || {};
-  const flat = Object.fromEntries(Object.entries(ov).filter(([k, v]) => k !== 'texts' && typeof v === 'number' && isFinite(v)));
-  return { ...POSTER, ...flat, texts: POSTER.texts.map((t, i) => ({ ...t, ...Object.fromEntries(Object.entries((ov.texts && ov.texts[i]) || {}).filter(([k, v]) => (k === 'y' || k === 'size') && typeof v === 'number')) })) };
+  const okCol = v => Object.prototype.hasOwnProperty.call(POSTER_COLORS, v);
+  const flat = Object.fromEntries(Object.entries(ov).filter(([k, v]) => k !== 'texts' && ((typeof v === 'number' && isFinite(v)) || (/Color$/.test(k) && okCol(v)))));
+  return { ...POSTER, ...flat, texts: POSTER.texts.map((t, i) => ({ ...t, ...Object.fromEntries(Object.entries((ov.texts && ov.texts[i]) || {}).filter(([k, v]) => ((k === 'y' || k === 'size') && typeof v === 'number') || (k === 'color' && okCol(v)))) })) };
 };
 const loadScript = src => new Promise((ok, ko) => {
   if (document.querySelector(`script[src="${src}"]`)) return ok();
@@ -817,7 +824,10 @@ async function makePosterPdf(c, P) {
   const X = f => ox + f * bw, Y = f => oy + bh - f * bh, S = f => f * bh, WD = f => f * bw;
   const hex = (getComputedStyle(document.documentElement).getPropertyValue('--team') || '#d7142c').trim();
   const m = /^#?([0-9a-f]{6})$/i.exec(hex), n = parseInt(m ? m[1] : 'd7142c', 16);
-  const red = rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255), ink = rgb(...P.ink), soft = rgb(...P.soft), grey = rgb(...P.grey);
+  const rr = (n >> 16 & 255) / 255, rg = (n >> 8 & 255) / 255, rb = (n & 255) / 255, t = Math.min(1, Math.max(0, P.muteMix));
+  const red = rgb(rr, rg, rb), ink = rgb(...P.ink), soft = rgb(...P.soft), grey = rgb(...P.grey);
+  const mute = rgb(rr + (.5 - rr) * t, rg + (.5 - rg) * t, rb + (.5 - rb) * t); // rosso spento verso il grigio
+  const colors = { red, mute, ink, soft, grey };
   // testo centrato in (cx, cy) sull'altezza delle maiuscole; track = spaziatura extra tra le lettere
   const capH = (font, size) => font.heightAtSize(size, { descender: false }) * .72;
   const width = (s, font, size, track = 0) => font.widthOfTextAtSize(s, size) + track * size * Math.max(0, [...s].length - 1);
@@ -841,16 +851,15 @@ async function makePosterPdf(c, P) {
   const D = F.display, lines = oppLines(c.opp).map(D.plain);
   const size = Math.min(S(P.oppSize), ...lines.map(l => avail * P.oppFill / Math.max(1, D.f.widthOfTextAtSize(l, 1)))), lh = size * P.oppLineH;
   const qx = sideX(home ? 1 : -1);
-  lines.forEach((l, i) => center(l, D, size, qx, cy + (lines.length - 1) * lh / 2 - i * lh, soft));
+  lines.forEach((l, i) => center(l, D, size, qx, cy + (lines.length - 1) * lh / 2 - i * lh, colors[P.oppColor] || soft));
   // separatore (grigio scuro: il rosso resta tutto per noi)
-  const sepCol = { red, ink, soft, grey }[P.vsColor] || soft;
+  const sepCol = colors[P.vsColor] || soft;
   if (P.sep === 'vs') {
     const vsSz = S(P.vsSize);
     page.drawCircle({ x: X(cx), y: cy, size: r, color: sepCol });
     page.drawText('vs', { x: X(cx) - F.vs.f.widthOfTextAtSize('vs', vsSz) / 2, y: cy - vsSz * .2, size: vsSz, font: F.vs.f, color: rgb(1, 1, 1) });
   } else if (P.sep === 'punto') page.drawCircle({ x: X(cx), y: cy, size: r, color: sepCol });
   // scritte: intestazione, data, ora, campo, indirizzo
-  const colors = { red, ink, soft, grey };
   P.texts.forEach(t => {
     let s = String(t.text(c) || '').trim(); if (!s) return; if (t.upper) s = s.toUpperCase();
     const fo = F[t.font] || F.text, tr = t.track || 0; let sz = S(t.size);
@@ -907,7 +916,8 @@ async function tunePoster(id) {
   };
   const draw = () => {
     const P = posterConfig(ov);
-    box.innerHTML = posterTune().map(([p, label, min, max, step]) => { const v = get(P, p); return `<label><span>${esc(label)}<b>${(v * 100).toFixed(1)}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-p="${p}"></label>`; }).join('');
+    box.innerHTML = posterTuneColors().map(([p, label]) => `<label><span>${esc(label)}</span><select data-p="${p}" style="padding:6px;margin:2px 0">${Object.entries(POSTER_COLORS).map(([k, l]) => `<option value="${k}" ${get(P, p) === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('') + posterTune().map(([p, label, min, max, step]) => { const v = get(P, p); return `<label><span>${esc(label)}<b>${(v * 100).toFixed(1)}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-p="${p}"></label>`; }).join('');
+    box.querySelectorAll('select').forEach(sel => sel.onchange = () => { set(ov, sel.dataset.p, sel.value); preview(); });
     box.querySelectorAll('input').forEach(inp => inp.oninput = () => {
       set(ov, inp.dataset.p, Number(inp.value)); inp.previousElementSibling.querySelector('b').textContent = (Number(inp.value) * 100).toFixed(1);
       clearTimeout(timer); timer = setTimeout(preview, 250);
