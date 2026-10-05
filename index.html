@@ -701,8 +701,9 @@ const POSTER = {
   gap: .018,                             // spazio tra il cerchio e le squadre
   sep: 'vs',                             // separatore: 'vs' (corsivo bianco nel cerchio rosso), 'punto' oppure 'nessuno'
   vsCircle: .028, vsSize: .036, dot: .011, // raggio del cerchio, grandezza del "vs", raggio del punto
-  // Colori: 'red' (rosso squadra), 'mute' (rosso attenuato), 'ink' (nero), 'soft' (grigio scuro), 'grey' (grigio)
-  oppColor: 'mute', vsColor: 'mute',     // colore dell'avversario e del cerchio del vs
+  // Colori: 'red' (rosso squadra), 'mute' (rosso attenuato), 'ink' (nero), 'soft' (grigio scuro), 'grey' (grigio), 'white' (bianco)
+  oppColor: 'mute', vsColor: 'mute',     // colore dell'avversario e del cerchio del vs ('white' = cerchio invisibile)
+  vsTextColor: 'white',                  // colore della scritta vs
   muteMix: .45,                          // quanto è attenuato il rosso attenuato (0 = rosso pieno, 1 = grigio)
   // Scritte, dall'alto in basso. font: 'display' o 'text'; color: 'red', 'ink', 'soft' o 'grey';
   // track = spaziatura tra le lettere; upper = tutto maiuscolo. Una riga vuota non viene scritta.
@@ -733,8 +734,8 @@ const posterTune = () => [
   ...POSTER.texts.flatMap((t, i) => [[`texts.${i}.y`, `${t.name}: altezza`, .04, .96, .002], [`texts.${i}.size`, `${t.name}: grandezza`, .008, .14, .001]])
 ];
 // Colori tra cui scegliere nel pannello
-const POSTER_COLORS = { red: 'Rosso squadra', mute: 'Rosso attenuato', ink: 'Nero', soft: 'Grigio scuro', grey: 'Grigio' };
-const posterTuneColors = () => [['oppColor', 'Avversario: colore'], ['vsColor', 'Cerchio vs: colore'], ...POSTER.texts.map((t, i) => [`texts.${i}.color`, `${t.name}: colore`])];
+const POSTER_COLORS = { red: 'Rosso squadra', mute: 'Rosso attenuato', ink: 'Nero', soft: 'Grigio scuro', grey: 'Grigio', white: 'Bianco' };
+const posterTuneColors = () => [['oppColor', 'Avversario: colore'], ['vsColor', 'Cerchio vs: colore'], ['vsTextColor', 'Scritta vs: colore'], ...POSTER.texts.map((t, i) => [`texts.${i}.color`, `${t.name}: colore`])];
 // Regolazioni salvate (Supabase, tabella app_settings, chiave "poster"); se la tabella non c'è valgono i predefiniti
 let posterOv = null;
 async function posterOverrides(force) {
@@ -827,7 +828,7 @@ async function makePosterPdf(c, P) {
   const rr = (n >> 16 & 255) / 255, rg = (n >> 8 & 255) / 255, rb = (n & 255) / 255, t = Math.min(1, Math.max(0, P.muteMix));
   const red = rgb(rr, rg, rb), ink = rgb(...P.ink), soft = rgb(...P.soft), grey = rgb(...P.grey);
   const mute = rgb(rr + (.5 - rr) * t, rg + (.5 - rg) * t, rb + (.5 - rb) * t); // rosso spento verso il grigio
-  const colors = { red, mute, ink, soft, grey };
+  const colors = { red, mute, ink, soft, grey, white: rgb(1, 1, 1) };
   // testo centrato in (cx, cy) sull'altezza delle maiuscole; track = spaziatura extra tra le lettere
   const capH = (font, size) => font.heightAtSize(size, { descender: false }) * .72;
   const width = (s, font, size, track = 0) => font.widthOfTextAtSize(s, size) + track * size * Math.max(0, [...s].length - 1);
@@ -857,7 +858,7 @@ async function makePosterPdf(c, P) {
   if (P.sep === 'vs') {
     const vsSz = S(P.vsSize);
     page.drawCircle({ x: X(cx), y: cy, size: r, color: sepCol });
-    page.drawText('vs', { x: X(cx) - F.vs.f.widthOfTextAtSize('vs', vsSz) / 2, y: cy - vsSz * .2, size: vsSz, font: F.vs.f, color: rgb(1, 1, 1) });
+    page.drawText('vs', { x: X(cx) - F.vs.f.widthOfTextAtSize('vs', vsSz) / 2, y: cy - vsSz * .2, size: vsSz, font: F.vs.f, color: colors[P.vsTextColor] || colors.white });
   } else if (P.sep === 'punto') page.drawCircle({ x: X(cx), y: cy, size: r, color: sepCol });
   // scritte: intestazione, data, ora, campo, indirizzo
   P.texts.forEach(t => {
