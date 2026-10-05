@@ -676,7 +676,7 @@ ${mr.length ? `<h2>Ritrovo</h2><div class="tm">${mr.map(([t, p]) => `<div><span>
 }
 // ===== LOCANDINA PDF =====
 // Parte dalla grafica vuota (locandina-base.pdf, con sponsor e intestazione) e ci scrive sopra
-// logo, VS, avversario, data, ora e luogo. Il risultato è un PDF pronto da stampare.
+// logo, vs, avversario, data, ora e luogo. Il risultato è un PDF pronto da stampare.
 // Posizioni e misure sono frazioni della pagina base (0 = bordo sinistro/alto, 1 = bordo destro/basso):
 // se rifate la grafica con le stesse proporzioni, il codice non va toccato.
 const POSTER = {
@@ -684,15 +684,18 @@ const POSTER = {
   logo: 'logo.png',
   fontBold: 'font/Poppins-Bold.ttf',     // se il file manca usa Helvetica
   fontText: 'font/Poppins-Medium.ttf',
+  fontVs: ['font/Yellowtail-Regular.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/yellowtail@latest/latin-400-normal.ttf'], // corsivo del "vs": prima il file del sito, poi internet
   a4: true,                              // centra la locandina su un foglio A4 orizzontale (stampanti di casa)
-  slotL: { x: .36, w: .17 },            // centro e larghezza dello spazio a sinistra del VS
-  slotR: { x: .645, w: .17 },            // ... e a destra
-  rowY: .45, logoH: .26,                 // altezza (centro) della riga logo-VS-avversario, altezza massima del logo
-  vs: { x: .5024, r: .05 },             // cerchio del VS (raggio in frazione dell'altezza)
-  opp: { size: .072, lineH: 1.08 },      // dimensione massima del nome avversario
-  line: { y: .70, w: .16 },              // trattino rosso sopra le informazioni
-  info: [{ y: .748, size: .036 }, { y: .802, size: .033 }, { y: .846, size: .027 }], // data e ora, campo, via
-  ink: [.1, .1, .1], grey: [.35, .35, .35]
+  cx: .5024,                             // centro orizzontale della cornice
+  logoSlot: { w: .2 },                   // larghezza massima del logo Pro Albettone (più grande dell'avversario)
+  oppSlot: { w: .17 },                   // larghezza massima del nome avversario
+  gap: .022,                             // spazio tra logo, vs e avversario
+  rowY: .44, logoH: .30,                 // altezza (centro) della riga logo-vs-avversario, altezza massima del logo
+  vsSize: .12,                           // dimensione del "vs"
+  opp: { size: .048, lineH: 1.12 },      // dimensione massima del nome avversario (volutamente più piccolo del logo)
+  line: { y: .655, w: .14 },             // trattino rosso sopra le informazioni
+  info: [{ y: .708, size: .032, track: .08 }, { y: .758, size: .031 }, { y: .799, size: .025 }], // data e ora, campo, via
+  ink: [.1, .1, .1], soft: [.27, .27, .27], grey: [.42, .42, .42]
 };
 const loadScript = src => new Promise((ok, ko) => {
   if (document.querySelector(`script[src="${src}"]`)) return ok();
@@ -719,48 +722,67 @@ async function makePosterPdf(c) {
   if (!window.PDFLib) await loadScript('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js');
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const pdf = await PDFDocument.create();
+  const useFontkit = async () => { if (!window.fontkit) await loadScript('https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js'); pdf.registerFontkit(window.fontkit); };
   // font: Poppins se presente nel sito, altrimenti Helvetica (che non conosce alcuni caratteri: li semplifichiamo)
   let bold, text, plain = s => s;
   try {
     const [b, t] = await Promise.all([fetchBytes(POSTER.fontBold), fetchBytes(POSTER.fontText)]);
-    if (!window.fontkit) await loadScript('https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js');
-    pdf.registerFontkit(window.fontkit);
+    await useFontkit();
     bold = await pdf.embedFont(b, { subset: true }); text = await pdf.embedFont(t, { subset: true });
   } catch (e) {
     bold = await pdf.embedFont(StandardFonts.HelveticaBold); text = await pdf.embedFont(StandardFonts.Helvetica);
     plain = s => String(s).replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').normalize('NFC').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
   }
+  // corsivo del "vs": il primo che si riesce a scaricare, altrimenti Helvetica inclinato
+  let vsFont = null;
+  for (const src of POSTER.fontVs) { try { const bytes = await fetchBytes(src); await useFontkit(); vsFont = await pdf.embedFont(bytes, { subset: true }); break; } catch (e) {} }
+  if (!vsFont) vsFont = await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
   const [base] = await pdf.embedPdf(await fetchBytes(POSTER.base), [0]);
   const W = POSTER.a4 ? 841.89 : base.width, H = POSTER.a4 ? 595.28 : base.height;
   const k = Math.min(W / base.width, H / base.height), bw = base.width * k, bh = base.height * k, ox = (W - bw) / 2, oy = (H - bh) / 2;
   const page = pdf.addPage([W, H]);
   page.drawPage(base, { x: ox, y: oy, width: bw, height: bh });
   // da frazioni della grafica (y dall'alto) a coordinate PDF (y dal basso)
-  const X = f => ox + f * bw, Y = f => oy + bh - f * bh, S = f => f * bh;
+  const X = f => ox + f * bw, Y = f => oy + bh - f * bh, S = f => f * bh, WD = f => f * bw;
   const hex = (getComputedStyle(document.documentElement).getPropertyValue('--team') || '#d7142c').trim();
   const m = /^#?([0-9a-f]{6})$/i.exec(hex), n = parseInt(m ? m[1] : 'd7142c', 16);
-  const red = rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255), ink = rgb(...POSTER.ink), grey = rgb(...POSTER.grey);
-  const center = (s, font, size, cx, cy, color) => { s = plain(s); const w = font.widthOfTextAtSize(s, size); page.drawText(s, { x: cx - w / 2, y: cy - font.heightAtSize(size, { descender: false }) / 2, size, font, color }); };
-  // lati: chi gioca in casa a sinistra
-  const home = c.home !== false, sl = home ? POSTER.slotL : POSTER.slotR, so = home ? POSTER.slotR : POSTER.slotL, cy = Y(POSTER.rowY);
-  // logo, ridimensionato per stare nel suo spazio
-  const logo = await pdf.embedPng(await fetchBytes(POSTER.logo));
-  const lk = Math.min((X(sl.w) - X(0)) / logo.width, S(POSTER.logoH) / logo.height);
-  page.drawImage(logo, { x: X(sl.x) - logo.width * lk / 2, y: cy - logo.height * lk / 2, width: logo.width * lk, height: logo.height * lk });
-  // VS
-  page.drawCircle({ x: X(POSTER.vs.x), y: cy, size: S(POSTER.vs.r), color: red });
-  center('VS', bold, S(POSTER.vs.r) * .8, X(POSTER.vs.x), cy, rgb(1, 1, 1));
-  // avversario: una o due righe, il più grande possibile dentro il suo spazio
-  const lines = oppLines(c.opp).map(plain), maxW = X(so.w) - X(0);
+  const red = rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255), ink = rgb(...POSTER.ink), soft = rgb(...POSTER.soft), grey = rgb(...POSTER.grey);
+  // testo centrato in (cx, cy); track = spaziatura extra tra le lettere, in frazione della dimensione
+  const width = (s, font, size, track = 0) => font.widthOfTextAtSize(s, size) + track * size * Math.max(0, [...s].length - 1);
+  const center = (s, font, size, cx, cy, color, track = 0) => {
+    s = plain(s); const y = cy - font.heightAtSize(size, { descender: false }) / 2;
+    if (!track) return page.drawText(s, { x: cx - font.widthOfTextAtSize(s, size) / 2, y, size, font, color });
+    let x = cx - width(s, font, size, track) / 2;
+    for (const ch of s) { page.drawText(ch, { x, y, size, font, color }); x += font.widthOfTextAtSize(ch, size) + track * size; }
+  };
+  // riga centrale: [casa] vs [ospiti], composta e centrata nella cornice; chi gioca in casa a sinistra
+  const home = c.home !== false, cy = Y(POSTER.rowY), cx = POSTER.cx;
+  const img = await pdf.embedPng(await fetchBytes(POSTER.logo));
+  const lk = Math.min(WD(POSTER.logoSlot.w) / img.width, S(POSTER.logoH) / img.height), logoW = img.width * lk, logoH = img.height * lk;
+  const lines = oppLines(c.opp).map(plain), maxW = WD(POSTER.oppSlot.w);
   const size = Math.min(S(POSTER.opp.size), ...lines.map(l => maxW / Math.max(1, bold.widthOfTextAtSize(l, 1))));
-  const lh = size * POSTER.opp.lineH;
-  lines.forEach((l, i) => center(l, bold, size, X(so.x), cy + (lines.length - 1) * lh / 2 - i * lh, ink));
-  // informazioni in piccolo
-  const lw = X(POSTER.line.w) - X(0);
-  page.drawRectangle({ x: X(.5024) - lw / 2, y: Y(POSTER.line.y), width: lw, height: S(.004), color: red });
-  const day = c.date ? dayTxt(c.date).replace(/^./, s => s.toUpperCase()) : '';
-  const rows = [[[day, c.kickoff ? 'ore ' + hd(c.kickoff) : ''].filter(Boolean).join('  \u00B7  '), bold, ink], [c.venue_name || '', text, ink], [c.venue_address || '', text, grey]];
-  rows.forEach(([s, font, color], i) => { if (!s) return; const r = POSTER.info[i]; let sz = S(r.size); while (sz > 5 && font.widthOfTextAtSize(plain(s), sz) > bw * .44) sz -= .5; center(s, font, sz, X(.5024), Y(r.y), color); });
+  const oppW = Math.max(...lines.map(l => bold.widthOfTextAtSize(l, size))), lh = size * POSTER.opp.lineH;
+  const vsSz = S(POSTER.vsSize), vsW = vsFont.widthOfTextAtSize('vs', vsSz), gap = WD(POSTER.gap);
+  const parts = home ? ['logo', 'vs', 'opp'] : ['opp', 'vs', 'logo'], wOf = { logo: logoW, vs: vsW, opp: oppW };
+  let x = X(cx) - (logoW + vsW + oppW + 2 * gap) / 2;
+  for (const p of parts) {
+    const mid = x + wOf[p] / 2;
+    if (p === 'logo') page.drawImage(img, { x, y: cy - logoH / 2, width: logoW, height: logoH }); // logo Pro Albettone, il protagonista
+    if (p === 'vs') page.drawText('vs', { x, y: cy - vsSz * .22, size: vsSz, font: vsFont, color: red }); // corsivo rosso, centrato sulle lettere minuscole
+    if (p === 'opp') lines.forEach((l, i) => center(l, bold, size, mid, cy + (lines.length - 1) * lh / 2 - i * lh, soft)); // avversario più piccolo, grigio scuro
+    x += wOf[p] + gap;
+  }
+  // informazioni
+  const lw = WD(POSTER.line.w);
+  page.drawRectangle({ x: X(cx) - lw / 2, y: Y(POSTER.line.y), width: lw, height: S(.004), color: red });
+  const day = c.date ? dayTxt(c.date) : '';
+  const when = [day, c.kickoff ? 'ore ' + hd(c.kickoff) : ''].filter(Boolean).join('  \u00B7  ').toUpperCase();
+  const rows = [[when, bold, ink], [c.venue_name || '', text, ink], [c.venue_address || '', text, grey]];
+  rows.forEach(([s, font, color], i) => {
+    if (!s) return; const r = POSTER.info[i], tr = r.track || 0; let sz = S(r.size);
+    while (sz > 5 && width(plain(s), font, sz, tr) > bw * .44) sz -= .5;
+    center(s, font, sz, X(cx), Y(r.y), color, tr);
+  });
   return pdf.save();
 }
 async function downloadPoster(id) {
