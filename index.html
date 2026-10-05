@@ -201,14 +201,20 @@ async function render(keep) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return authView();
   me = session.user;
+  startPresence();
   if (!clockOk) { try { const t = await sb.rpc('server_now'); if (t.data) { clockOffset = new Date(t.data) - Date.now(); clockOk = true; } } catch (e) {} }
-  prof = await q(sb.from('profiles').select('*').eq('id', me.id).single());
+  // il profilo si aggiorna in parallelo alla pagina: se cambia qualcosa di importante, la pagina si ridisegna
+  const profP = q(sb.from('profiles').select('*').eq('id', me.id).single());
+  if (!prof || prof.id !== me.id) prof = await profP;
+  const before = JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]);
   const admin = isAdmin();
   let body;
   try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
+  try { prof = await profP; } catch (e) {}
+  if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]) !== before) return render(keep);
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
-  ${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="sb.auth.signOut().then(()=>authView())">Esci</button></div></div>
+  ${admin ? `<button class="g s on-pill" onclick="go('a')" title="Persone con il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')">Convocazioni</button>` : ''}
@@ -336,49 +342,45 @@ async function manageMatch(id) {
 }
 
 async function matchesView(admin) {
-  const ms = await q(sb.from('matches').select('*').order('played_on', { ascending: false }));
+  // 1° giro (in parallelo): partite + dati che non dipendono dalle partite
+  const [ms, players, mysR, myv, who] = await Promise.all([
+    q(sb.from('matches').select('*').order('played_on', { ascending: false })), q(sb.from('players').select('id,profile_id')),
+    sb.rpc('my_vote_status').then(r => r.error ? null : r.data || [], () => null), q(sb.from('votes').select('match_id')), adminContact()]);
   // le bozze sono visibili a tutti; le partite di test solo agli admin (anche in Vista giocatore, con una nota)
   const vis = ms.filter(m => prof.is_admin || !m.is_test);
-  const openIds = ms.filter(m => m.status === 'open').map(m => m.id);
+  const my = players.find(p => p.profile_id === me.id);
+  const openIds = ms.filter(m => m.status === 'open').map(m => m.id), draftIds = ms.filter(m => m.status === 'draft').map(m => m.id);
+  const convIds = openIds.concat(draftIds);
+  // 2° giro (in parallelo): solo ciò che dipende dalle partite aperte o in bozza
+  const [conv, xv, prog] = await Promise.all([
+    convIds.length ? q(sb.from('match_players').select('match_id,player_id').in('match_id', convIds)) : [],
+    openIds.length ? q(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', openIds)) : [],
+    openIds.length ? q(sb.from('voting_progress').select('*').in('match_id', openIds)) : []]);
   let info = {};
-  if (openIds.length) {
-    const [conv, players, xv, prog, myv] = await Promise.all([
-      q(sb.from('match_players').select('match_id,player_id').in('match_id', openIds)), q(sb.from('players').select('id,profile_id')),
-      q(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', openIds)),
-      q(sb.from('voting_progress').select('*').in('match_id', openIds)), q(sb.from('votes').select('match_id').in('match_id', openIds))]);
-    const my = players.find(p => p.profile_id === me.id);
-    const who = await adminContact();
-    ms.filter(m => m.status === 'open').forEach(m => {
-      const ok = canVote(m, conv.filter(c => c.match_id === m.id).map(c => c.player_id), my, xv.some(x => x.match_id === m.id));
-      const pr = prog.find(x => x.match_id === m.id), voted = myv.some(x => x.match_id === m.id);
-      const lost = m.outcome === 'sconfitta' && !m.force_vote;
-      info[m.id] = `<div class="li">${lost ? 'Partita persa: l’MVP non si vota.'
-        : ok ? `<b>✓ Sei abilitato al voto</b> · ${voted ? 'hai votato' : '<b>non hai ancora votato</b>'}`
-        : notEnabled(who)}${pr && !lost ? `<br>${quorumTxt(pr.voted, pr.eligible, m.min_pct)}` : ''}</div>`;
-    });
-  }
-  const closed = ms.filter(m => m.status === 'closed' && m.eligible_final != null);
-  let mys = null; // stato personale salvato alla chiusura (funzione my_vote_status su Supabase)
-  if (closed.length) { try { const r = await sb.rpc('my_vote_status'); if (!r.error) mys = r.data || []; } catch (e) {} }
-  closed.forEach(m => {
+  ms.filter(m => m.status === 'open').forEach(m => {
+    const ok = canVote(m, conv.filter(c => c.match_id === m.id).map(c => c.player_id), my, xv.some(x => x.match_id === m.id));
+    const pr = prog.find(x => x.match_id === m.id), voted = myv.some(x => x.match_id === m.id);
+    const lost = m.outcome === 'sconfitta' && !m.force_vote;
+    info[m.id] = `<div class="li">${lost ? 'Partita persa: l’MVP non si vota.'
+      : ok ? `<b>✓ Sei abilitato al voto</b> · ${voted ? 'hai votato' : '<b>non hai ancora votato</b>'}`
+      : notEnabled(who)}${pr && !lost ? `<br>${quorumTxt(pr.voted, pr.eligible, m.min_pct)}` : ''}</div>`;
+  });
+  const mys = mysR; // stato personale salvato alla chiusura (funzione my_vote_status su Supabase)
+  ms.filter(m => m.status === 'closed' && m.eligible_final != null).forEach(m => {
     const lost = m.outcome === 'sconfitta' && !m.force_vote, s = mys && mys.find(x => x.match_id === m.id);
     const mine = lost || !mys ? '' : !s || (!s.eligible && !s.did_vote) ? 'Non eri abilitato al voto'
       : s.eligible && s.did_vote ? '✓ Eri abilitato e hai votato' : s.eligible ? 'Eri abilitato ma non hai votato' : '✓ Hai votato';
     info[m.id] = `<div class="li">${mine ? mine + '<br>' : ''}${lost ? 'Partita persa: nessun MVP' : `Hanno votato ${m.voted_final} su ${m.eligible_final}`}</div>`;
   });
   // bozze: sei convocato? convocazioni fatte?
-  const draftIds = ms.filter(m => m.status === 'draft').map(m => m.id);
-  if (draftIds.length) {
-    const [cv, pl2] = await Promise.all([q(sb.from('match_players').select('match_id,player_id').in('match_id', draftIds)), q(sb.from('players').select('id,profile_id'))]);
-    const my2 = pl2.find(p => p.profile_id === me.id);
-    ms.filter(m => m.status === 'draft').forEach(m => {
-      const c = cv.filter(x => x.match_id === m.id);
-      const st = !c.length ? '<span class="cvs wait">⏳ Convocazioni non ancora effettuate</span>'
-        : my2 ? (c.some(x => x.player_id === my2.id) ? '<span class="cvs yes">✓ Sei convocato</span>' : '<span class="cvs no">Non sei convocato</span>')
-        : `<span class="cvs">${c.length} convocati</span>`;
-      info[m.id] = `<div class="li">${st}${m.kickoff ? ` · partita ore ${hm(m.kickoff)}` : ''}</div>`;
-    });
-  }
+  ms.filter(m => m.status === 'draft').forEach(m => {
+    const c = conv.filter(x => x.match_id === m.id);
+    const st = !c.length ? '<span class="cvs wait">⏳ Convocazioni non ancora effettuate</span>'
+      : my ? (c.some(x => x.player_id === my.id) ? '<span class="cvs yes">✓ Sei convocato</span>' : '<span class="cvs no">Non sei convocato</span>')
+      : `<span class="cvs">${c.length} convocati</span>`;
+    info[m.id] = `<div class="li">${st}${m.kickoff ? ` · partita ore ${hm(m.kickoff)}` : ''}</div>`;
+  });
+
   // le votazioni aperte in cima, poi le altre per data
   vis.sort((a, b) => (b.status === 'open') - (a.status === 'open'));
   return `
@@ -617,9 +619,11 @@ const X_WORD = { 2: 'doppio', 3: 'triplo' };
 const listIt = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : a.join('');
 
 async function matchView(id) {
-  const [m, conv, players, mine, extras] = await Promise.all([
+  const [m, conv, players, mine, extras, goalsAll, elig] = await Promise.all([
     q(sb.from('matches').select('*').eq('id', id).single()), q(sb.from('match_players').select('player_id').eq('match_id', id)),
-    q(sb.from('players').select('*').order('name')), q(sb.from('votes').select('*').eq('match_id', id).order('rank')), q(sb.from('match_voters').select('profile_id').eq('match_id', id))]);
+    q(sb.from('players').select('*').order('name')), q(sb.from('votes').select('*').eq('match_id', id).order('rank')), q(sb.from('match_voters').select('profile_id').eq('match_id', id)),
+    sb.from('goals').select('*').eq('match_id', id).order('created_at').then(r => r.data || [], () => []),
+    sb.rpc('eligible_voters', { p_match: id }).then(r => r.data || [], () => [])]);
   curMatch = m; curProg = null;
   const cids = conv.map(c => c.player_id), my = players.find(p => p.profile_id === me.id), admin = isAdmin();
   if (pick === null) pick = mine.map(x => x.player_id);
@@ -627,7 +631,7 @@ async function matchView(id) {
   let h = `<button class="g s" onclick="go('p')">← Partite</button><h2>Vs ${esc(m.opponent)} ${hasScore(m) ? '· ' + scoreTxt(m) : ''} ${m.outcome ? '· ' + OUT[m.outcome] : ''}</h2><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
   <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
   if (hasScore(m) && m.goals_for > 0) {
-    const gl = await q(sb.from('goals').select('*').eq('match_id', id).order('created_at'));
+    const gl = goalsAll;
     if (gl.length) { const pn = pid => (players.find(p => p.id === pid) || {}).name; h += `<div class="card"><b>Marcatori</b>${gl.map(g => `<div style="padding:3px 0">${goalLine(g, pn)}</div>`).join('')}</div>`; }
   }
   if (m.status === 'draft') h += callupInfo(m);
@@ -687,7 +691,7 @@ async function matchView(id) {
     <div class="card mut">La votazione non è ancora aperta: quando l’admin la apre, da qui potrai votare l’MVP.</div>`;
   }
   if (m.status !== 'draft') {
-    const el = await q(sb.rpc('eligible_voters', { p_match: id }));
+    const el = elig;
     h += `<details class="card more"><summary class="mut">Chi può votare in questa partita (${el.length})</summary><div class="mut" style="margin-top:6px">${el.map(x => esc(x.display)).join(', ') || '—'}</div></details>`;
   }
   if (admin && m.status !== 'draft') {
@@ -799,6 +803,26 @@ function installView() {
   <p class="mut">Fatto? D’ora in poi apri il sito dall’icona sulla Home: il pulsante «📲 App» in alto sparirà, perché sarai già nell’app.</p>`;
 }
 
+// ---------- Chi è online (Supabase Realtime Presence) ----------
+// Ogni pagina aperta si "annuncia" con il solo id dell'account; i nomi li ricava l'admin dai profili.
+let onlineCh = null, onlineIds = [], onlineNames = {};
+function startPresence() {
+  if (onlineCh || !me) return;
+  try {
+    onlineCh = sb.channel('online', { config: { presence: { key: me.id } } });
+    onlineCh.on('presence', { event: 'sync' }, () => { onlineIds = Object.keys(onlineCh.presenceState()); updOnline(); })
+      .subscribe(async st => { if (st === 'SUBSCRIBED') { try { await onlineCh.track({ t: Date.now() }); } catch (e) {} } });
+  } catch (e) { onlineCh = null; }
+}
+function stopPresence() { if (onlineCh) { try { sb.removeChannel(onlineCh); } catch (e) {} onlineCh = null; onlineIds = []; } }
+function logout() { stopPresence(); sb.auth.signOut().then(() => authView()); }
+const onlineListHtml = () => onlineIds.length ? onlineIds.map(id => `<span class="tag" style="margin:2px">${esc(onlineNames[id] || 'Account sconosciuto')}</span>`).join('') : '<span class="mut">Nessuno</span>';
+function updOnline() {
+  const b = document.getElementById('onl'); if (b) b.textContent = onlineIds.length;
+  const n = document.getElementById('onlN'); if (n) n.textContent = onlineIds.length;
+  const l = document.getElementById('onlList'); if (l) l.innerHTML = onlineListHtml();
+}
+
 // Classifica marcatori (e assist, secondaria). Contano tutte le partite tranne quelle di test.
 async function scorersView() {
   const ms = (await q(sb.from('matches').select('*').order('played_on', { ascending: false }))).filter(m => !m.is_test);
@@ -847,6 +871,7 @@ const CAT = { rosa: 'In rosa', fuori: OUT_LABEL, staff: 'Staff', spett: 'Spettat
 async function adminView() {
   const [pl, pf] = await Promise.all([q(sb.from('players').select('*').order('name')), q(sb.from('profiles').select('*').order('display_name'))]);
   const nm = id => (pf.find(x => x.id === id) || {}).display_name;
+  pf.forEach(u => { onlineNames[u.id] = u.display_name; });
   const free = pl.filter(p => !p.profile_id);
   const linked = u => pl.find(p => p.profile_id === u.id);
   const cat = u => linked(u) ? (u.is_out ? 'fuori' : 'rosa') : u.is_staff ? 'staff' : u.is_out ? 'spett' : 'nuovo';
@@ -879,7 +904,8 @@ async function adminView() {
   const exRow = u => `<div class="ac"><b>${esc(u.display_name)}</b>${tags(u)}<div class="mut">${CAT[cat(u)]}${u.can_vote ? ' · può votare' : ' · non può votare'}</div></div>`;
   const N = pf.length, G = (k, t, list, hint = '', cls = '') => grp(k, t, `${list.length} / ${N}`, list.map(acc).join(''), hint, cls);
   const nonAb = pf.filter(u => !u.can_vote && cat(u) !== 'nuovo');
-  return `<h2>Da sistemare (${nuovi.length})</h2>${nuovi.length
+  return `<div class="card"><b>🟢 Online ora: <span id="onlN">${onlineIds.length}</span></b><div id="onlList" style="margin-top:6px">${onlineListHtml()}</div><p class="mut" style="font-size:13px;margin:6px 0 0">Chi ha il sito aperto in questo momento, aggiornato in tempo reale. Sul telefono, dopo un po’ che l’app è in background, la persona risulta uscita.</p></div>
+  <h2>Da sistemare (${nuovi.length})</h2>${nuovi.length
     ? `<p class="mut">Spunta «Può votare» (ed eventualmente «Mister»), poi scegli la categoria: collegalo al suo giocatore della rosa, oppure indica se è staff o spettatore. Se il giocatore non è in rosa, aggiungilo qui sotto.</p>${nuovi.map(nuovo).join('')}`
     : '<p class="mut">Nessun nuovo iscritto da sistemare.</p>'}
   <h2>Account</h2><p class="mut">Ogni persona è in una sola categoria. Abilitati al voto <b>${pf.filter(u => u.can_vote).length} / ${N}</b> · Mister <b>${pf.filter(u => u.is_coach).length}</b></p>
