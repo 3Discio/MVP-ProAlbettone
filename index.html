@@ -675,40 +675,43 @@ ${mr.length ? `<h2>Ritrovo</h2><div class="tm">${mr.map(([t, p]) => `<div><span>
   if (d.readyState === 'complete') ready(); else { f.onload = ready; setTimeout(ready, 3000); }
 }
 // ===== LOCANDINA PDF =====
-// Parte dalla grafica vuota (locandina-base.pdf, con sponsor e intestazione) e ci scrive sopra
-// logo, vs, avversario, data, ora e luogo. Il risultato è un PDF pronto da stampare.
-// Posizioni e misure sono frazioni della pagina base (0 = bordo sinistro/alto, 1 = bordo destro/basso):
-// se rifate la grafica con le stesse proporzioni, il codice non va toccato.
+// Parte dalla grafica vuota (locandina-base.pdf, con sponsor e cornice) e ci scrive sopra
+// intestazione, logo, vs, avversario, data, ora e luogo. Il risultato è un PDF pronto da stampare.
+// Posizioni e misure sono frazioni della pagina base (0 = bordo sinistro/alto, 1 = bordo destro/basso).
 const POSTER = {
   base: 'locandina-base.pdf',
   logo: 'logo.png',
-  fontBold: 'font/Poppins-Bold.ttf',     // se il file manca usa Helvetica
-  fontText: 'font/Poppins-Medium.ttf',
-  fontVs: ['font/Yellowtail-Regular.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/yellowtail@latest/latin-400-normal.ttf'], // corsivo del "vs" (solo con sep: 'vs')
+  // Font: per ognuno prova prima il file nel sito, poi internet; se nessuno risponde usa Helvetica
+  fonts: {
+    display: ['font/BebasNeue-Regular.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/bebas-neue@latest/latin-400-normal.ttf'],          // titoli, squadre, data
+    text: ['font/BarlowCondensed-Medium.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/barlow-condensed@latest/latin-500-normal.ttf'],    // campo e indirizzo
+    vs: ['font/Yellowtail-Regular.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/yellowtail@latest/latin-400-normal.ttf']               // il "vs" in corsivo
+  },
   a4: true,                              // impagina su un foglio A4 orizzontale (stampanti di casa)
   cx: .4995,                             // centro orizzontale della cornice
-  textW: .42,                            // larghezza massima delle scritte centrali
-  // Scritte dentro la cornice, dall'alto in basso. y = altezza, size = dimensione, font: 'bold' o 'text',
-  // color: 'red', 'ink' (nero) o 'grey', track = spaziatura tra le lettere, upper = tutto maiuscolo
+  textW: .44,                            // larghezza massima delle scritte
+  // Riga delle squadre: chi gioca in casa a sinistra
+  rowY: .50,                             // centro verticale della riga (0.5 = metà pagina)
+  logoSlot: { w: .25 }, logoH: .27,      // misure massime del logo Pro Albettone
+  oppSlot: { w: .21 },                   // larghezza massima del nome avversario
+  opp: { size: .085, lineH: .98 },       // dimensione massima del nome avversario
+  gap: .028,                             // spazio tra logo, separatore e avversario
+  sep: 'vs',                             // separatore: 'vs' (corsivo), 'punto' oppure 'nessuno'
+  vsSize: .12, dot: .011,                // misura del "vs" e raggio del punto
+  // Scritte, dall'alto in basso. font: 'display' o 'text'; color: 'red', 'ink', 'soft' o 'grey';
+  // track = spaziatura tra le lettere; upper = tutto maiuscolo. Una riga vuota non viene scritta.
   texts: [
-    { y: .125, size: .032, font: 'bold', color: 'red', track: .3, upper: true, text: c => 'AICS' },
-    { y: .185, size: .056, font: 'text', color: 'ink', track: .02, upper: true, text: c => 'Campionato Amatori' },
-    { y: .238, size: .023, font: 'text', color: 'grey', track: .12, upper: true, text: c => ['Stagione ' + seasonOf(c.date), c.phase && PH[c.phase] ? 'Girone di ' + PH[c.phase].toLowerCase() : ''].filter(Boolean).join('  \u00B7  ') },
-    { y: .872, size: .026, font: 'bold', color: 'red', track: .14, upper: true, text: c => c.home !== false ? 'Vi aspettiamo numerosi!' : 'Forza Pro Albettone, sempre con voi!' }
+    { y: .165, size: .04, font: 'display', color: 'red', track: .35, upper: true, text: c => 'AICS' },
+    { y: .228, size: .085, font: 'display', color: 'ink', track: .03, upper: true, text: c => 'Campionato Amatori' },
+    { y: .283, size: .03, font: 'text', color: 'grey', track: .14, upper: true, text: c => ['Stagione ' + seasonOf(c.date), c.phase && PH[c.phase] ? 'Girone di ' + PH[c.phase].toLowerCase() : ''].filter(Boolean).join('   \u00B7   ') },
+    { y: .70, size: .085, font: 'display', color: 'ink', track: .03, upper: true, text: c => c.date ? dayTxt(c.date) : '' },
+    { y: .765, size: .06, font: 'display', color: 'red', track: .06, upper: true, text: c => c.kickoff ? 'Ore ' + hd(c.kickoff) : '' },
+    { y: .838, size: .036, font: 'text', color: 'ink', track: .02, text: c => c.venue_name || '' },
+    { y: .872, size: .027, font: 'text', color: 'grey', track: .02, text: c => c.venue_address || '' }
   ],
-  logoSlot: { w: .25 },                  // larghezza massima del logo Pro Albettone (più grande dell'avversario)
-  oppSlot: { w: .2 },                    // larghezza massima del nome avversario
-  gap: .026,                             // spazio tra logo, trattino e avversario
-  rowY: .435, logoH: .27,                // altezza (centro) della riga logo-trattino-avversario, altezza massima del logo
-  vsSize: .12,                           // dimensione del "vs"
-  sep: 'trattino',                       // tra le squadre: 'trattino' oppure 'vs'
-  dash: { w: .034, h: .011 },            // misure del trattino
-  opp: { size: .052, lineH: 1.12 },      // dimensione massima del nome avversario (volutamente più piccolo del logo)
-  line: { y: .615, w: .12 },             // trattino rosso sopra le informazioni
-  info: [{ y: .668, size: .03, track: .08 }, { y: .722, size: .029 }, { y: .762, size: .023 }], // data e ora, campo, via
   // Bande sopra e sotto: compaiono solo se la grafica non riempie il foglio (con la base in A4 non servono)
   bands: { style: 'pieno', top: c => '', bottom: c => '' },
-  ink: [.1, .1, .1], soft: [.27, .27, .27], grey: [.42, .42, .42]
+  ink: [.1, .1, .1], soft: [.3, .3, .3], grey: [.45, .45, .45]
 };
 const loadScript = src => new Promise((ok, ko) => {
   if (document.querySelector(`script[src="${src}"]`)) return ok();
@@ -737,21 +740,19 @@ async function makePosterPdf(c) {
   if (!window.PDFLib) await loadScript('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js');
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const pdf = await PDFDocument.create();
-  const useFontkit = async () => { if (!window.fontkit) await loadScript('https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js'); pdf.registerFontkit(window.fontkit); };
-  // font: Poppins se presente nel sito, altrimenti Helvetica (che non conosce alcuni caratteri: li semplifichiamo)
-  let bold, text, plain = s => s;
-  try {
-    const [b, t] = await Promise.all([fetchBytes(POSTER.fontBold), fetchBytes(POSTER.fontText)]);
-    await useFontkit();
-    bold = await pdf.embedFont(b, { subset: true }); text = await pdf.embedFont(t, { subset: true });
-  } catch (e) {
-    bold = await pdf.embedFont(StandardFonts.HelveticaBold); text = await pdf.embedFont(StandardFonts.Helvetica);
-    plain = s => String(s).replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').normalize('NFC').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
-  }
-  // corsivo del "vs": il primo che si riesce a scaricare, altrimenti Helvetica inclinato
-  let vsFont = null;
-  for (const src of POSTER.fontVs) { try { const bytes = await fetchBytes(src); await useFontkit(); vsFont = await pdf.embedFont(bytes, { subset: true }); break; } catch (e) {} }
-  if (!vsFont) vsFont = await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
+  let fk = false;
+  const useFontkit = async () => { if (fk) return; if (!window.fontkit) await loadScript('https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js'); pdf.registerFontkit(window.fontkit); fk = true; };
+  // Helvetica non conosce alcuni caratteri: se serve li semplifichiamo
+  const simple = s => String(s).replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').normalize('NFC').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
+  const loadFont = async (list, std) => {
+    for (const src of list) { try { const bytes = await fetchBytes(src); await useFontkit(); return { f: await pdf.embedFont(bytes, { subset: true }), plain: s => String(s) }; } catch (e) {} }
+    return { f: await pdf.embedFont(std), plain: simple };
+  };
+  const F = {
+    display: await loadFont(POSTER.fonts.display, StandardFonts.HelveticaBold),
+    text: await loadFont(POSTER.fonts.text, StandardFonts.Helvetica),
+    vs: POSTER.sep === 'vs' ? await loadFont(POSTER.fonts.vs, StandardFonts.HelveticaBoldOblique) : null
+  };
   const [base] = await pdf.embedPdf(await fetchBytes(POSTER.base), [0]);
   const W = POSTER.a4 ? 841.89 : base.width, H = POSTER.a4 ? 595.28 : base.height;
   const k = Math.min(W / base.width, H / base.height), bw = base.width * k, bh = base.height * k, ox = (W - bw) / 2, oy = (H - bh) / 2;
@@ -762,61 +763,51 @@ async function makePosterPdf(c) {
   const hex = (getComputedStyle(document.documentElement).getPropertyValue('--team') || '#d7142c').trim();
   const m = /^#?([0-9a-f]{6})$/i.exec(hex), n = parseInt(m ? m[1] : 'd7142c', 16);
   const red = rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255), ink = rgb(...POSTER.ink), soft = rgb(...POSTER.soft), grey = rgb(...POSTER.grey);
-  // testo centrato in (cx, cy); track = spaziatura extra tra le lettere, in frazione della dimensione
+  // testo centrato in (cx, cy) sull'altezza delle maiuscole; track = spaziatura extra tra le lettere
+  const capH = (font, size) => font.heightAtSize(size, { descender: false }) * .72;
   const width = (s, font, size, track = 0) => font.widthOfTextAtSize(s, size) + track * size * Math.max(0, [...s].length - 1);
-  const center = (s, font, size, cx, cy, color, track = 0) => {
-    s = plain(s); const y = cy - font.heightAtSize(size, { descender: false }) / 2;
+  const center = (s, fo, size, cx, cy, color, track = 0) => {
+    const font = fo.f; s = fo.plain(s); const y = cy - capH(font, size) / 2;
     if (!track) return page.drawText(s, { x: cx - font.widthOfTextAtSize(s, size) / 2, y, size, font, color });
     let x = cx - width(s, font, size, track) / 2;
     for (const ch of s) { page.drawText(ch, { x, y, size, font, color }); x += font.widthOfTextAtSize(ch, size) + track * size; }
   };
-  // riga centrale: [casa] vs [ospiti], composta e centrata nella cornice; chi gioca in casa a sinistra
+  // riga centrale: [casa] separatore [ospiti], composta e centrata nella cornice
   const home = c.home !== false, cy = Y(POSTER.rowY), cx = POSTER.cx;
   const img = await pdf.embedPng(await fetchBytes(POSTER.logo));
   const lk = Math.min(WD(POSTER.logoSlot.w) / img.width, S(POSTER.logoH) / img.height), logoW = img.width * lk, logoH = img.height * lk;
-  const lines = oppLines(c.opp).map(plain), maxW = WD(POSTER.oppSlot.w);
-  const size = Math.min(S(POSTER.opp.size), ...lines.map(l => maxW / Math.max(1, bold.widthOfTextAtSize(l, 1))));
-  const oppW = Math.max(...lines.map(l => bold.widthOfTextAtSize(l, size))), lh = size * POSTER.opp.lineH;
-  const dash = POSTER.sep === 'trattino', vsSz = S(POSTER.vsSize), vsW = dash ? WD(POSTER.dash.w) : vsFont.widthOfTextAtSize('vs', vsSz), gap = WD(POSTER.gap);
-  const parts = home ? ['logo', 'vs', 'opp'] : ['opp', 'vs', 'logo'], wOf = { logo: logoW, vs: vsW, opp: oppW };
-  let x = X(cx) - (logoW + vsW + oppW + 2 * gap) / 2;
+  const D = F.display, lines = oppLines(c.opp).map(D.plain), maxW = WD(POSTER.oppSlot.w);
+  const size = Math.min(S(POSTER.opp.size), ...lines.map(l => maxW / Math.max(1, D.f.widthOfTextAtSize(l, 1))));
+  const oppW = Math.max(...lines.map(l => D.f.widthOfTextAtSize(l, size))), lh = size * POSTER.opp.lineH;
+  const vsSz = S(POSTER.vsSize), sepW = POSTER.sep === 'vs' ? F.vs.f.widthOfTextAtSize('vs', vsSz) : POSTER.sep === 'punto' ? S(POSTER.dot) * 2 : 0;
+  const gap = WD(POSTER.gap), parts = (home ? ['logo', 'sep', 'opp'] : ['opp', 'sep', 'logo']).filter(p => p !== 'sep' || sepW);
+  const wOf = { logo: logoW, sep: sepW, opp: oppW };
+  let x = X(cx) - (parts.reduce((t, p) => t + wOf[p], 0) + gap * (parts.length - 1)) / 2;
   for (const p of parts) {
     const mid = x + wOf[p] / 2;
     if (p === 'logo') page.drawImage(img, { x, y: cy - logoH / 2, width: logoW, height: logoH }); // logo Pro Albettone, il protagonista
-    if (p === 'vs' && dash) page.drawRectangle({ x, y: cy - S(POSTER.dash.h) / 2, width: vsW, height: S(POSTER.dash.h), color: red }); // trattino rosso
-    else if (p === 'vs') page.drawText('vs', { x, y: cy - vsSz * .22, size: vsSz, font: vsFont, color: red }); // corsivo rosso, centrato sulle lettere minuscole
-    if (p === 'opp') lines.forEach((l, i) => center(l, bold, size, mid, cy + (lines.length - 1) * lh / 2 - i * lh, soft)); // avversario più piccolo, grigio scuro
+    if (p === 'sep' && POSTER.sep === 'vs') page.drawText('vs', { x, y: cy - vsSz * .22, size: vsSz, font: F.vs.f, color: red }); // corsivo rosso
+    if (p === 'sep' && POSTER.sep === 'punto') page.drawCircle({ x: mid, y: cy, size: S(POSTER.dot), color: red });
+    if (p === 'opp') lines.forEach((l, i) => center(l, D, size, mid, cy + (lines.length - 1) * lh / 2 - i * lh, soft)); // avversario, più contenuto del logo
     x += wOf[p] + gap;
   }
-  // scritte fisse (intestazione, stagione, frase finale)
-  const colors = { red, ink, grey, soft }, fonts = { bold, text };
+  // scritte: intestazione, data, ora, campo, indirizzo
+  const colors = { red, ink, soft, grey };
   POSTER.texts.forEach(t => {
-    let s = String(t.text(c) || ''); if (!s) return; if (t.upper) s = s.toUpperCase();
-    const f = fonts[t.font] || text, tr = t.track || 0; let sz = S(t.size);
-    while (sz > 5 && width(plain(s), f, sz, tr) > WD(POSTER.textW)) sz -= .5;
-    center(s, f, sz, X(POSTER.cx), Y(t.y), colors[t.color] || ink, tr);
+    let s = String(t.text(c) || '').trim(); if (!s) return; if (t.upper) s = s.toUpperCase();
+    const fo = F[t.font] || F.text, tr = t.track || 0; let sz = S(t.size);
+    while (sz > 5 && width(fo.plain(s), fo.f, sz, tr) > WD(POSTER.textW)) sz -= .5;
+    center(s, fo, sz, X(cx), Y(t.y), colors[t.color] || ink, tr);
   });
-  // informazioni
-  const lw = WD(POSTER.line.w);
-  page.drawRectangle({ x: X(cx) - lw / 2, y: Y(POSTER.line.y), width: lw, height: S(.004), color: red });
-  const day = c.date ? dayTxt(c.date) : '';
-  const when = [day, c.kickoff ? 'ore ' + hd(c.kickoff) : ''].filter(Boolean).join('  \u00B7  ').toUpperCase();
-  const rows = [[when, bold, ink], [c.venue_name || '', text, ink], [c.venue_address || '', text, grey]];
-  rows.forEach(([s, font, color], i) => {
-    if (!s) return; const r = POSTER.info[i], tr = r.track || 0; let sz = S(r.size);
-    while (sz > 5 && width(plain(s), font, sz, tr) > WD(POSTER.textW)) sz -= .5;
-    center(s, font, sz, X(cx), Y(r.y), color, tr);
-  });
-  // bande sopra e sotto: le riempiamo invece di lasciarle bianche
-  const band = oy; // altezza di ciascuna banda
+  // bande sopra e sotto (solo se la grafica non riempie il foglio)
+  const band = oy;
   if (band > 12) {
     const full = POSTER.bands.style === 'pieno', fg = full ? rgb(1, 1, 1) : red;
     [[H - band, POSTER.bands.top(c)], [0, POSTER.bands.bottom(c)]].forEach(([y0, txt]) => {
       if (full) page.drawRectangle({ x: 0, y: y0, width: W, height: band, color: red });
-      else page.drawRectangle({ x: X(.1), y: y0 === 0 ? band - 1.2 : y0 + 1.2, width: X(.9) - X(.1), height: .8, color: red }); // filetto verso la grafica
       txt = String(txt || '').toUpperCase(); if (!txt) return;
-      let sz = Math.min(band * .32, 16); while (sz > 6 && width(plain(txt), bold, sz, .14) > W * .8) sz -= .5;
-      center(txt, bold, sz, W / 2, y0 + band / 2, fg, .14);
+      let sz = Math.min(band * .32, 16); while (sz > 6 && width(D.plain(txt), D.f, sz, .14) > W * .8) sz -= .5;
+      center(txt, D, sz, W / 2, y0 + band / 2, fg, .14);
     });
   }
   return pdf.save();
