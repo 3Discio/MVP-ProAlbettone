@@ -110,6 +110,10 @@ select:disabled{opacity:.45}
 .coach .st.still{animation:none}
 .card.ok{border-color:#fff}
 .li{font-size:14px;color:var(--hl);margin-top:4px}
+.card.mc{display:block}.mcd{text-align:center;font-size:13px;color:var(--mut);text-transform:capitalize;margin-bottom:6px}.li.lv{text-align:center;color:#fff}.mt.mini{margin:0 0 8px;gap:10px}.mt.mini .mta,.mt.mini .mtb{font-size:clamp(15px,4.4vw,19px);color:#fff}
+.mvs{font-family:Oswald,Impact,sans-serif;text-transform:lowercase;color:var(--mut);font-size:16px;padding:0 4px}.mt.mini .spill{font-size:17px;padding:2px 10px}
+.mcm{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.card.mc .li{text-align:center}
 .ml{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 8px}.ml b{text-transform:uppercase;letter-spacing:.02em}.spill{background:#fff;color:var(--team);border-radius:99px;padding:0 9px;font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:15px;line-height:1.5;white-space:nowrap}
 .mt{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:14px 0 10px;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.02em}
 .mta,.mtb{font-size:clamp(18px,5.4vw,26px);line-height:1.1;color:var(--hl)}.mta,.mtb{text-align:center}
@@ -182,6 +186,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const q = async p => { const r = await p; if (r.error) throw r.error; return r.data; };
 // Logo del sito su sfondo scuro: logo-bianco.png, se manca logo.png, se manca anche quello ⚽
 const LOGO = `<img class="lg" src="logo-bianco.png" alt="Logo" onerror="if(this.dataset.f){this.replaceWith('⚽')}else{this.dataset.f=1;this.src='logo.png'}">`;
+let lPh = null; // girone scelto nell'elenco partite
 let me, prof, tab = 'p', cur = null, pick = null, regMode = false;
 
 // ---------- VISTA GIOCATORE (solo per admin) ----------
@@ -294,7 +299,7 @@ async function manageView() {
   ms.sort((a, b) => (b.status === 'open') - (a.status === 'open'));
   return `<h2>Gestione partite</h2><button onclick="mg='new';render()">➕ Nuova partita</button>
   <p class="mut">Tocca una partita per gestirla: convocati, esito, apertura e chiusura del voto.</p>
-  ${ms.map(m => `<div class="card row${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="mg='${m.id}';render()" style="cursor:pointer"><div>${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${scoreLine(m)}<div class="mut">${m.played_on}${m.phase ? ' · ' + PH[m.phase] : ''}</div></div><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
+  ${ms.map(m => `<div class="card mc${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="mg='${m.id}';render()" style="cursor:pointer"><div class="mcd">${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${dayShort(m.played_on)}${m.phase ? ' · ' + PH[m.phase] : ''} · ${ST[m.status]}</div>${miniTitle(m)}</div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
 }
 async function manageMatch(id) {
   const admin = true;
@@ -412,14 +417,27 @@ async function matchesView(admin) {
     const st = !c.length ? '<span class="cvs wait">⏳ Convocazioni non ancora effettuate</span>'
       : my ? (c.some(x => x.player_id === my.id) ? '<span class="cvs yes">✓ Sei convocato</span>' : '<span class="cvs no">Non sei convocato</span>')
       : `<span class="cvs">${c.length} convocati</span>`;
-    info[m.id] = `<div class="li">${st}${m.kickoff ? ` · partita ore ${hm(m.kickoff)}` : ''}</div>`;
+    info[m.id] = `<div class="li">${st}</div>`; // l'orario è già nella riga della data
   });
 
-  // le votazioni aperte in cima, poi le altre per data
-  vis.sort((a, b) => (b.status === 'open') - (a.status === 'open'));
+  // girone scelto (come in MVP e Marcatori): di default quello della partita aperta o della prossima in programma
+  if (!lPh) { const ref = vis.find(m => m.status === 'open') || vis.filter(m => m.status === 'draft').sort((a, b) => a.played_on.localeCompare(b.played_on))[0] || vis[0];
+    lPh = (ref && ref.phase) || 'andata'; }
+  const inPh = vis.filter(m => lPh === 'tot' || (m.phase || 'andata') === lPh);
+  const open = inPh.filter(m => m.status === 'open');
+  const next = inPh.filter(m => m.status === 'draft').sort((a, b) => a.played_on.localeCompare(b.played_on));
+  const done = inPh.filter(m => m.status === 'closed');
+  const card = m => `<div class="card mc${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="go('p','${m.id}')" style="cursor:pointer">
+    <div class="mcd">${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${dayShort(m.played_on)}${m.kickoff ? ' · ' + hd(m.kickoff) : ''}</div>${miniTitle(m)}
+    ${m.status === 'open' ? `<div class="li lv"><b>🗳️ Votazione aperta</b>${m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div>` : ''}${info[m.id] || ''}${m.is_test && asPlayer ? '<div class="li" style="font-style:italic">🧪 I compagni non vedono questa partita: la vedi solo tu per provare la Vista giocatore.</div>' : ''}</div>`;
+  const tabs = [['andata', 'Andata'], ['ritorno', 'Ritorno'], ['tot', 'Tutte']].map(([k, l]) => `<button class="s ${lPh === k ? '' : 'g'}" onclick="lPh='${k}';render(true)">${l}</button>`).join('');
   return `
   ${!isApp && isPhone && !lsGet('hideInstall') ? `<div class="pv"><span>📲 <b>Usa il sito come un’app</b>: aggiungilo alla schermata Home del telefono.</span><span style="display:flex;gap:6px">${installEvt ? '<button class="s" onclick="installNow()">Installa</button>' : '<button class="s" onclick="go(\'i\')">Come fare</button>'}<button class="g s" onclick="lsSet('hideInstall','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
-  <h2>Partite</h2>${vis.map(m => `<div class="card row${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="go('p','${m.id}')" style="cursor:pointer"><div>${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${scoreLine(m)}<div class="mut">${m.played_on}${m.phase ? ' · ' + PH[m.phase] : ''}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div>${info[m.id] || ''}${m.is_test && asPlayer ? '<div class="li" style="font-style:italic">🧪 I compagni non vedono questa partita: la vedi solo tu per provare la Vista giocatore.</div>' : ''}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
+  <h2>Partite</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div>
+  ${open.map(card).join('')}
+  ${next.length ? `<h3>In programma</h3>${next.map(card).join('')}` : ''}
+  ${!open.length && !next.length ? '<p class="mut">Nessuna partita in programma in questo girone.</p>' : ''}
+  ${done.length ? grp('pdone', 'Partite giocate', done.length, done.map(card).join('')) : ''}`;
 }
 function newMatch() {
   if (!v('op')) return alert('Scrivi l\'avversario');
@@ -446,6 +464,10 @@ const sideNames = m => { const [a, b] = sides(m), two = [a, b].some(x => String(
   const nm = x => two ? oppHtml(x) : esc(x); return [nm(a), nm(b)]; };
 const matchTitle = m => { const [, , ga, gb] = sides(m), [na, nb] = sideNames(m);
   return `<div class="mt"><span class="mta">${na}</span><span class="mts">${hasScore(m) ? `${ga}<i>–</i>${gb}` : 'VS'}</span><span class="mtb">${nb}</span></div>${!hasScore(m) && m.outcome ? `<div class="mut" style="text-align:center">${OUT[m.outcome]}</div>` : ''}`; };
+// versione compatta del tabellone per gli elenchi: vs (o risultato) sempre al centro
+const miniTitle = m => { const [, , ga, gb] = sides(m), [na, nb] = sideNames(m);
+  return `<div class="mt mini"><span class="mta">${na}</span>${hasScore(m) ? `<span class="spill">${ga}–${gb}</span>` : '<span class="mvs">vs</span>'}<span class="mtb">${nb}</span></div>`; };
+const dayShort = d => new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
 const outFrom = (gf, ga) => gf > ga ? 'vittoria' : gf === ga ? 'pareggio' : 'sconfitta';
 // Riga di un gol: icona, marcatore, assist
 const goalLine = (g, nameOf) => `${GK[g.kind][0]} ${g.kind === 'autogol' ? '<i>Autogol avversario</i>' : `<b>${esc(nameOf(g.scorer_id) || 'Giocatore eliminato')}</b>`}${g.kind !== 'autogol' && g.kind !== 'azione' ? ` <span class="mut">(${GK[g.kind][1].toLowerCase()})</span>` : ''}${g.assist_id ? ` <span class="mut">· 👟 assist ${esc(nameOf(g.assist_id) || '—')}</span>` : ''}`;
