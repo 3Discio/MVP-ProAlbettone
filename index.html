@@ -89,8 +89,9 @@ select:disabled{opacity:.45}
 .sc .mvn{font-size:14px;font-weight:600;color:#fff;margin-bottom:10px}.sc .mvn span{display:block;font-weight:400;font-size:13px;color:var(--mut)}.sc .md:first-letter{text-transform:uppercase}
 .sc .mv{width:46px;height:46px;border-radius:50%;background:#fff;color:var(--team);display:flex;align-items:center;justify-content:center;font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em;box-shadow:0 0 0 4px color-mix(in srgb,#fff 25%,transparent)}
 .sc .mo{justify-self:end;text-align:right;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:clamp(20px,6.5vw,28px);line-height:1.05;word-break:break-word}
-.sc .cl{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:5px 10px;text-align:left;margin-top:10px}.sc .cl div{min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:10px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sc .cl i{font-style:normal;color:var(--mut);margin-right:4px}
+.sc .cl{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:5px 10px;text-align:left;margin-top:10px}.sc .cl div{min-width:0;display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--line);border-radius:10px}
+.sc .cl .nm{min-width:0;line-height:1.1}.sc .cl .nm b{display:block;font-family:Oswald,Impact,sans-serif;font-size:16px;letter-spacing:.02em;overflow-wrap:anywhere}.sc .cl .nm small{display:block;font-size:12px;color:var(--mut)}
+.sc .cl i{font-style:normal;color:var(--mut);font-family:Oswald,Impact,sans-serif;font-size:15px;min-width:18px;text-align:right}
 .gkd{display:flex;flex-wrap:wrap;gap:4px 16px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 4px}
 .stats div{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center}
@@ -494,6 +495,13 @@ function logoFallback(img) {
   if (img.dataset.step === '1') return img.replaceWith('⚽');
   img.dataset.step = '1'; img.parentNode.classList.add('box'); img.src = 'logo.png';
 }
+// "CALEARO Kevin" -> cognome grande sopra, nome piccolo sotto (il cognome sono le parole iniziali in maiuscolo)
+function nameHtml(full) {
+  const w = String(full || '').trim().split(/\s+/);
+  let k = 0; while (k < w.length - 1 && /\p{Lu}/u.test(w[k]) && w[k] === w[k].toUpperCase()) k++;
+  if (!k) k = 1;
+  return `<span class="nm"><b>${esc(w.slice(0, k).join(' '))}</b>${k < w.length ? `<small>${esc(w.slice(k).join(' '))}</small>` : ''}</span>`;
+}
 // Card da condividere con uno screenshot
 function showCallupCard(id) {
   const c = callupNow(id);
@@ -506,7 +514,7 @@ function showCallupCard(id) {
   <div class="mh"><div class="lgw"><img class="lg" src="logo-bianco.png" alt="Logo" onerror="logoFallback(this)"></div><div class="mv">VS</div><div class="mo">${esc(c.opp)}</div></div>
   ${mr.length ? `<div class="cbox">${mr.map(([t, p]) => `<b>📍 ${t ? hd(t) : ''}</b><span>${esc(p || '')}</span>`).join('')}</div>` : ''}
   <div class="t" style="margin-top:14px">Convocati · ${c.names.length}</div>
-  <div class="cl" style="grid-template-rows:repeat(${Math.ceil(c.names.length / 2)},auto)">${c.names.map((n, i) => `<div><i>${i + 1}</i>${esc(n)}</div>`).join('')}</div></div>`;
+  <div class="cl" style="grid-template-rows:repeat(${Math.ceil(c.names.length / 2)},auto)">${c.names.map((n, i) => `<div><i>${i + 1}</i>${nameHtml(n)}</div>`).join('')}</div></div>`;
   document.body.appendChild(ov);
 }
 // Versione stampabile A4: stampata da un riquadro nascosto nella pagina stessa (niente finestre extra)
@@ -536,6 +544,7 @@ h1{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:28pt;
 h2{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.08em;margin:8mm 0 3mm;font-size:15pt}
 .cl{--fs:13pt;--pd:2.4mm;columns:var(--cols,2);column-gap:10mm}.cl div{break-inside:avoid;display:flex;align-items:center;gap:4mm;padding:var(--pd) 0;border-bottom:1px solid #ddd;font-size:var(--fs)}
 .cl i{font-style:normal;font-family:Oswald,Impact,sans-serif;color:${team};min-width:7mm;font-size:var(--fs);font-weight:700}
+.nm{line-height:1.1}.nm b{display:block;font-family:Oswald,Impact,sans-serif;font-size:var(--fs);letter-spacing:.02em}.nm small{display:block;font-size:calc(var(--fs) * .72);color:#555}
 #a4{position:absolute;top:0;left:0;width:1px;height:297mm;visibility:hidden}
 .ft{margin-top:8mm;padding-top:3mm;border-top:1px solid #ccc;display:flex;justify-content:space-between;font-size:9pt;color:#777}
 </style></head><body>
@@ -545,7 +554,7 @@ h2{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:
 <div class="ho">${esc(c.opp)}</div></div>
 ${mr.length ? `<h2>Ritrovo</h2><div class="tm">${mr.map(([t, p]) => `<div><span>${t ? 'ore ' + t.replace(':', '.') : '—'}</span><b>${esc(p || '')}</b></div>`).join('')}</div>` : ''}
 <h2>Convocati · ${c.names.length}</h2>
-<div class="cl">${c.names.map((n, i) => `<div><i>${i + 1}</i>${esc(n)}</div>`).join('')}</div>
+<div class="cl">${c.names.map((n, i) => `<div><i>${i + 1}</i>${nameHtml(n)}</div>`).join('')}</div>
 <div id="a4"></div><div class="ft"><span>Convocazione ufficiale</span><span>vs ${esc(c.opp)} · ${new Date(c.date + 'T12:00:00').toLocaleDateString('it-IT')}</span></div>
 </body></html>`;
   const old = document.getElementById('prt'); if (old) old.remove();
