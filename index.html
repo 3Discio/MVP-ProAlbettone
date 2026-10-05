@@ -310,7 +310,7 @@ async function manageMatch(id) {
   const outIds = pfs0.filter(x => x.is_out).map(x => x.id), coachIds = pfs0.filter(x => x.is_coach).map(x => x.id);
   const isMs = p => p.profile_id && coachIds.includes(p.profile_id);
   const isOutP = p => p.profile_id && outIds.includes(p.profile_id);
-  callupMeta[id] = { opp: m.opponent, date: m.played_on, home: isHome(m) };
+  callupMeta[id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase };
   curMatch = m; curProg = m.status === 'open' ? await q(sb.from('voting_progress').select('*').eq('match_id', id).single()) : null;
   const cids = conv.map(c => c.player_id);
   let h = `${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 4px"><span style="text-transform:capitalize">${dayTxt(m.played_on)}</span>${m.phase ? ' · ' + PH[m.phase] : ''}${m.is_test ? ' · 🧪 test' : ''}</div><div class="row" style="margin:6px 0"><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span>${m.status !== 'draft' ? `<button class="g s" onclick="go('p','${id}')">Vai alla votazione</button>` : ''}</div>`;
@@ -548,7 +548,7 @@ async function callupView() {
 async function callupEdit(m) {
   const [roster, conv] = await Promise.all([q(sb.rpc('coach_roster')), q(sb.from('match_players').select('player_id').eq('match_id', m.id))]);
   const cids = conv.map(c => c.player_id);
-  callupMeta[m.id] = { opp: m.opponent, date: m.played_on, home: isHome(m) };
+  callupMeta[m.id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase };
   return `<button class="g s" onclick="ck=null;render()">← Tutte le partite</button><h2 style="margin-bottom:2px">vs ${esc(m.opponent)}</h2><div class="mut">${dayTxt(m.played_on)}</div>
   <div class="card">${callupFields(m)}</div>
   <h3>Convocati: <span id="cvn">${cids.length}</span></h3><div class="card">${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" value="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="countConv()"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}</div>
@@ -684,17 +684,30 @@ const POSTER = {
   logo: 'logo.png',
   fontBold: 'font/Poppins-Bold.ttf',     // se il file manca usa Helvetica
   fontText: 'font/Poppins-Medium.ttf',
-  fontVs: ['font/Yellowtail-Regular.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/yellowtail@latest/latin-400-normal.ttf'], // corsivo del "vs": prima il file del sito, poi internet
-  a4: true,                              // centra la locandina su un foglio A4 orizzontale (stampanti di casa)
-  cx: .5024,                             // centro orizzontale della cornice
-  logoSlot: { w: .2 },                   // larghezza massima del logo Pro Albettone (più grande dell'avversario)
-  oppSlot: { w: .17 },                   // larghezza massima del nome avversario
-  gap: .022,                             // spazio tra logo, vs e avversario
-  rowY: .44, logoH: .30,                 // altezza (centro) della riga logo-vs-avversario, altezza massima del logo
+  fontVs: ['font/Yellowtail-Regular.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/yellowtail@latest/latin-400-normal.ttf'], // corsivo del "vs" (solo con sep: 'vs')
+  a4: true,                              // impagina su un foglio A4 orizzontale (stampanti di casa)
+  cx: .4995,                             // centro orizzontale della cornice
+  textW: .42,                            // larghezza massima delle scritte centrali
+  // Scritte dentro la cornice, dall'alto in basso. y = altezza, size = dimensione, font: 'bold' o 'text',
+  // color: 'red', 'ink' (nero) o 'grey', track = spaziatura tra le lettere, upper = tutto maiuscolo
+  texts: [
+    { y: .125, size: .032, font: 'bold', color: 'red', track: .3, upper: true, text: c => 'AICS' },
+    { y: .185, size: .056, font: 'text', color: 'ink', track: .02, upper: true, text: c => 'Campionato Amatori' },
+    { y: .238, size: .023, font: 'text', color: 'grey', track: .12, upper: true, text: c => ['Stagione ' + seasonOf(c.date), c.phase && PH[c.phase] ? 'Girone di ' + PH[c.phase].toLowerCase() : ''].filter(Boolean).join('  \u00B7  ') },
+    { y: .872, size: .026, font: 'bold', color: 'red', track: .14, upper: true, text: c => c.home !== false ? 'Vi aspettiamo numerosi!' : 'Forza Pro Albettone, sempre con voi!' }
+  ],
+  logoSlot: { w: .25 },                  // larghezza massima del logo Pro Albettone (più grande dell'avversario)
+  oppSlot: { w: .2 },                    // larghezza massima del nome avversario
+  gap: .026,                             // spazio tra logo, trattino e avversario
+  rowY: .435, logoH: .27,                // altezza (centro) della riga logo-trattino-avversario, altezza massima del logo
   vsSize: .12,                           // dimensione del "vs"
-  opp: { size: .048, lineH: 1.12 },      // dimensione massima del nome avversario (volutamente più piccolo del logo)
-  line: { y: .655, w: .14 },             // trattino rosso sopra le informazioni
-  info: [{ y: .708, size: .032, track: .08 }, { y: .758, size: .031 }, { y: .799, size: .025 }], // data e ora, campo, via
+  sep: 'trattino',                       // tra le squadre: 'trattino' oppure 'vs'
+  dash: { w: .034, h: .011 },            // misure del trattino
+  opp: { size: .052, lineH: 1.12 },      // dimensione massima del nome avversario (volutamente più piccolo del logo)
+  line: { y: .615, w: .12 },             // trattino rosso sopra le informazioni
+  info: [{ y: .668, size: .03, track: .08 }, { y: .722, size: .029 }, { y: .762, size: .023 }], // data e ora, campo, via
+  // Bande sopra e sotto: compaiono solo se la grafica non riempie il foglio (con la base in A4 non servono)
+  bands: { style: 'pieno', top: c => '', bottom: c => '' },
   ink: [.1, .1, .1], soft: [.27, .27, .27], grey: [.42, .42, .42]
 };
 const loadScript = src => new Promise((ok, ko) => {
@@ -710,6 +723,8 @@ const fetchBytes = async url => {
   if (!r.ok) throw new Error('manca il file «' + url + '» sul sito (errore ' + r.status + '). Controlla nome e cartella su GitHub.');
   return r.arrayBuffer();
 };
+// Stagione sportiva dalla data della partita: da luglio inizia la nuova (2026-10-12 -> "2026/27")
+const seasonOf = d => { const t = new Date((d || new Date().toISOString().slice(0, 10)) + 'T12:00:00'), y = t.getFullYear() - (t.getMonth() < 6 ? 1 : 0); return y + '/' + String(y + 1).slice(2); };
 // "Polisportiva San Germano dei Berici" -> ["POLISPORTIVA SAN", "GERMANO DEI BERICI"] (stessa regola delle card)
 function oppLines(name) {
   const w = String(name || '').trim().toUpperCase().split(/\s+/);
@@ -762,16 +777,25 @@ async function makePosterPdf(c) {
   const lines = oppLines(c.opp).map(plain), maxW = WD(POSTER.oppSlot.w);
   const size = Math.min(S(POSTER.opp.size), ...lines.map(l => maxW / Math.max(1, bold.widthOfTextAtSize(l, 1))));
   const oppW = Math.max(...lines.map(l => bold.widthOfTextAtSize(l, size))), lh = size * POSTER.opp.lineH;
-  const vsSz = S(POSTER.vsSize), vsW = vsFont.widthOfTextAtSize('vs', vsSz), gap = WD(POSTER.gap);
+  const dash = POSTER.sep === 'trattino', vsSz = S(POSTER.vsSize), vsW = dash ? WD(POSTER.dash.w) : vsFont.widthOfTextAtSize('vs', vsSz), gap = WD(POSTER.gap);
   const parts = home ? ['logo', 'vs', 'opp'] : ['opp', 'vs', 'logo'], wOf = { logo: logoW, vs: vsW, opp: oppW };
   let x = X(cx) - (logoW + vsW + oppW + 2 * gap) / 2;
   for (const p of parts) {
     const mid = x + wOf[p] / 2;
     if (p === 'logo') page.drawImage(img, { x, y: cy - logoH / 2, width: logoW, height: logoH }); // logo Pro Albettone, il protagonista
-    if (p === 'vs') page.drawText('vs', { x, y: cy - vsSz * .22, size: vsSz, font: vsFont, color: red }); // corsivo rosso, centrato sulle lettere minuscole
+    if (p === 'vs' && dash) page.drawRectangle({ x, y: cy - S(POSTER.dash.h) / 2, width: vsW, height: S(POSTER.dash.h), color: red }); // trattino rosso
+    else if (p === 'vs') page.drawText('vs', { x, y: cy - vsSz * .22, size: vsSz, font: vsFont, color: red }); // corsivo rosso, centrato sulle lettere minuscole
     if (p === 'opp') lines.forEach((l, i) => center(l, bold, size, mid, cy + (lines.length - 1) * lh / 2 - i * lh, soft)); // avversario più piccolo, grigio scuro
     x += wOf[p] + gap;
   }
+  // scritte fisse (intestazione, stagione, frase finale)
+  const colors = { red, ink, grey, soft }, fonts = { bold, text };
+  POSTER.texts.forEach(t => {
+    let s = String(t.text(c) || ''); if (!s) return; if (t.upper) s = s.toUpperCase();
+    const f = fonts[t.font] || text, tr = t.track || 0; let sz = S(t.size);
+    while (sz > 5 && width(plain(s), f, sz, tr) > WD(POSTER.textW)) sz -= .5;
+    center(s, f, sz, X(POSTER.cx), Y(t.y), colors[t.color] || ink, tr);
+  });
   // informazioni
   const lw = WD(POSTER.line.w);
   page.drawRectangle({ x: X(cx) - lw / 2, y: Y(POSTER.line.y), width: lw, height: S(.004), color: red });
@@ -780,9 +804,21 @@ async function makePosterPdf(c) {
   const rows = [[when, bold, ink], [c.venue_name || '', text, ink], [c.venue_address || '', text, grey]];
   rows.forEach(([s, font, color], i) => {
     if (!s) return; const r = POSTER.info[i], tr = r.track || 0; let sz = S(r.size);
-    while (sz > 5 && width(plain(s), font, sz, tr) > bw * .44) sz -= .5;
+    while (sz > 5 && width(plain(s), font, sz, tr) > WD(POSTER.textW)) sz -= .5;
     center(s, font, sz, X(cx), Y(r.y), color, tr);
   });
+  // bande sopra e sotto: le riempiamo invece di lasciarle bianche
+  const band = oy; // altezza di ciascuna banda
+  if (band > 12) {
+    const full = POSTER.bands.style === 'pieno', fg = full ? rgb(1, 1, 1) : red;
+    [[H - band, POSTER.bands.top(c)], [0, POSTER.bands.bottom(c)]].forEach(([y0, txt]) => {
+      if (full) page.drawRectangle({ x: 0, y: y0, width: W, height: band, color: red });
+      else page.drawRectangle({ x: X(.1), y: y0 === 0 ? band - 1.2 : y0 + 1.2, width: X(.9) - X(.1), height: .8, color: red }); // filetto verso la grafica
+      txt = String(txt || '').toUpperCase(); if (!txt) return;
+      let sz = Math.min(band * .32, 16); while (sz > 6 && width(plain(txt), bold, sz, .14) > W * .8) sz -= .5;
+      center(txt, bold, sz, W / 2, y0 + band / 2, fg, .14);
+    });
+  }
   return pdf.save();
 }
 async function downloadPoster(id) {
