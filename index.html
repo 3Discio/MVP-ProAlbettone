@@ -364,7 +364,7 @@ async function manageMatch(id) {
   const badge = (k, txt) => ({ todo: 'da fare', later: 'più avanti', done: '✓' })[st[k]] + (txt ? ' · ' + txt : '');
   const cls = k => st[k] === 'todo' ? 'c-todo' : '';
   const sec = {
-    cv: grp('s-cv', 'Orari e luoghi', badge('cv', m.kickoff ? 'ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<div class="btns"><button onclick="saveCallupTimes('${id}')">Salva orari</button><button class="g" onclick="shareCallup('${id}')">WhatsApp</button><button class="g" onclick="showCallupCard('${id}')">📸 Card</button><button class="g" onclick="printCallup('${id}')">🖨️ Stampa A4</button><button class="g" style="grid-column:1/-1" onclick="downloadPoster('${id}')">📄 Locandina PDF</button></div><p class="mut" style="font-size:13px">Card, stampa e WhatsApp usano anche i convocati della sezione «Convocati».</p>`, '', cls('cv')),
+    cv: grp('s-cv', 'Orari e luoghi', badge('cv', m.kickoff ? 'ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<div class="btns"><button onclick="saveCallupTimes('${id}')">Salva orari</button><button class="g" onclick="shareCallup('${id}')">WhatsApp</button><button class="g" onclick="showCallupCard('${id}')">📸 Card</button><button class="g" onclick="printCallup('${id}')">🖨️ Stampa A4</button><button class="g" style="grid-column:1/-1" onclick="downloadPoster('${id}')">📄 Locandina PDF</button>${isAdmin() ? `<button class="g" style="grid-column:1/-1" onclick="tunePoster('${id}')">🎛️ Regola locandina</button>` : ''}</div><p class="mut" style="font-size:13px">Card, stampa e WhatsApp usano anche i convocati della sezione «Convocati».</p>`, '', cls('cv')),
     cc: grp('mc', 'Convocati', badge('cc', '<span id="mcn">' + nConv + '</span> / ' + nConvocabili), `${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}`, '', cls('cc')),
     vt: grp('s-vt', 'Votazione', badge('vt', ST[m.status]), `${durBlock}${quorumBlock}
   <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
@@ -678,6 +678,8 @@ ${mr.length ? `<h2>Ritrovo</h2><div class="tm">${mr.map(([t, p]) => `<div><span>
 // Parte dalla grafica vuota (locandina-base.pdf, con sponsor e cornice) e ci scrive sopra
 // intestazione, logo, vs, avversario, data, ora e luogo. Il risultato è un PDF pronto da stampare.
 // Posizioni e misure sono frazioni della pagina base (0 = bordo sinistro/alto, 1 = bordo destro/basso).
+// I valori qui sotto sono quelli predefiniti: l'admin li può regolare dal sito con «🎛️ Regola locandina»
+// (le regolazioni salvate valgono per tutti e stanno nella tabella app_settings di Supabase).
 const POSTER = {
   base: 'locandina-base.pdf',
   logo: 'logo.png',
@@ -688,43 +690,73 @@ const POSTER = {
     vs: ['font/Yellowtail-Regular.ttf', 'https://cdn.jsdelivr.net/fontsource/fonts/yellowtail@latest/latin-400-normal.ttf']               // il "vs" in corsivo
   },
   a4: true,                              // impagina su un foglio A4 orizzontale (stampanti di casa)
-  cx: .4995,                             // centro orizzontale della cornice
+  frame: { l: .1859, r: .8132 },         // bordi sinistro e destro della cornice nella grafica base
+  cx: .4995,                             // centro orizzontale della cornice: qui sta il cerchio del vs
+  framePad: .018,                        // margine di sicurezza dentro la cornice
   textW: .44,                            // larghezza massima delle scritte
-  // Riga delle squadre: chi gioca in casa a sinistra
-  rowY: .50,                             // centro verticale della riga (0.5 = metà pagina)
-  logoSlot: { w: .29 }, logoH: .34,      // misure massime del logo Pro Albettone (i bordi vuoti del PNG vengono tagliati da soli)
-  oppSlot: { w: .17 },                   // larghezza massima del nome avversario
-  opp: { size: .062, lineH: .98 },       // dimensione massima del nome avversario (più piccolo del logo)
-  gap: .024,                             // spazio tra logo, separatore e avversario
+  // Riga delle squadre: il vs sta al centro, ogni squadra è centrata nella sua metà; chi gioca in casa a sinistra
+  rowY: .50,                             // centro verticale della riga
+  logoFill: 1, logoH: .42,               // logo: quanta larghezza della sua metà occupa (1 = tutta) e altezza massima
+  oppFill: .85, oppSize: .062, oppLineH: .98, // avversario: larghezza massima nella sua metà, grandezza massima, interlinea
+  gap: .018,                             // spazio tra il cerchio e le squadre
   sep: 'vs',                             // separatore: 'vs' (corsivo bianco nel cerchio rosso), 'punto' oppure 'nessuno'
-  vsCircle: .042, vsSize: .055, dot: .011, // raggio del cerchio, misura del "vs", raggio del punto
+  vsCircle: .028, vsSize: .036, dot: .011, // raggio del cerchio, grandezza del "vs", raggio del punto
   // Scritte, dall'alto in basso. font: 'display' o 'text'; color: 'red', 'ink', 'soft' o 'grey';
   // track = spaziatura tra le lettere; upper = tutto maiuscolo. Una riga vuota non viene scritta.
   texts: [
-    { y: .165, size: .04, font: 'display', color: 'red', track: .35, upper: true, text: c => 'AICS' },
-    { y: .228, size: .085, font: 'display', color: 'ink', track: .03, upper: true, text: c => 'Campionato Amatori' },
-    { y: .283, size: .03, font: 'text', color: 'grey', track: .14, upper: true, text: c => ['Stagione ' + seasonOf(c.date), c.phase && PH[c.phase] ? 'Girone di ' + PH[c.phase].toLowerCase() : ''].filter(Boolean).join('   \u00B7   ') },
-    { y: .70, size: .075, font: 'display', color: 'ink', track: .03, upper: true, text: c => c.date ? dayTxt(c.date) : '' },
-    { y: .762, size: .052, font: 'display', color: 'red', track: .06, upper: true, text: c => c.kickoff ? 'Ore ' + hd(c.kickoff) : '' },
-    { y: .835, size: .033, font: 'text', color: 'ink', track: .02, text: c => c.venue_name || '' },
-    { y: .868, size: .025, font: 'text', color: 'grey', track: .02, text: c => c.venue_address || '' }
+    { name: 'AICS', y: .165, size: .04, font: 'display', color: 'red', track: .35, upper: true, text: c => 'AICS' },
+    { name: 'Campionato', y: .228, size: .085, font: 'display', color: 'ink', track: .03, upper: true, text: c => 'Campionato Amatori' },
+    { name: 'Stagione', y: .283, size: .03, font: 'text', color: 'grey', track: .14, upper: true, text: c => ['Stagione ' + seasonOf(c.date), c.phase && PH[c.phase] ? 'Girone di ' + PH[c.phase].toLowerCase() : ''].filter(Boolean).join('   \u00B7   ') },
+    { name: 'Data', y: .70, size: .075, font: 'display', color: 'ink', track: .03, upper: true, text: c => c.date ? dayTxt(c.date) : '' },
+    { name: 'Ora', y: .762, size: .052, font: 'display', color: 'red', track: .06, upper: true, text: c => c.kickoff ? 'Ore ' + hd(c.kickoff) : '' },
+    { name: 'Campo', y: .835, size: .033, font: 'text', color: 'ink', track: .02, text: c => c.venue_name || '' },
+    { name: 'Indirizzo', y: .868, size: .025, font: 'text', color: 'grey', track: .02, text: c => c.venue_address || '' }
   ],
   // Bande sopra e sotto: compaiono solo se la grafica non riempie il foglio (con la base in A4 non servono)
   bands: { style: 'pieno', top: c => '', bottom: c => '' },
   ink: [.1, .1, .1], soft: [.3, .3, .3], grey: [.45, .45, .45]
 };
+// Cursori del pannello «Regola locandina»: [valore, etichetta, minimo, massimo, passo]
+const posterTune = () => [
+  ['rowY', 'Squadre: altezza', .3, .7, .002],
+  ['logoFill', 'Logo: larghezza', .3, 1, .01],
+  ['logoH', 'Logo: altezza massima', .1, .6, .005],
+  ['oppSize', 'Avversario: grandezza', .02, .12, .001],
+  ['oppFill', 'Avversario: larghezza massima', .3, 1, .01],
+  ['vsCircle', 'Cerchio vs: grandezza', .008, .07, .001],
+  ['vsSize', 'Scritta vs: grandezza', .008, .09, .001],
+  ['gap', 'Spazio intorno al cerchio', 0, .08, .002],
+  ...POSTER.texts.flatMap((t, i) => [[`texts.${i}.y`, `${t.name}: altezza`, .04, .96, .002], [`texts.${i}.size`, `${t.name}: grandezza`, .008, .14, .001]])
+];
+// Regolazioni salvate (Supabase, tabella app_settings, chiave "poster"); se la tabella non c'è valgono i predefiniti
+let posterOv = null;
+async function posterOverrides(force) {
+  if (posterOv && !force) return posterOv;
+  try { const r = await sb.from('app_settings').select('value').eq('key', 'poster').maybeSingle(); posterOv = (r.data && r.data.value) || {}; }
+  catch (e) { posterOv = {}; }
+  return posterOv;
+}
+// Predefiniti + regolazioni (solo numeri)
+const posterConfig = ov => {
+  ov = ov || {};
+  const flat = Object.fromEntries(Object.entries(ov).filter(([k, v]) => k !== 'texts' && typeof v === 'number' && isFinite(v)));
+  return { ...POSTER, ...flat, texts: POSTER.texts.map((t, i) => ({ ...t, ...Object.fromEntries(Object.entries((ov.texts && ov.texts[i]) || {}).filter(([k, v]) => (k === 'y' || k === 'size') && typeof v === 'number')) })) };
+};
 const loadScript = src => new Promise((ok, ko) => {
   if (document.querySelector(`script[src="${src}"]`)) return ok();
   const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => ko(new Error('Impossibile caricare ' + src)); document.head.appendChild(s);
 });
-// Scarica un file del sito; in caso di errore dice esattamente quale file e perché
+// Scarica un file del sito; in caso di errore dice esattamente quale file e perché (i file restano in memoria)
+const fileCache = {};
 const fetchBytes = async url => {
+  if (fileCache[url]) return fileCache[url].slice(0);
   if (location.protocol === 'file:') throw new Error('il sito è aperto come file dal computer (indirizzo che inizia con file://). La locandina funziona solo dal sito online.');
   let r;
   try { r = await fetch(new URL(url, location.href).href); }
   catch (e) { throw new Error('non riesco a scaricare «' + url + '» (' + (e.message || e) + ').'); }
   if (!r.ok) throw new Error('manca il file «' + url + '» sul sito (errore ' + r.status + '). Controlla nome e cartella su GitHub.');
-  return r.arrayBuffer();
+  fileCache[url] = await r.arrayBuffer();
+  return fileCache[url].slice(0);
 };
 // Taglia i bordi vuoti (trasparenti o bianchi) del logo, così occupa davvero lo spazio previsto
 async function trimPng(bytes) {
@@ -757,7 +789,8 @@ function oppLines(name) {
   for (let k = 1; k < w.length; k++) { const d = Math.abs(w.slice(0, k).join(' ').length - w.slice(k).join(' ').length); if (d < diff) { diff = d; best = k; } }
   return [w.slice(0, best).join(' '), w.slice(best).join(' ')];
 }
-async function makePosterPdf(c) {
+async function makePosterPdf(c, P) {
+  P = P || posterConfig(await posterOverrides());
   if (!window.PDFLib) await loadScript('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js');
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const pdf = await PDFDocument.create();
@@ -770,12 +803,12 @@ async function makePosterPdf(c) {
     return { f: await pdf.embedFont(std), plain: simple };
   };
   const F = {
-    display: await loadFont(POSTER.fonts.display, StandardFonts.HelveticaBold),
-    text: await loadFont(POSTER.fonts.text, StandardFonts.Helvetica),
-    vs: POSTER.sep === 'vs' ? await loadFont(POSTER.fonts.vs, StandardFonts.HelveticaBoldOblique) : null
+    display: await loadFont(P.fonts.display, StandardFonts.HelveticaBold),
+    text: await loadFont(P.fonts.text, StandardFonts.Helvetica),
+    vs: P.sep === 'vs' ? await loadFont(P.fonts.vs, StandardFonts.HelveticaBoldOblique) : null
   };
-  const [base] = await pdf.embedPdf(await fetchBytes(POSTER.base), [0]);
-  const W = POSTER.a4 ? 841.89 : base.width, H = POSTER.a4 ? 595.28 : base.height;
+  const [base] = await pdf.embedPdf(await fetchBytes(P.base), [0]);
+  const W = P.a4 ? 841.89 : base.width, H = P.a4 ? 595.28 : base.height;
   const k = Math.min(W / base.width, H / base.height), bw = base.width * k, bh = base.height * k, ox = (W - bw) / 2, oy = (H - bh) / 2;
   const page = pdf.addPage([W, H]);
   page.drawPage(base, { x: ox, y: oy, width: bw, height: bh });
@@ -783,7 +816,7 @@ async function makePosterPdf(c) {
   const X = f => ox + f * bw, Y = f => oy + bh - f * bh, S = f => f * bh, WD = f => f * bw;
   const hex = (getComputedStyle(document.documentElement).getPropertyValue('--team') || '#d7142c').trim();
   const m = /^#?([0-9a-f]{6})$/i.exec(hex), n = parseInt(m ? m[1] : 'd7142c', 16);
-  const red = rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255), ink = rgb(...POSTER.ink), soft = rgb(...POSTER.soft), grey = rgb(...POSTER.grey);
+  const red = rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255), ink = rgb(...P.ink), soft = rgb(...P.soft), grey = rgb(...P.grey);
   // testo centrato in (cx, cy) sull'altezza delle maiuscole; track = spaziatura extra tra le lettere
   const capH = (font, size) => font.heightAtSize(size, { descender: false }) * .72;
   const width = (s, font, size, track = 0) => font.widthOfTextAtSize(s, size) + track * size * Math.max(0, [...s].length - 1);
@@ -793,41 +826,40 @@ async function makePosterPdf(c) {
     let x = cx - width(s, font, size, track) / 2;
     for (const ch of s) { page.drawText(ch, { x, y, size, font, color }); x += font.widthOfTextAtSize(ch, size) + track * size; }
   };
-  // riga centrale: [casa] separatore [ospiti], composta e centrata nella cornice
-  const home = c.home !== false, cy = Y(POSTER.rowY), cx = POSTER.cx;
-  const img = await pdf.embedPng(await trimPng(await fetchBytes(POSTER.logo)));
-  const lk = Math.min(WD(POSTER.logoSlot.w) / img.width, S(POSTER.logoH) / img.height), logoW = img.width * lk, logoH = img.height * lk;
-  const D = F.display, lines = oppLines(c.opp).map(D.plain), maxW = WD(POSTER.oppSlot.w);
-  const size = Math.min(S(POSTER.opp.size), ...lines.map(l => maxW / Math.max(1, D.f.widthOfTextAtSize(l, 1))));
-  const oppW = Math.max(...lines.map(l => D.f.widthOfTextAtSize(l, size))), lh = size * POSTER.opp.lineH;
-  const vsSz = S(POSTER.vsSize), sepW = POSTER.sep === 'vs' ? S(POSTER.vsCircle) * 2 : POSTER.sep === 'punto' ? S(POSTER.dot) * 2 : 0;
-  const gap = WD(POSTER.gap), parts = (home ? ['logo', 'sep', 'opp'] : ['opp', 'sep', 'logo']).filter(p => p !== 'sep' || sepW);
-  const wOf = { logo: logoW, sep: sepW, opp: oppW };
-  let x = X(cx) - (parts.reduce((t, p) => t + wOf[p], 0) + gap * (parts.length - 1)) / 2;
-  for (const p of parts) {
-    const mid = x + wOf[p] / 2;
-    if (p === 'logo') page.drawImage(img, { x, y: cy - logoH / 2, width: logoW, height: logoH }); // logo Pro Albettone, il protagonista
-    if (p === 'sep' && POSTER.sep === 'vs') { // cerchio rosso con "vs" bianco in corsivo
-      page.drawCircle({ x: mid, y: cy, size: S(POSTER.vsCircle), color: red });
-      page.drawText('vs', { x: mid - F.vs.f.widthOfTextAtSize('vs', vsSz) / 2, y: cy - vsSz * .2, size: vsSz, font: F.vs.f, color: rgb(1, 1, 1) });
-    }
-    if (p === 'sep' && POSTER.sep === 'punto') page.drawCircle({ x: mid, y: cy, size: S(POSTER.dot), color: red });
-    if (p === 'opp') lines.forEach((l, i) => center(l, D, size, mid, cy + (lines.length - 1) * lh / 2 - i * lh, soft)); // avversario, più contenuto del logo
-    x += wOf[p] + gap;
-  }
+  // riga centrale: separatore al centro della cornice, ogni squadra centrata nella sua metà
+  const home = c.home !== false, cy = Y(P.rowY), cx = P.cx;
+  const r = P.sep === 'vs' ? S(P.vsCircle) : P.sep === 'punto' ? S(P.dot) : 0, gap = WD(P.gap);
+  const avail = Math.max(10, WD((P.frame.r - P.frame.l) / 2 - P.framePad) - r - gap); // larghezza utile di ogni metà
+  const sideX = dir => X(cx) + dir * (r + gap + avail / 2);
+  // logo Pro Albettone: il più grande possibile senza uscire dalla cornice
+  const img = await pdf.embedPng(await trimPng(await fetchBytes(P.logo)));
+  const lk = Math.min(avail * P.logoFill / img.width, S(P.logoH) / img.height), logoW = img.width * lk, logoH = img.height * lk;
+  const lx = sideX(home ? -1 : 1);
+  page.drawImage(img, { x: lx - logoW / 2, y: cy - logoH / 2, width: logoW, height: logoH });
+  // avversario: una o due righe, più contenuto del logo
+  const D = F.display, lines = oppLines(c.opp).map(D.plain);
+  const size = Math.min(S(P.oppSize), ...lines.map(l => avail * P.oppFill / Math.max(1, D.f.widthOfTextAtSize(l, 1)))), lh = size * P.oppLineH;
+  const qx = sideX(home ? 1 : -1);
+  lines.forEach((l, i) => center(l, D, size, qx, cy + (lines.length - 1) * lh / 2 - i * lh, soft));
+  // separatore
+  if (P.sep === 'vs') {
+    const vsSz = S(P.vsSize);
+    page.drawCircle({ x: X(cx), y: cy, size: r, color: red });
+    page.drawText('vs', { x: X(cx) - F.vs.f.widthOfTextAtSize('vs', vsSz) / 2, y: cy - vsSz * .2, size: vsSz, font: F.vs.f, color: rgb(1, 1, 1) });
+  } else if (P.sep === 'punto') page.drawCircle({ x: X(cx), y: cy, size: r, color: red });
   // scritte: intestazione, data, ora, campo, indirizzo
   const colors = { red, ink, soft, grey };
-  POSTER.texts.forEach(t => {
+  P.texts.forEach(t => {
     let s = String(t.text(c) || '').trim(); if (!s) return; if (t.upper) s = s.toUpperCase();
     const fo = F[t.font] || F.text, tr = t.track || 0; let sz = S(t.size);
-    while (sz > 5 && width(fo.plain(s), fo.f, sz, tr) > WD(POSTER.textW)) sz -= .5;
+    while (sz > 5 && width(fo.plain(s), fo.f, sz, tr) > WD(P.textW)) sz -= .5;
     center(s, fo, sz, X(cx), Y(t.y), colors[t.color] || ink, tr);
   });
   // bande sopra e sotto (solo se la grafica non riempie il foglio)
   const band = oy;
   if (band > 12) {
-    const full = POSTER.bands.style === 'pieno', fg = full ? rgb(1, 1, 1) : red;
-    [[H - band, POSTER.bands.top(c)], [0, POSTER.bands.bottom(c)]].forEach(([y0, txt]) => {
+    const full = P.bands.style === 'pieno', fg = full ? rgb(1, 1, 1) : red;
+    [[H - band, P.bands.top(c)], [0, P.bands.bottom(c)]].forEach(([y0, txt]) => {
       if (full) page.drawRectangle({ x: 0, y: y0, width: W, height: band, color: red });
       txt = String(txt || '').toUpperCase(); if (!txt) return;
       let sz = Math.min(band * .32, 16); while (sz > 6 && width(D.plain(txt), D.f, sz, .14) > W * .8) sz -= .5;
@@ -846,6 +878,45 @@ async function downloadPoster(id) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) { alert('Locandina non creata: ' + (e.message || e)); console.error(e); }
+}
+// Pannello admin: cursori con anteprima dal vivo, salvataggio per tutti
+async function tunePoster(id) {
+  const c = callupNow(id);
+  if (!c.opp) return alert('Manca l’avversario.');
+  let ov = JSON.parse(JSON.stringify(await posterOverrides(true)));
+  const get = (o, p) => p.split('.').reduce((a, k) => a == null ? undefined : a[k], o);
+  const set = (o, p, v) => { const ks = p.split('.'); let a = o; ks.slice(0, -1).forEach(k => { if (a[k] == null || typeof a[k] !== 'object') a[k] = {}; a = a[k]; }); a[ks[ks.length - 1]] = v; };
+  const el = document.createElement('div'); el.id = 'ov';
+  el.innerHTML = `<style>.tp{width:100%;max-width:1200px;display:grid;grid-template-columns:minmax(0,1.7fr) minmax(250px,1fr);gap:14px;align-items:start}
+.tp iframe{width:100%;aspect-ratio:1.414;border:0;border-radius:10px;background:#fff}.tp .sl{max-height:calc(100vh - 140px);overflow:auto;background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px}
+.tp label{display:block;font-size:13px;margin:0 0 8px}.tp label span{display:flex;justify-content:space-between}.tp input[type=range]{width:100%;padding:0;margin:2px 0;border:0;background:none}
+@media(max-width:760px){.tp{grid-template-columns:1fr}.tp .sl{max-height:none}}</style>
+<button class="x" onclick="this.parentNode.remove()">✕</button><div class="tp"><div><iframe id="tpf" title="Anteprima locandina"></iframe>
+<p class="mut" id="tpm" style="font-size:13px">Anteprima dal vivo (dal computer si vede meglio). Le modifiche valgono per tutti solo dopo «Salva per tutti».</p></div>
+<div class="sl"><div id="tps"></div><div class="btns"><button id="tpsave">Salva per tutti</button><button class="g" id="tpreset">Ripristina predefiniti</button></div></div></div>`;
+  document.body.appendChild(el);
+  const box = el.querySelector('#tps'), frame = el.querySelector('#tpf'), msg = el.querySelector('#tpm');
+  let url = null, timer = null, busy = false, again = false;
+  const preview = async () => {
+    if (busy) { again = true; return; } busy = true;
+    try { const bytes = await makePosterPdf(c, posterConfig(ov)); const u = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); frame.src = u + '#toolbar=0&navpanes=0&view=Fit'; if (url) URL.revokeObjectURL(url); url = u; }
+    catch (e) { msg.textContent = 'Anteprima non riuscita: ' + (e.message || e); }
+    busy = false; if (again) { again = false; preview(); }
+  };
+  const draw = () => {
+    const P = posterConfig(ov);
+    box.innerHTML = posterTune().map(([p, label, min, max, step]) => { const v = get(P, p); return `<label><span>${esc(label)}<b>${(v * 100).toFixed(1)}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-p="${p}"></label>`; }).join('');
+    box.querySelectorAll('input').forEach(inp => inp.oninput = () => {
+      set(ov, inp.dataset.p, Number(inp.value)); inp.previousElementSibling.querySelector('b').textContent = (Number(inp.value) * 100).toFixed(1);
+      clearTimeout(timer); timer = setTimeout(preview, 250);
+    });
+  };
+  el.querySelector('#tpsave').onclick = async () => {
+    try { await q(sb.from('app_settings').upsert({ key: 'poster', value: ov, updated_at: new Date().toISOString() })); posterOv = JSON.parse(JSON.stringify(ov)); alert('Locandina salvata ✓ Da ora tutti la scaricano così.'); }
+    catch (e) { alert('Non salvata: ' + (e.message || e) + '\nHai creato la tabella app_settings su Supabase?'); }
+  };
+  el.querySelector('#tpreset').onclick = () => { if (!confirm('Tornare alle misure predefinite? (Diventa definitivo solo con «Salva per tutti».)')) return; ov = {}; draw(); preview(); };
+  draw(); preview();
 }
 const callupBtns = id => `<div class="row"><button class="g s" onclick="showCallupCard('${id}')">📸 Card da condividere</button><button class="g s" onclick="printCallup('${id}')">🖨️ Stampa A4</button></div>`;
 
