@@ -1,0 +1,15 @@
+{
+  "name": "MVP Pro Albettone",
+  "short_name": "MVP",
+  "description": "MVP, marcatori e convocazioni della Pro Albettone",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2a0508",
+  "theme_color": "#d7142c",
+  "lang": "it",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192 512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

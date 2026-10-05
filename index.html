@@ -6,7 +6,11 @@
 <title>MVP della Partita</title>
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="MVP">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#d7142c">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -82,6 +86,7 @@ select:disabled{opacity:.45}
 .coach .st.still{animation:none}
 .card.ok{border-color:#fff}
 .li{font-size:14px;color:var(--hl);margin-top:4px}
+.ist{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.ist:last-child{border-bottom:0}.ist .rk{flex:none}.ist b{display:block;margin-bottom:2px}
 .cvs{font-weight:600}.cvs.yes{background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 8px}.cvs.no{opacity:.75}.cvs.wait{font-style:italic;font-weight:400}
 /* card convocazione */
 .sc .cbox{background:#fff;color:color-mix(in srgb,var(--team) 60%,#000);border-radius:16px;padding:10px 14px;margin:6px 0 4px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;text-align:left;align-items:baseline}
@@ -200,10 +205,10 @@ async function render(keep) {
   prof = await q(sb.from('profiles').select('*').eq('id', me.id).single());
   const admin = isAdmin();
   let body;
-  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'a' && admin ? await adminView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
+  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
-  ${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}<button class="g s" onclick="sb.auth.signOut().then(()=>authView())">Esci</button></div></div>
+  ${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="sb.auth.signOut().then(()=>authView())">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')">Convocazioni</button>` : ''}
@@ -377,6 +382,7 @@ async function matchesView(admin) {
   // le votazioni aperte in cima, poi le altre per data
   vis.sort((a, b) => (b.status === 'open') - (a.status === 'open'));
   return `
+  ${!isApp && isPhone && !lsGet('hideInstall') ? `<div class="pv"><span>📲 <b>Usa il sito come un’app</b>: aggiungilo alla schermata Home del telefono.</span><span style="display:flex;gap:6px">${installEvt ? '<button class="s" onclick="installNow()">Installa</button>' : '<button class="s" onclick="go(\'i\')">Come fare</button>'}<button class="g s" onclick="lsSet('hideInstall','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
   <h2>Partite</h2>${vis.map(m => `<div class="card row${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="go('p','${m.id}')" style="cursor:pointer"><div>${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}<b>vs ${esc(m.opponent)}</b> ${hasScore(m) ? '· <b>' + scoreTxt(m) + '</b> ' : ''}${m.outcome ? '· ' + OUT[m.outcome] : ''}<div class="mut">${m.played_on}${m.phase ? ' · ' + PH[m.phase] : ''}${m.status === 'open' && m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div>${info[m.id] || ''}${m.is_test && asPlayer ? '<div class="li" style="font-style:italic">🧪 I compagni non vedono questa partita: la vedi solo tu per provare la Vista giocatore.</div>' : ''}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span></div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
 }
 function newMatch() {
@@ -751,6 +757,48 @@ const extraV = (mid, uid, el) => quiet(() => q(el.checked ? sb.from('match_voter
 const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; mg = null; }, false);
 
 let rkPh = null; // 'andata' | 'ritorno' | 'tot'
+// ---------- Pagina "Aggiungi alla schermata Home" ----------
+const UA = navigator.userAgent || '';
+const isIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isAndroid = /Android/.test(UA), isPhone = isIOS || isAndroid;
+const isApp = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const inAppBrowser = /FBAN|FBAV|Instagram|WhatsApp|Line\/|Telegram/i.test(UA);
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+let instOs = null;
+// Android/Chrome: il browser ci consegna l'invito all'installazione, che usiamo per il pulsante «Installa ora»
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (typeof prof !== 'undefined' && prof && (tab === 'i' || tab === 'p') && !cur) render(true); });
+window.addEventListener('appinstalled', () => { installEvt = null; lsSet('hideInstall', '1'); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+async function installNow() {
+  if (!installEvt) return go('i');
+  installEvt.prompt();
+  try { await installEvt.userChoice; } catch (e) {}
+  installEvt = null; render(true);
+}
+function installView() {
+  const os = instOs || (isAndroid ? 'and' : 'ios');
+  const step = (n, t, d) => `<div class="ist"><span class="rk">${n}</span><div><b>${t}</b>${d ? `<div class="mut">${d}</div>` : ''}</div></div>`;
+  const ios = [
+    step(1, 'Apri il sito con Safari', 'Se l’hai aperto da WhatsApp o da un’altra app, tocca l’icona della bussola o «Apri in Safari».'),
+    step(2, 'Tocca il pulsante Condividi', 'È il quadrato con la freccia verso l’alto ⬆️, nella barra in basso (su iPad in alto).'),
+    step(3, 'Scegli «Aggiungi alla schermata Home»', 'Se non lo vedi, scorri l’elenco verso il basso. Su iOS recenti può essere dentro «Altro…».'),
+    step(4, 'Premi «Aggiungi» in alto a destra', 'L’icona compare sulla schermata Home insieme alle altre app.')].join('');
+  const and = [
+    step(1, 'Apri il sito con Chrome', 'Se l’hai aperto da WhatsApp, tocca i tre puntini ⋮ e scegli «Apri in Chrome» o «Apri nel browser».'),
+    step(2, 'Tocca i tre puntini ⋮', 'In alto a destra, accanto alla barra dell’indirizzo.'),
+    step(3, 'Scegli «Aggiungi a schermata Home»', 'A volte la voce si chiama «Installa app». Su Samsung Internet è nel menù ☰ → «Aggiungi pagina a» → «Schermata Home».'),
+    step(4, 'Conferma con «Aggiungi»', 'Puoi anche trascinare l’icona dove preferisci.')].join('');
+  return `<button class="g s" onclick="go('p')">← Partite</button><h2>Il sito come un’app</h2>
+  <p class="mut">Aggiungendo il sito alla schermata Home lo apri con un tocco, a schermo intero, come una vera app. Non si scarica niente dagli store e resti collegato con il tuo account.</p>
+  ${inAppBrowser ? '<div class="pv"><span>⚠️ Stai usando il browser interno di un’altra app (per esempio WhatsApp): da qui non si può aggiungere alla Home. Apri prima il sito in Safari o Chrome.</span></div>' : ''}
+  <div class="row" style="justify-content:flex-start;gap:8px;margin:8px 0"><button class="s ${os === 'ios' ? '' : 'g'}" onclick="instOs='ios';render(true)">📱 iPhone</button><button class="s ${os === 'and' ? '' : 'g'}" onclick="instOs='and';render(true)">🤖 Android</button></div>
+  ${installEvt ? `<button onclick="installNow()">📲 Installa ora</button><p class="mut" style="text-align:center">Un tocco e l’icona compare sulla Home. In alternativa segui i passaggi qui sotto.</p>` : isIOS ? '<p class="mut">Su iPhone Apple non permette ai siti di installarsi da soli: servono questi quattro tocchi.</p>' : ''}
+  <div class="card">${os === 'ios' ? ios : and}</div>
+  <p class="mut">Fatto? D’ora in poi apri il sito dall’icona sulla Home: il pulsante «📲 App» in alto sparirà, perché sarai già nell’app.</p>`;
+}
+
 // Classifica marcatori (e assist, secondaria). Contano tutte le partite tranne quelle di test.
 async function scorersView() {
   const ms = (await q(sb.from('matches').select('*').order('played_on', { ascending: false }))).filter(m => !m.is_test);
