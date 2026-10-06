@@ -216,7 +216,39 @@ function togglePreview() {
 }
 async function act(fn, keep = true) { try { await fn(); } catch (e) { alert(e.message || e); } render(keep); }
 const quiet = async (fn, el) => { try { await fn(); } catch (e) { if (el) el.checked = !el.checked; alert(e.message || e); } };
-function go(t, id = null) { tab = t; cur = id; pick = null; try { if (location.search) history.replaceState(null, '', location.pathname); } catch (e) {} render(); }
+function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
+
+// ---------- INDIRIZZO DI OGNI SEZIONE ----------
+// Il sito resta un unico file, ma l'indirizzo cambia con la sezione (es. …/#mvp, …/#gestione/<id>):
+// così il tasto «Indietro» torna alla schermata precedente, ricaricando si resta dove si era
+// e si può condividere il link di una sezione. I vecchi link …?match=<id> continuano a funzionare.
+const ROUTES = { p: 'partite', c: 'mvp', g: 'marcatori', k: 'convocazioni', i: 'app', n: 'gestione', a: 'admin' };
+const routeOf = () => cur ? 'partita/' + cur
+  : ROUTES[tab] + (tab === 'n' && mg ? '/' + (mg === 'new' ? 'nuova' : mg) : tab === 'k' && ck ? '/' + ck : '');
+function readRoute() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  cur = null; mg = null; ck = null; pick = null; tab = 'p';
+  if (!h || h.includes('=')) return; // indirizzo vuoto o dati del login (es. conferma email): si parte dalle partite
+  const [a, b] = h.split('/');
+  if (a === 'partita' && b) { cur = b; return; }
+  const t = Object.keys(ROUTES).find(k => ROUTES[k] === a);
+  if (!t) return;
+  tab = t;
+  if (t === 'n' && b) mg = b === 'nuova' ? 'new' : b;
+  if (t === 'k' && b) ck = b;
+}
+let lastRoute = null;
+function syncRoute() {
+  const r = '#' + routeOf();
+  if (location.hash !== r || location.search) {
+    // il primo caricamento sostituisce l'indirizzo; i cambi di schermata aggiungono un passo per il tasto «Indietro»
+    try { history[lastRoute === null ? 'replaceState' : 'pushState'](null, '', location.pathname + r); } catch (e) {}
+  }
+  lastRoute = r;
+}
+const onRoute = () => { if (location.hash === lastRoute) return; lastRoute = location.hash; readRoute(); render(); };
+window.addEventListener('popstate', onRoute);
+window.addEventListener('hashchange', onRoute);
 const v = id => $(id).value.trim();
 
 // ---------- ACCESSO ----------
@@ -256,6 +288,8 @@ async function render(keep) {
   if (!prof || prof.id !== me.id) prof = await profP;
   const before = JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]);
   const admin = isAdmin();
+  // sezioni riservate: chi non ha i permessi torna alle partite
+  if (((tab === 'a' || tab === 'n') && !admin) || (tab === 'k' && !prof.is_coach)) tab = 'p';
   let body;
   try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
@@ -267,6 +301,7 @@ async function render(keep) {
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')">Convocazioni</button>` : ''}
   ${admin ? `<button class="${tab === 'n' && !cur ? 'on' : ''}" onclick="mg=null;go('n')">Gestione</button><button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')">Admin</button>` : ''}</nav>`;
+  syncRoute();
   window.scrollTo(0, keep ? y : 0);
 }
 
@@ -372,14 +407,14 @@ async function manageMatch(id) {
   const nConv = cids.length, nConvocabili = players.filter(p => !isOutP(p)).length;
   const st = {
     cv: m.status !== 'draft' || (m.kickoff && (m.venue_name || m.venue_address)) ? 'done' : 'todo',
-    cc: m.status !== 'draft' || nConv ? 'done' : 'todo',
+    cc: m.status !== 'draft' || nConv >= CONV_MIN ? 'done' : 'todo',
     vt: m.status === 'open' ? 'todo' : m.status === 'closed' ? 'done' : nConv && played && m.outcome ? 'todo' : 'later', // senza risultato non si decide se aprire il voto
     rs: hasScore(m) && goals.length >= m.goals_for ? 'done' : played ? 'todo' : 'later' };
   const badge = (k, txt) => ({ todo: 'da fare', later: 'più avanti', done: '✓' })[st[k]] + (txt ? ' · ' + txt : '');
   const cls = k => st[k] === 'todo' ? 'c-todo' : '';
   const sec = {
     cv: grp('s-cv', 'Orari e luoghi', badge('cv', m.kickoff ? 'ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<button onclick="saveCallupTimes('${id}')">💾 Salva orari e luoghi</button>${posterTiles(id)}`, '', cls('cv')),
-    cc: grp('mc', 'Convocati', badge('cc', '<span id="mcn">' + nConv + '</span> / ' + nConvocabili), `${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${shareTiles(id, 'Usano i convocati spuntati qui sopra e orari e luoghi della sezione «Orari e luoghi»: salvali prima di condividere.')}`, '', cls('cc')),
+    cc: grp('mc', 'Convocati', convBadge(nConv, nConvocabili, m.status === 'draft'), `${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${shareTiles(id, 'Usano i convocati spuntati qui sopra e orari e luoghi della sezione «Orari e luoghi»: salvali prima di condividere.')}`, CONV_HINT, cls('cc')),
     vt: grp('s-vt', 'Votazione', badge('vt', ST[m.status]), `${durBlock}${quorumBlock}
   <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
   <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi link</button><button class="g" onclick="copyLink('${id}')">Copia link</button></div>
@@ -536,7 +571,17 @@ const callupFields = m => `<p class="mut">Orario della partita:</p><input id="ko
   <p class="mut">Ritrovo 1 (es. «dalla Rosa»):</p><div class="tmr"><input id="m1t" type="time" value="${hm(m.meet1_time)}"><input id="m1p" placeholder="Luogo (facoltativo)" value="${esc(m.meet1_place || '')}"></div>
   <p class="mut">Ritrovo 2 (es. «Campo di Albettone»):</p><div class="tmr"><input id="m2t" type="time" value="${hm(m.meet2_time)}"><input id="m2p" placeholder="Luogo (facoltativo)" value="${esc(m.meet2_place || '')}"></div>`;
 const callupVals = () => ({ kickoff: v('ko') || null, venue_name: v('vn').trim() || null, venue_address: v('va').trim() || null, venue_map: safeUrl(v('vm').trim()) || null, meet1_time: v('m1t') || null, meet1_place: v('m1p').trim() || null, meet2_time: v('m2t') || null, meet2_place: v('m2p').trim() || null });
-const countConv = () => { const n = document.querySelectorAll('.cvx:checked').length; ['cvn', 'mcn'].forEach(k => { const el = $(k); if (el) el.textContent = n; }); };
+// Sezione «Convocati» completa da 11 convocati in su (admin e mister)
+const CONV_MIN = 11;
+const convBadge = (n, tot, live) => `<span id="mcs"${live ? ' data-live="1"' : ''}>${!live || n >= CONV_MIN ? '✓' : 'da fare'}</span> · <span id="mcn">${n}</span> / ${tot}`;
+const CONV_HINT = `Ogni spunta si salva subito. La sezione è completa da ${CONV_MIN} convocati in su.`;
+// aggiorna contatore e stato della sezione a ogni spunta, senza ricaricare la pagina
+const countConv = () => {
+  const n = document.querySelectorAll('.cvx:checked').length;
+  ['cvn', 'mcn'].forEach(k => { const el = $(k); if (el) el.textContent = n; });
+  const s = $('mcs');
+  if (s && s.dataset.live) { const ok = n >= CONV_MIN; s.textContent = ok ? '✓' : 'da fare'; const d = s.closest('details'); if (d) d.classList.toggle('c-todo', !ok); }
+};
 // Testo da incollare nel gruppo WhatsApp, costruito da quello che c'è a schermo
 const callupMeta = {}; // id partita -> { opp, date } per il testo da condividere
 async function shareCallup(id) {
@@ -557,24 +602,40 @@ async function callupView() {
   const cv = ms.length ? await q(sb.from('match_players').select('match_id').in('match_id', ms.map(m => m.id))) : [];
   return `<h2>Convocazioni</h2><p class="mut">Le partite le crea l’admin. Qui scegli orari, ritrovi e convocati finché la votazione non è aperta.</p>
   ${ms.map(m => { const n = cv.filter(c => c.match_id === m.id).length;
-    return `<div class="card row" onclick="ck='${m.id}';render()" style="cursor:pointer"><div>${scoreLine(m)}<div class="mut">${dayTxt(m.played_on)}${m.kickoff ? ' · ore ' + hm(m.kickoff) : ''}</div></div><span class="tag ${n ? '' : 'o'}">${n ? n + ' convocati' : 'Da fare'}</span></div>`; }).join('') || '<div class="card mut">Nessuna partita in programma.</div>'}`;
+    const todo = !(m.kickoff && (m.venue_name || m.venue_address)) || n < CONV_MIN;
+    return `<div class="card row" onclick="ck='${m.id}';render()" style="cursor:pointer"><div>${scoreLine(m)}<div class="mut">${dayTxt(m.played_on)}${m.kickoff ? ' · ore ' + hm(m.kickoff) : ''}</div></div><span class="tag ${todo ? 'o' : ''}">${n ? n + ' convocati' : 'Da fare'}${todo && n ? ' · da fare' : ''}</span></div>`; }).join('') || '<div class="card mut">Nessuna partita in programma.</div>'}`;
 }
 async function callupEdit(m) {
   const [roster, conv] = await Promise.all([q(sb.rpc('coach_roster')), q(sb.from('match_players').select('player_id').eq('match_id', m.id))]);
-  const cids = conv.map(c => c.player_id);
-  callupMeta[m.id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase };
-  return `<button class="g s" onclick="ck=null;render()">← Tutte le partite</button><h2 style="margin-bottom:2px">vs ${esc(m.opponent)}</h2><div class="mut">${dayTxt(m.played_on)}</div>
-  <h3>Orari e luoghi</h3><div class="card">${callupFields(m)}${posterTiles(m.id)}</div>
-  <h3>Convocati: <span id="cvn">${cids.length}</span></h3><div class="card">${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" value="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="countConv()"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}
-  <button onclick="saveCallup('${m.id}')">💾 Salva orari e convocati</button>
-  ${shareTiles(m.id, 'Salva prima di condividere, così i compagni trovano le stesse informazioni anche sul sito.')}</div>`;
+  const id = m.id, cids = conv.map(c => c.player_id), n = cids.length;
+  // «saved» = orari e luoghi già salvati: le spunte li rimandano così come sono, senza toccare quelli non ancora salvati
+  callupMeta[id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase,
+    saved: { kickoff: m.kickoff, venue_name: m.venue_name, venue_address: m.venue_address, venue_map: m.venue_map, meet1_time: m.meet1_time, meet1_place: m.meet1_place, meet2_time: m.meet2_time, meet2_place: m.meet2_place } };
+  // stesse sezioni dell'admin, in ordine di priorità: prima orari e luoghi, poi i convocati
+  const st = { cv: m.kickoff && (m.venue_name || m.venue_address) ? 'done' : 'todo', cc: n >= CONV_MIN ? 'done' : 'todo' };
+  const cls = k => st[k] === 'todo' ? 'c-todo' : '';
+  const sec = {
+    cv: grp('s-cv', 'Orari e luoghi', (st.cv === 'todo' ? 'da fare' : '✓') + (m.kickoff ? ' · ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<button onclick="coachSaveTimes('${id}')">💾 Salva orari e luoghi</button>${posterTiles(id)}`, '', cls('cv')),
+    cc: grp('mc', 'Convocati', convBadge(n, roster.length, true), `${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" value="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="coachTick('${id}')"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}${shareTiles(id, 'Usano i convocati spuntati qui sopra e orari e luoghi della sezione «Orari e luoghi»: salvali prima di condividere.')}`, CONV_HINT, cls('cc')) };
+  const sorted = ['cv', 'cc'].sort((x, y) => (st[x] === 'todo' ? 0 : 1) - (st[y] === 'todo' ? 0 : 1));
+  if (!autoOpen.has(id)) { autoOpen.add(id); const f = sorted.find(k => st[k] === 'todo'); if (f) openG.add(f === 'cc' ? 'mc' : 's-cv'); }
+  return `<button class="g s" onclick="ck=null;render()">← Tutte le partite</button>${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 4px;text-transform:capitalize">${dayTxt(m.played_on)}</div>${sorted.map(k => sec[k]).join('')}`;
 }
-function saveCallup(id) {
-  const c = callupVals(), ids = [...document.querySelectorAll('.cvx:checked')].map(x => x.value);
-  act(async () => {
-    await q(sb.rpc('coach_set_callup', { p_match: id, p_kickoff: c.kickoff, p_m1_time: c.meet1_time, p_m1_place: c.meet1_place, p_m2_time: c.meet2_time, p_m2_place: c.meet2_place, p_venue_name: c.venue_name, p_venue_address: c.venue_address, p_venue_map: c.venue_map, p_players: ids }));
-    alert('Convocazione salvata ✓');
-  });
+// Il mister salva tutto con la funzione coach_set_callup (orari, luoghi e lista convocati insieme)
+const coachArgs = (id, c, ids) => ({ p_match: id, p_kickoff: c.kickoff || null, p_m1_time: c.meet1_time || null, p_m1_place: c.meet1_place || null, p_m2_time: c.meet2_time || null, p_m2_place: c.meet2_place || null,
+  p_venue_name: c.venue_name || null, p_venue_address: c.venue_address || null, p_venue_map: c.venue_map || null, p_players: ids });
+const checkedIds = () => [...document.querySelectorAll('.cvx:checked')].map(x => x.value);
+// Spunta del mister: si salva subito. I salvataggi vanno in fila, così anche spunte rapide arrivano nell'ordine giusto.
+let coachQ = Promise.resolve();
+function coachTick(id) {
+  countConv();
+  const saved = (callupMeta[id] || {}).saved || {}, ids = checkedIds(); // elenco preso adesso, al momento della spunta
+  coachQ = coachQ.then(() => q(sb.rpc('coach_set_callup', coachArgs(id, saved, ids))))
+    .catch(e => { alert('Convocati non salvati: ' + (e.message || e)); render(true); });
+}
+function coachSaveTimes(id) {
+  const c = callupVals(), ids = checkedIds();
+  act(async () => { await coachQ; await q(sb.rpc('coach_set_callup', coachArgs(id, c, ids))); });
 }
 // Dati della convocazione presi da quello che c'è a schermo (anche se non ancora salvato)
 const callupNow = id => ({ ...(callupMeta[id] || {}), ...callupVals(), names: [...document.querySelectorAll('.cvx:checked')].map(x => x.dataset.name) });
@@ -1045,7 +1106,7 @@ async function tunePoster(id) {
 // Pulsanti a riquadro, tutti della stessa misura, in due gruppi: invio della convocazione e locandina
 const tile = (ic, lb, fn) => `<button class="g" onclick="${fn}"><span>${ic}</span>${lb}</button>`;
 const shareTiles = (id, note = '') => `<div class="acts"><p class="ak">📣 Invia la convocazione</p><div class="tiles">${tile('💬', 'WhatsApp', `shareCallup('${id}')`)}${tile('📸', 'Card', `showCallupCard('${id}')`)}${tile('🖨️', 'Stampa A4', `printCallup('${id}')`)}</div>${note ? `<p class="mut" style="font-size:13px;margin-bottom:0">${note}</p>` : ''}</div>`;
-const posterTiles = id => `<div class="acts"><p class="ak">🍻 Locandina per il bar</p><div class="tiles">${tile('📄', 'Scarica PDF', `downloadPoster('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola', `tunePoster('${id}')`) : ''}</div></div>`;
+const posterTiles = id => `<div class="acts"><p class="ak">🖼️ Locandina</p><div class="tiles">${tile('📄', 'Scarica PDF', `downloadPoster('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola', `tunePoster('${id}')`) : ''}</div></div>`;
 
 // Admin: salva solo orari e ritrovi (i convocati si salvano a ogni spunta)
 const saveCallupTimes = id => act(() => q(sb.from('matches').update(callupVals()).eq('id', id)));
@@ -1481,8 +1542,9 @@ setInterval(() => document.querySelectorAll('.cd').forEach(el => {
   if (t.expired && el.dataset.live && !el.dataset.x) { el.dataset.x = 1; render(true); }
 }), 15000);
 
-const _m = new URLSearchParams(location.search).get('match');
-if (/^[0-9a-f-]{36}$/i.test(_m || '')) cur = _m;
+readRoute();
+const _m = new URLSearchParams(location.search).get('match'); // vecchi link condivisi
+if (/^[0-9a-f-]{36}$/i.test(_m || '')) { cur = _m; tab = 'p'; }
 A.innerHTML = '<p class="mut" style="padding:40px;text-align:center">Caricamento…</p>';
 render();
 </script>
