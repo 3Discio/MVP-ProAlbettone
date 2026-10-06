@@ -183,6 +183,11 @@ details.grp summary .tag{margin-left:auto}
 /* ricerca persone (pagina Admin) */
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}.chips button{width:auto;margin:0;padding:5px 10px;font-size:13px}
 .sres{margin:6px 0;padding:4px 12px}
+/* messaggio di conferma a scomparsa, in alto (non copre la barra «Salva convocati») */
+.toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:100;max-width:calc(100vw - 32px);display:flex;align-items:center;gap:8px;
+  background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:10px 18px;font:600 15px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap;animation:toast 2.6s ease forwards}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,-12px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-6px);visibility:hidden}}
+@media (prefers-reduced-motion:reduce){.toast{animation:toast 2.6s steps(1,end) forwards}}
 /* convocati: riquadro con conteggio e «Salva», sempre visibile in basso mentre scorri i nomi */
 .cbar{position:sticky;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;justify-content:space-between;align-items:center;gap:10px;margin:10px 0 4px;padding:8px 10px 8px 14px;border-radius:12px;border:2px solid #fff;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,.55)}
 .cbar b{font-family:Oswald,Impact,sans-serif;font-size:22px}.cbar .s{flex:none}
@@ -215,18 +220,31 @@ const isAdmin = () => !!(prof && prof.is_admin && !asPlayer);
 function togglePreview() {
   asPlayer = !asPlayer;
   try { localStorage.setItem('mvp_asPlayer', asPlayer ? '1' : '0'); } catch (e) {}
-  if (asPlayer && (tab === 'a' || tab === 'n')) tab = 'p';
+  if (asPlayer && (tab === 'a' || tab === 'n' || tab === 'o')) tab = 'p';
   render(true);
 }
-async function act(fn, keep = true) { try { await fn(); } catch (e) { alert(e.message || e); } render(keep); }
-const quiet = async (fn, el) => { try { await fn(); } catch (e) { if (el) el.checked = !el.checked; alert(e.message || e); } };
+// Messaggio di conferma che compare in alto e sparisce da solo (gli errori restano finestre da chiudere)
+function toast(msg) {
+  const old = document.querySelector('.toast'); if (old) old.remove();
+  const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2800);
+}
+// Esegue un'operazione sul database, ridisegna la pagina e conferma con un messaggio (msg = '' per nessun messaggio)
+async function act(fn, keep = true, msg = 'Salvato ✓') {
+  let ok = false;
+  try { await fn(); ok = true; } catch (e) { alert(e.message || e); }
+  await render(keep);
+  if (ok && msg) toast(msg);
+}
+// Come act, ma senza ridisegnare (spunte che si salvano da sole)
+const quiet = async (fn, el, msg = 'Salvato ✓') => { try { await fn(); if (msg) toast(msg); } catch (e) { if (el) el.checked = !el.checked; alert(e.message || e); } };
 function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
 
 // ---------- INDIRIZZO DI OGNI SEZIONE ----------
 // Il sito resta un unico file, ma l'indirizzo cambia con la sezione (es. …/#mvp, …/#gestione/<id>):
 // così il tasto «Indietro» torna alla schermata precedente, ricaricando si resta dove si era
 // e si può condividere il link di una sezione. I vecchi link …?match=<id> continuano a funzionare.
-const ROUTES = { p: 'partite', c: 'mvp', g: 'marcatori', k: 'convocazioni', i: 'app', n: 'gestione', a: 'admin' };
+const ROUTES = { p: 'partite', c: 'mvp', g: 'marcatori', k: 'convocazioni', i: 'app', n: 'gestione', a: 'admin', o: 'online' };
 const routeOf = () => cur ? 'partita/' + cur
   : ROUTES[tab] + (tab === 'n' && mg ? '/' + (mg === 'new' ? 'nuova' : mg) : tab === 'k' && ck ? '/' + ck : '');
 function readRoute() {
@@ -295,14 +313,14 @@ async function render(keep) {
   const before = JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]);
   const admin = isAdmin();
   // sezioni riservate: chi non ha i permessi torna alle partite
-  if (((tab === 'a' || tab === 'n') && !admin) || (tab === 'k' && !prof.is_coach)) tab = 'p';
+  if (((tab === 'a' || tab === 'n' || tab === 'o') && !admin) || (tab === 'k' && !prof.is_coach)) tab = 'p';
   let body;
-  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
+  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   try { prof = await profP; } catch (e) {}
   if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]) !== before) return render(keep);
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
-  ${admin ? `<button class="g s on-pill" onclick="go('a')" title="Persone con il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="logout()">Esci</button></div></div>
+  ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')">Convocazioni</button>` : ''}
@@ -500,7 +518,7 @@ function newMatch() {
   const gf = v('gf'), ga = v('ga');
   if ((gf === '') !== (ga === '')) return alert('Inserisci entrambi i gol del risultato, oppure lasciali vuoti.');
   const sc = gf === '' ? {} : { goals_for: +gf, goals_against: +ga, outcome: outFrom(+gf, +ga) };
-  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), is_home: v('hm') !== '0', ...sc, phase: v('ph'), ...($('tst').checked ? { is_test: true } : {}) }).select().single()); mg = m.id; }, false);
+  act(async () => { const m = await q(sb.from('matches').insert({ opponent: v('op'), played_on: v('dt'), is_home: v('hm') !== '0', ...sc, phase: v('ph'), ...($('tst').checked ? { is_test: true } : {}) }).select().single()); mg = m.id; }, false, 'Partita creata ✓');
 }
 
 // Tipi di gol: [icona, etichetta]. Assist possibile solo per azione, punizione e calcio d'angolo.
@@ -536,12 +554,12 @@ function saveScore(id) {
     const n = (await q(sb.from('goals').select('id').eq('match_id', id))).length;
     if (n > +gf) throw new Error(`Hai già inserito ${n} marcatori: elimina prima i gol in più.`);
     await q(sb.from('matches').update({ goals_for: +gf, goals_against: +ga, outcome: outFrom(+gf, +ga) }).eq('id', id));
-  });
+  }, true, 'Risultato salvato ✓');
 }
 const clearScore = id => confirm('Cancellare risultato, esito e marcatori di questa partita?') && act(async () => {
   await q(sb.from('goals').delete().eq('match_id', id));
   await q(sb.from('matches').update({ goals_for: null, goals_against: null, outcome: null }).eq('id', id));
-});
+}, true, 'Risultato cancellato ✓');
 function onKind() {
   const k = v('gk');
   $('gs').style.display = k === 'autogol' ? 'none' : '';
@@ -551,9 +569,9 @@ function addGoal(id) {
   const k = v('gk'), sc = v('gs'), as = ASSISTABLE.includes(k) ? v('gas') : '';
   if (k !== 'autogol' && !sc) return alert('Scegli chi ha segnato.');
   if (as && as === sc) return alert('Chi segna non può fare anche l’assist.');
-  act(() => q(sb.from('goals').insert({ match_id: id, kind: k, scorer_id: k === 'autogol' ? null : sc, assist_id: as || null })));
+  act(() => q(sb.from('goals').insert({ match_id: id, kind: k, scorer_id: k === 'autogol' ? null : sc, assist_id: as || null })), true, 'Gol aggiunto ✓');
 }
-const delGoal = id => confirm('Eliminare questo gol?') && act(() => q(sb.from('goals').delete().eq('id', id)));
+const delGoal = id => confirm('Eliminare questo gol?') && act(() => q(sb.from('goals').delete().eq('id', id)), true, 'Gol eliminato ✓');
 
 // ---------- Convocazioni (mister e admin) ----------
 const hm = t => t ? String(t).slice(0, 5) : '';
@@ -582,7 +600,7 @@ const meetFields = (m, fn) => `<p class="ak" style="margin:0 0 4px">📍 Ritrovi
   <p class="mut" style="margin:4px 0 0">Ritrovo 1 (es. «dalla Rosa»):</p><div class="tmr"><input id="m1t" type="time" value="${hm(m.meet1_time)}"><input id="m1p" placeholder="Luogo (facoltativo)" value="${esc(m.meet1_place || '')}"></div>
   <p class="mut" style="margin:4px 0 0">Ritrovo 2 (es. «Campo di Albettone»):</p><div class="tmr"><input id="m2t" type="time" value="${hm(m.meet2_time)}"><input id="m2p" placeholder="Luogo (facoltativo)" value="${esc(m.meet2_place || '')}"></div>
   <button onclick="${fn}">💾 Salva ritrovi</button>
-  <p class="ak" style="margin:18px 0 4px">✅ Convocati</p>`;
+  <p class="ak" style="margin:18px 0 4px">👥 Convocati</p>`;
 // Riquadro fisso con il conteggio delle spunte (anche non salvate) e il pulsante «Salva convocati»
 const convBar = (cids, fn) => `<div class="cbar" id="cbar" data-saved="${cids.join(',')}"><span><b id="cbn">${cids.length}</b> convocati <span id="cbs">· ✓ salvati</span></span><button class="s" onclick="${fn}">💾 Salva convocati</button></div>`;
 // valori a schermo: orario e luogo (sezione «Orari e luoghi») e ritrovi (sezione «Convocati»)
@@ -601,7 +619,7 @@ function formRestore(sn) {
 }
 const checkedIds = () => [...document.querySelectorAll('.cvx:checked')].map(x => x.dataset.pid);
 // Admin: salva ritrovi e convocati con i rispettivi pulsanti
-const adminSaveMeet = id => act(() => q(sb.from('matches').update(meetVals()).eq('id', id)));
+const adminSaveMeet = id => act(() => q(sb.from('matches').update(meetVals()).eq('id', id)), true, 'Ritrovi salvati ✓');
 function adminSaveConv(id) {
   const ids = checkedIds();
   act(async () => {
@@ -609,12 +627,12 @@ function adminSaveConv(id) {
     const add = ids.filter(p => !now.includes(p)), del = now.filter(p => !ids.includes(p));
     if (add.length) await q(sb.from('match_players').insert(add.map(p => ({ match_id: id, player_id: p }))));
     if (del.length) await q(sb.from('match_players').delete().eq('match_id', id).in('player_id', del));
-  });
+  }, true, `Convocati salvati ✓ (${ids.length})`);
 }
 // Sezione «Convocati» completa da 11 convocati in su (admin e mister)
 const CONV_MIN = 11;
 const convBadge = (n, tot, live) => `<span id="mcs"${live ? ' data-live="1"' : ''}>${!live || n >= CONV_MIN ? '✓' : 'da fare'}</span> · <span id="mcn">${n}</span> / ${tot}`;
-const CONV_HINT = `Ritrovi e convocati hanno ognuno il suo «Salva». Il riquadro con il conteggio resta visibile in basso mentre scorri i nomi: se esci senza salvare, le spunte nuove si perdono. La sezione è completa da ${CONV_MIN} convocati salvati in su.`;
+const CONV_HINT = `La sezione è completa da ${CONV_MIN} convocati in su.`;
 // aggiorna contatore e stato della sezione a ogni spunta, senza ricaricare la pagina
 const countConv = () => {
   const on = checkedIds(), n = on.length, bar = $('cbar');
@@ -670,11 +688,11 @@ const coachArgs = (id, c, ids) => ({ p_match: id, p_kickoff: c.kickoff || null, 
 // Mister: tre «Salva» distinti. coach_set_callup salva tutto insieme, quindi per le parti non toccate rimanda i valori già salvati.
 const coachSave = (id, part) => {
   const meta = callupMeta[id] || {}, c = { ...(meta.saved || {}), ...(part.vals || {}) }, ids = part.conv ? checkedIds() : meta.savedIds || [];
-  act(() => q(sb.rpc('coach_set_callup', coachArgs(id, c, ids))));
+  act(() => q(sb.rpc('coach_set_callup', coachArgs(id, c, ids))), true, part.msg);
 };
-const coachSaveTimes = id => coachSave(id, { vals: placeVals() });  // orario e luogo (locandina)
-const coachSaveMeet = id => coachSave(id, { vals: meetVals() });    // ritrovi
-const coachSaveConv = id => coachSave(id, { conv: true });          // convocati
+const coachSaveTimes = id => coachSave(id, { vals: placeVals(), msg: 'Orari e luoghi salvati ✓' });  // orario e luogo (locandina)
+const coachSaveMeet = id => coachSave(id, { vals: meetVals(), msg: 'Ritrovi salvati ✓' });           // ritrovi
+const coachSaveConv = id => coachSave(id, { conv: true, msg: `Convocati salvati ✓ (${checkedIds().length})` }); // convocati
 // Dati della convocazione presi da quello che c'è a schermo (anche se non ancora salvato)
 const callupNow = id => ({ ...(callupMeta[id] || {}), ...callupVals(), names: [...document.querySelectorAll('.cvx:checked')].map(x => x.dataset.name) });
 // Ritrovi in ordine di orario (quelli senza orario in fondo)
@@ -1147,7 +1165,7 @@ async function tunePdf(kind, id) {
     });
   };
   el.querySelector('#tpsave').onclick = async () => {
-    try { await q(sb.from('app_settings').upsert({ key: K.key, value: ov, updated_at: new Date().toISOString() })); ovCache[K.key] = JSON.parse(JSON.stringify(ov)); alert(`${K.name} salvata ✓ Da ora tutti la scaricano così.`); }
+    try { await q(sb.from('app_settings').upsert({ key: K.key, value: ov, updated_at: new Date().toISOString() })); ovCache[K.key] = JSON.parse(JSON.stringify(ov)); toast(`${K.name} salvata ✓ Da ora vale per tutti`); }
     catch (e) { alert('Non salvata: ' + (e.message || e) + '\nHai creato la tabella app_settings su Supabase?'); }
   };
   el.querySelector('#tpreset').onclick = () => { if (!confirm('Tornare alle misure predefinite? (Diventa definitivo solo con «Salva per tutti».)')) return; ov = {}; draw(); preview(); };
@@ -1159,7 +1177,7 @@ const shareTiles = (id, note = '') => `<div class="acts"><p class="ak">📣 Invi
 const posterTiles = id => `<div class="acts"><p class="ak">🖼️ Locandina</p><div class="tiles">${tile('📄', 'Scarica PDF', `downloadPoster('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola', `tunePdf('poster', '${id}')`) : ''}</div></div>`;
 
 // Admin: salva solo orari e ritrovi (i convocati si salvano a ogni spunta)
-const saveCallupTimes = id => act(() => q(sb.from('matches').update(placeVals()).eq('id', id)));
+const saveCallupTimes = id => act(() => q(sb.from('matches').update(placeVals()).eq('id', id)), true, 'Orari e luoghi salvati ✓');
 
 // Medaglie del voto: [icona, nome con articolo, punti]
 const MED = [['🥇', 'l’oro', 3], ['🥈', 'l’argento', 2], ['🥉', 'il bronzo', 1]];
@@ -1267,11 +1285,11 @@ function saveVote(mid, max = 3) {
   act(async () => {
     await q(sb.rpc('cast_votes', { p_match: mid, p_players: pick }));
     pick = null;
-    alert('Voto registrato ✓' + (left.length ? `\n\nHai dato ${listIt(done.map(m => m[1] + ' ' + m[0]))}. Se vuoi, puoi ancora aggiungere ${listIt(left.map(m => m[1] + ' ' + m[0]))} e premere «Aggiorna il voto».` : ''));
-  });
+    if (left.length) alert(`Voto registrato ✓\n\nHai dato ${listIt(done.map(m => m[1] + ' ' + m[0]))}. Se vuoi, puoi ancora aggiungere ${listIt(left.map(m => m[1] + ' ' + m[0]))} e premere «Aggiorna il voto».`);
+  }, true, left.length ? '' : 'Voto registrato ✓');
 }
-const closeVote = (id, force) => act(() => q(sb.rpc('close_voting', { p_match: id, p_force: !!force })));
-const openVote = id => act(() => q(sb.rpc('set_voting', { p_match: id, p_hours: $('dur').value === '' ? null : Number($('dur').value) })));
+const closeVote = (id, force) => act(() => q(sb.rpc('close_voting', { p_match: id, p_force: !!force })), true, 'Votazione chiusa ✓');
+const openVote = id => act(() => q(sb.rpc('set_voting', { p_match: id, p_hours: $('dur').value === '' ? null : Number($('dur').value) })), true, curMatch && curMatch.status === 'open' ? 'Scadenza aggiornata ✓' : 'Votazione aperta ✓');
 // Trasforma una partita in test (nascosta ai compagni, fuori dall'albo) o viceversa, con conferma
 function setTest(id, el) {
   const msg = el.checked
@@ -1317,7 +1335,7 @@ function copyLink(id) {
   (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => alert('Link copiato!\n' + u), () => prompt('Copia il link:', u));
 }
 const extraV = (mid, uid, el) => quiet(() => q(el.checked ? sb.from('match_voters').insert({ match_id: mid, profile_id: uid }) : sb.from('match_voters').delete().eq('match_id', mid).eq('profile_id', uid)), el);
-const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; mg = null; }, false);
+const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; mg = null; }, false, 'Partita eliminata ✓');
 
 let rkPh = null; // 'andata' | 'ritorno' | 'tot'
 // ---------- Pagina "Aggiungi alla schermata Home" ----------
@@ -1375,6 +1393,13 @@ function startPresence() {
 }
 function stopPresence() { if (onlineCh) { try { sb.removeChannel(onlineCh); } catch (e) {} onlineCh = null; onlineIds = []; } }
 function logout() { stopPresence(); sb.auth.signOut().then(() => authView()); }
+// Schermata «Online» (solo admin): si apre dal pulsante 🟢 in alto
+async function onlineView() {
+  const pf = await q(sb.from('profiles').select('id,display_name'));
+  pf.forEach(u => { onlineNames[u.id] = u.display_name; });
+  return `<h2>🟢 Online ora: <span id="onlN">${onlineIds.length}</span></h2><div class="card"><div id="onlList">${onlineListHtml()}</div></div>
+  <p class="mut" style="font-size:13px">Chi ha il sito aperto in questo momento, aggiornato in tempo reale. Sul telefono, dopo un po’ che l’app è in background, la persona risulta uscita.</p>`;
+}
 const onlineListHtml = () => onlineIds.length ? onlineIds.map(id => `<span class="tag" style="margin:2px">${esc(onlineNames[id] || 'Account sconosciuto')}</span>`).join('') : '<span class="mut">Nessuno</span>';
 function updOnline() {
   const b = document.getElementById('onl'); if (b) b.textContent = onlineIds.length;
@@ -1551,7 +1576,7 @@ async function adminView() {
     <div id="admChips" class="chips">${admChipsHtml()}</div>
     <p class="mut" style="font-size:13px;margin:4px 0 0">Scrivi un nome (anche solo l’inizio) e/o tocca i pulsanti: le condizioni valgono tutte insieme. «non» davanti esclude, es. «mister non votanti».</p>
     <div id="admRes">${admResHtml()}</div></div>`;
-  return `${searchCard}<div class="card"><b>🟢 Online ora: <span id="onlN">${onlineIds.length}</span></b><div id="onlList" style="margin-top:6px">${onlineListHtml()}</div><p class="mut" style="font-size:13px;margin:6px 0 0">Chi ha il sito aperto in questo momento, aggiornato in tempo reale. Sul telefono, dopo un po’ che l’app è in background, la persona risulta uscita.</p></div>
+  return `${searchCard}
   <h2>Da sistemare (${nuovi.length})</h2>${nuovi.length
     ? `<p class="mut">Spunta «Può votare» (ed eventualmente «Mister»), poi scegli la categoria: collegalo al suo giocatore della rosa, oppure indica se è staff o spettatore. Se il giocatore non è in rosa, aggiungilo qui sotto.</p>${nuovi.map(nuovo).join('')}`
     : '<p class="mut">Nessun nuovo iscritto da sistemare.</p>'}
@@ -1577,13 +1602,13 @@ function setCat(uid, val) {
   if (!val) return;
   if (val.startsWith('p:')) return linkP(val.slice(2), uid);
   const o = { rosa: { is_out: false, is_staff: false }, fuori: { is_out: true, is_staff: false }, staff: { is_staff: true, is_out: false }, spett: { is_staff: false, is_out: true } }[val];
-  act(() => upP(uid, o));
+  act(() => upP(uid, o), true, 'Categoria aggiornata ✓');
 }
 // Collegando un account a un giocatore entra "In rosa"; scollegandolo torna "Da sistemare"
-const linkP = (pid, uid) => pid && act(async () => { await q(sb.from('players').update({ profile_id: uid }).eq('id', pid)); await upP(uid, { is_staff: false, is_out: false }); });
-const unlink = id => act(async () => { const p = await q(sb.from('players').select('profile_id').eq('id', id).single()); await q(sb.from('players').update({ profile_id: null }).eq('id', id)); if (p && p.profile_id) await upP(p.profile_id, { is_staff: false, is_out: false }); });
-const addP = () => v('pn') && act(() => q(sb.from('players').insert({ name: v('pn') })));
-const delP = id => confirm('Eliminare il giocatore?') && act(() => q(sb.from('players').delete().eq('id', id)));
+const linkP = (pid, uid) => pid && act(async () => { await q(sb.from('players').update({ profile_id: uid }).eq('id', pid)); await upP(uid, { is_staff: false, is_out: false }); }, true, 'Account collegato ✓');
+const unlink = id => act(async () => { const p = await q(sb.from('players').select('profile_id').eq('id', id).single()); await q(sb.from('players').update({ profile_id: null }).eq('id', id)); if (p && p.profile_id) await upP(p.profile_id, { is_staff: false, is_out: false }); }, true, 'Account scollegato ✓');
+const addP = () => v('pn') && act(() => q(sb.from('players').insert({ name: v('pn') })), true, 'Giocatore aggiunto ✓');
+const delP = id => confirm('Eliminare il giocatore?') && act(() => q(sb.from('players').delete().eq('id', id)), true, 'Giocatore eliminato ✓');
 const setU = (id, k, el) => quiet(() => upP(id, { [k]: el.checked }), el);
 
 setInterval(() => document.querySelectorAll('.cd').forEach(el => {
