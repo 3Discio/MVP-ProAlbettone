@@ -698,66 +698,8 @@ function showCallupCard(id) {
   document.body.appendChild(ov);
   fitOverlay(ov);
 }
-// Versione stampabile A4: stampata da un riquadro nascosto nella pagina stessa (niente finestre extra)
-function printCallup(id) {
-  // Telefoni e tablet non stampano da un riquadro nascosto: lì si scarica un PDF A4, da aprire e stampare
-  if (isPhone) return downloadCallupPdf(id);
-  const c = callupNow(id);
-  if (!c.names.length) return alert('Seleziona almeno un convocato.');
-  const team = (getComputedStyle(document.documentElement).getPropertyValue('--team') || '#d7142c').trim();
-  const logo = new URL('logo.png', location.href).href, mr = meetRows(c);
-  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Convocazione vs ${esc(c.opp)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
-<style>
-@page{size:A4;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-body{margin:0;padding:8mm 16mm 12mm;font-family:system-ui,sans-serif;color:#111}
-.hd{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6mm;padding-bottom:3mm;border-bottom:2.5mm solid ${team}}
-.dt{text-align:center;font-family:Oswald,Impact,sans-serif;font-size:18pt;margin-bottom:0}
-.vn{text-align:center;font-size:12pt;font-weight:600;margin-top:1mm}.vn span{font-weight:400;color:#555}.dt:first-letter{text-transform:uppercase}
-.hv{width:17mm;height:17mm;border-radius:50%;background:${team};color:#fff;display:flex;align-items:center;justify-content:center;font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:18pt;letter-spacing:.04em}
-.ho{text-align:center;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:22pt;line-height:1.05;word-break:break-word}
-.lg{width:100%;max-width:75mm;height:44mm;object-fit:contain;object-position:center;flex:none;display:block;margin:0 auto}
-.lgf{margin:0 auto;width:40mm;height:40mm;border-radius:50%;border:2mm solid ${team};display:none;align-items:center;justify-content:center;font-size:16mm;flex:none}
-.k{font-family:Oswald,Impact,sans-serif;letter-spacing:.3em;font-size:11pt;color:${team};font-weight:700}
-h1{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;font-size:28pt;line-height:1.05;margin:1mm 0}
-.d{font-size:12pt;color:#444;text-transform:capitalize}
-.tm{display:grid;gap:2.5mm}
-.tm div{display:grid;grid-template-columns:32mm 1fr;align-items:baseline;border-left:1.5mm solid ${team};background:#f4f4f4;border-radius:2mm;padding:3mm 4mm}.tm span{font-family:Oswald,Impact,sans-serif;font-size:16pt;color:${team}}
-.tm b{font-family:Oswald,Impact,sans-serif;font-size:15pt}
-h2{font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.08em;margin:8mm 0 3mm;font-size:15pt}
-.cl{--fs:13pt;--pd:2.4mm;columns:var(--cols,2);column-gap:10mm}.cl div{break-inside:avoid;display:flex;align-items:center;gap:4mm;padding:var(--pd) 0;border-bottom:1px solid #ddd;font-size:var(--fs)}
-.cl i{font-style:normal;font-family:Oswald,Impact,sans-serif;color:${team};min-width:7mm;font-size:var(--fs);font-weight:700}
-.nm{line-height:1.1}.nm b{display:block;font-family:Oswald,Impact,sans-serif;font-size:var(--fs);letter-spacing:.02em}.nm small{display:block;font-size:calc(var(--fs) * .72);color:#555}
-#a4{position:absolute;top:0;left:0;width:1px;height:297mm;visibility:hidden}
-.ft{margin-top:8mm;padding-top:3mm;border-top:1px solid #ccc;display:flex;justify-content:space-between;font-size:9pt;color:#777}
-</style></head><body>
-<div class="dt">${whenTxt(c.date, c.kickoff)}</div>${c.venue_name || c.venue_address ? `<div class="vn">${esc(c.venue_name || '')}${c.venue_name && c.venue_address ? ' · ' : ''}<span>${esc(c.venue_address || '')}</span></div>` : ''}
-${(() => { const lg = `<div><img class="lg" src="${logo}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="lgf">⚽</div></div>`, op = `<div class="ho">${oppHtml(c.opp)}</div>`;
-  return `<div class="hd">${c.home !== false ? lg : op}<div class="hv">VS</div>${c.home !== false ? op : lg}</div>`; })()}
-${mr.length ? `<h2>Ritrovo</h2><div class="tm">${mr.map(([t, p]) => `<div><span>${t ? 'ore ' + t.replace(':', '.') : '—'}</span><b>${esc(p || '')}</b></div>`).join('')}</div>` : ''}
-<h2>Convocati · ${c.names.length}</h2>
-<div class="cl">${c.names.map((n, i) => `<div><i>${i + 1}</i>${nameHtml(n)}</div>`).join('')}</div>
-<div id="a4"></div><div class="ft"><span>Convocazione ufficiale</span><span>vs ${esc(c.opp)} · ${new Date(c.date + 'T12:00:00').toLocaleDateString('it-IT')}</span></div>
-</body></html>`;
-  const old = document.getElementById('prt'); if (old) old.remove();
-  const f = document.createElement('iframe'); f.id = 'prt';
-  f.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;visibility:hidden';
-  document.body.appendChild(f);
-  const d = f.contentDocument; d.open(); d.write(html); d.close();
-  // rimpicciolisce l'elenco dei convocati finché tutto sta in un solo foglio A4
-  const fit = () => {
-    const pageH = d.getElementById('a4').offsetHeight, cl = d.querySelector('.cl');
-    let fs = 13, pd = 2.4, cols = 2;
-    for (let k = 0; k < 20 && d.body.scrollHeight > pageH - 4; k++) {
-      if (pd > 0.8) pd = +(pd - 0.4).toFixed(1); else if (fs > 10) fs -= 0.5; else if (cols === 2) { cols = 3; fs = 11; pd = 1.6; } else if (fs > 8) fs -= 0.5; else break;
-      cl.style.setProperty('--fs', fs + 'pt'); cl.style.setProperty('--pd', pd + 'mm'); cl.style.setProperty('--cols', cols);
-    }
-  };
-  const go = () => { try { fit(); f.contentWindow.focus(); f.contentWindow.print(); } finally { setTimeout(() => f.remove(), 1000); } };
-  let done = false; // stampa una sola volta, anche se logo o font tardano
-  const ready = () => { if (done) return; done = true; (d.fonts && d.fonts.ready ? d.fonts.ready : Promise.resolve()).then(() => setTimeout(go, 300)); };
-  if (d.readyState === 'complete') ready(); else { f.onload = ready; setTimeout(ready, 3000); }
-}
+// Convocazione A4: un'unica modalità per computer e telefono, il PDF da scaricare (come la locandina)
+const printCallup = id => downloadCallupPdf(id);
 // ===== LOCANDINA PDF =====
 // Parte dalla grafica vuota (locandina-base.pdf, con sponsor e cornice) e ci scrive sopra
 // intestazione, logo, vs, avversario, data, ora e luogo. Il risultato è un PDF pronto da stampare.
@@ -821,13 +763,15 @@ const posterTune = () => [
 const POSTER_COLORS = { red: 'Rosso squadra', mute: 'Rosso attenuato', ink: 'Nero', soft: 'Grigio scuro', grey: 'Grigio', white: 'Bianco' };
 const posterTuneColors = () => [['oppColor', 'Avversario: colore'], ['vsColor', 'Cerchio vs: colore'], ['vsTextColor', 'Scritta vs: colore'], ...POSTER.texts.map((t, i) => [`texts.${i}.color`, `${t.name}: colore`])];
 // Regolazioni salvate (Supabase, tabella app_settings, chiave "poster"); se la tabella non c'è valgono i predefiniti
-let posterOv = null;
-async function posterOverrides(force) {
-  if (posterOv && !force) return posterOv;
-  try { const r = await sb.from('app_settings').select('value').eq('key', 'poster').maybeSingle(); posterOv = (r.data && r.data.value) || {}; }
-  catch (e) { posterOv = {}; }
-  return posterOv;
+// (la convocazione A4 usa la chiave "callup" della stessa tabella)
+const ovCache = {};
+async function pdfOverrides(key, force) {
+  if (ovCache[key] && !force) return ovCache[key];
+  try { const r = await sb.from('app_settings').select('value').eq('key', key).maybeSingle(); ovCache[key] = (r.data && r.data.value) || {}; }
+  catch (e) { ovCache[key] = {}; }
+  return ovCache[key];
 }
+const posterOverrides = force => pdfOverrides('poster', force);
 // Predefiniti + regolazioni (solo numeri)
 const posterConfig = ov => {
   ov = ov || {};
@@ -985,7 +929,37 @@ async function downloadCallupPdf(id) {
   try { savePdf(await makeCallupPdf(c), `Convocazione vs ${c.opp}.pdf`); }
   catch (e) { alert('Convocazione non creata: ' + (e.message || e)); console.error(e); }
 }
-async function makeCallupPdf(c) {
+// Misure predefinite della convocazione A4 (in punti tipografici: 1 pt ≈ 0,35 mm; le quote vanno da 0 a 1).
+// L'admin le regola dal sito con «🎛️ Regola A4»; le regolazioni salvate valgono per tutti.
+const CALLUP = {
+  dateSize: 26,     // data e ora
+  venueSize: 13,    // campo e indirizzo
+  rowH: 110,        // altezza della riga logo · VS · avversario
+  logoW: .7,        // larghezza del logo, come quota della sua metà
+  logoH: 85,        // altezza massima del logo
+  vsR: 23,          // raggio del cerchio VS
+  oppSize: 36,      // grandezza massima del nome avversario
+  oppFill: .95,     // larghezza massima del nome avversario, come quota della sua metà
+  barH: 7,          // spessore della barra colorata sotto le squadre
+  headSize: 17,     // titoli «Ritrovo» e «Convocati»
+  nameSize: 15      // grandezza massima dei nomi (si riduce da sola se i convocati sono tanti)
+};
+const callupTune = () => [
+  ['logoW', 'Logo: larghezza', .2, 1, .01],
+  ['logoH', 'Logo: altezza massima', 30, 160, 1],
+  ['rowH', 'Riga squadre: altezza', 50, 180, 1],
+  ['oppSize', 'Avversario: grandezza', 14, 60, .5],
+  ['oppFill', 'Avversario: larghezza massima', .3, 1, .01],
+  ['vsR', 'Cerchio VS: grandezza', 10, 40, .5],
+  ['dateSize', 'Data e ora: grandezza', 12, 40, .5],
+  ['venueSize', 'Campo: grandezza', 8, 20, .5],
+  ['barH', 'Barra colorata: spessore', 0, 16, .5],
+  ['headSize', 'Titoli: grandezza', 10, 28, .5],
+  ['nameSize', 'Nomi: grandezza massima', 8, 22, .5]
+];
+const callupConfig = ov => ({ ...CALLUP, ...Object.fromEntries(Object.entries(ov || {}).filter(([k, v]) => k in CALLUP && typeof v === 'number' && isFinite(v))) });
+async function makeCallupPdf(c, P) {
+  P = P || callupConfig(await pdfOverrides('callup'));
   if (!window.PDFLib) await loadScript('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js');
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const pdf = await PDFDocument.create();
@@ -1010,28 +984,28 @@ async function makeCallupPdf(c) {
   let y = H - 36;
   // data e ora, campo
   const when = whenTxt(c.date, c.kickoff).toUpperCase();
-  let sz = fit(D, when, 26, CW); y -= cap(D, sz); txt(D, when, sz, W / 2, y, ink, 'center');
+  let sz = fit(D, when, P.dateSize, CW); y -= cap(D, sz); txt(D, when, sz, W / 2, y, ink, 'center');
   const venue = [c.venue_name, c.venue_address].filter(Boolean).join('  ·  ');
-  if (venue) { sz = fit(T, venue, 13, CW); y -= 8 + cap(T, sz); txt(T, venue, sz, W / 2, y, grey, 'center'); }
+  if (venue) { sz = fit(T, venue, P.venueSize, CW); y -= 8 + cap(T, sz); txt(T, venue, sz, W / 2, y, grey, 'center'); }
   // logo · VS · avversario (chi gioca in casa a sinistra)
-  const home = c.home !== false, hh = 118, r = 23, half = CW / 2 - r - 12;
+  const home = c.home !== false, hh = P.rowH, r = P.vsR, half = CW / 2 - r - 12;
   y -= 12; const cy = y - hh / 2;
   const sideX = d => W / 2 + d * (r + 12 + half / 2);
   try {
     const img = await pdf.embedPng(await trimPng(await fetchBytes(POSTER.logo)));
-    const k = Math.min(half / img.width, hh / img.height), lw = img.width * k, lh = img.height * k;
+    const k = Math.min(half * P.logoW / img.width, P.logoH / img.height), lw = img.width * k, lh = img.height * k;
     page.drawImage(img, { x: sideX(home ? -1 : 1) - lw / 2, y: cy - lh / 2, width: lw, height: lh });
   } catch (e) {} // senza logo resta lo spazio vuoto
   const lines = oppLines(c.opp).map(D.plain);
-  const osz = Math.min(36, ...lines.map(l => half * .95 / Math.max(1, D.f.widthOfTextAtSize(l, 1)))), olh = osz * 1.02;
+  const osz = Math.min(P.oppSize, ...lines.map(l => half * P.oppFill / Math.max(1, D.f.widthOfTextAtSize(l, 1)))), olh = osz * 1.02;
   lines.forEach((l, i) => txt(D, l, osz, sideX(home ? 1 : -1), cy + (lines.length - 1) * olh / 2 - i * olh - cap(D, osz) / 2, ink, 'center'));
   page.drawCircle({ x: W / 2, y: cy, size: r, color: red });
-  txt(D, 'VS', 19, W / 2, cy - cap(D, 19) / 2, white, 'center');
-  y -= hh + 8; page.drawRectangle({ x: M, y: y - 7, width: CW, height: 7, color: red }); y -= 7;
+  const vsz = r * .83; txt(D, 'VS', vsz, W / 2, cy - cap(D, vsz) / 2, white, 'center');
+  y -= hh + 8; if (P.barH > 0) page.drawRectangle({ x: M, y: y - P.barH, width: CW, height: P.barH, color: red }); y -= P.barH;
   // ritrovi
   const mr = meetRows(c);
   if (mr.length) {
-    y -= 22 + cap(D, 17); txt(D, 'RITROVO', 17, M, y, ink); y -= 8;
+    y -= 22 + cap(D, P.headSize); txt(D, 'RITROVO', P.headSize, M, y, ink); y -= 8;
     mr.forEach(([t, p]) => {
       const bh = 30; y -= bh;
       page.drawRectangle({ x: M, y, width: CW, height: bh, color: light }); page.drawRectangle({ x: M, y, width: 4.5, height: bh, color: red });
@@ -1042,10 +1016,10 @@ async function makeCallupPdf(c) {
   }
   // convocati: due colonne (tre se sono tanti), il carattere si riduce finché tutto sta nel foglio
   const N = c.names.length, foot = 62;
-  y -= 18 + cap(D, 17); txt(D, `CONVOCATI  ·  ${N}`, 17, M, y, ink); y -= 6;
+  y -= 18 + cap(D, P.headSize); txt(D, `CONVOCATI  ·  ${N}`, P.headSize, M, y, ink); y -= 6;
   const avail = y - foot;
-  let cols = 2, fs = 15;
-  for (const cc of [2, 3]) { let f = cc === 2 ? 15 : 12; while (f > 8 && Math.ceil(N / cc) * f * 2.15 > avail) f -= .5; cols = cc; fs = f; if (Math.ceil(N / cc) * f * 2.15 <= avail) break; }
+  let cols = 2, fs = P.nameSize;
+  for (const cc of [2, 3]) { let f = cc === 2 ? P.nameSize : P.nameSize * .8; while (f > 8 && Math.ceil(N / cc) * f * 2.15 > avail) f -= .5; cols = cc; fs = f; if (Math.ceil(N / cc) * f * 2.15 <= avail) break; }
   const rowH = fs * 2.15, rows = Math.ceil(N / cols), gapC = 22, colW = (CW - (cols - 1) * gapC) / cols, numW = tw(D, '00', fs) + 6;
   c.names.forEach((full, i) => {
     const col = Math.floor(i / rows), row = i % rows, x = M + col * (colW + gapC), top = y - row * rowH;
@@ -1063,41 +1037,50 @@ async function makeCallupPdf(c) {
   txt(T, `vs ${c.opp} · ${new Date(c.date + 'T12:00:00').toLocaleDateString('it-IT')}`, 9, W - M, 38, grey, 'right');
   return pdf.save();
 }
-// Pannello admin: cursori con anteprima dal vivo, salvataggio per tutti
-async function tunePoster(id) {
-  const c = callupNow(id);
-  if (!c.opp) return alert('Manca l’avversario.');
-  let ov = JSON.parse(JSON.stringify(await posterOverrides(true)));
+// Pannello admin: cursori con anteprima dal vivo, salvataggio per tutti (locandina e convocazione A4)
+const PDF_KINDS = {
+  poster: { key: 'poster', name: 'Locandina', ratio: 1.414, conf: ov => posterConfig(ov), make: (c, P) => makePosterPdf(c, P), tune: () => posterTune(), colors: () => posterTuneColors(),
+    check: c => c.opp ? '' : 'Manca l’avversario.' },
+  callup: { key: 'callup', name: 'Convocazione A4', ratio: .707, conf: ov => callupConfig(ov), make: (c, P) => makeCallupPdf(c, P), tune: () => callupTune(), colors: () => [],
+    check: c => c.names.length ? '' : 'Seleziona almeno un convocato: servono per l’anteprima.' }
+};
+async function tunePdf(kind, id) {
+  const K = PDF_KINDS[kind], c = callupNow(id), err = K.check(c);
+  if (err) return alert(err);
+  let ov = JSON.parse(JSON.stringify(await pdfOverrides(K.key, true)));
   const get = (o, p) => p.split('.').reduce((a, k) => a == null ? undefined : a[k], o);
   const set = (o, p, v) => { const ks = p.split('.'); let a = o; ks.slice(0, -1).forEach(k => { if (a[k] == null || typeof a[k] !== 'object') a[k] = {}; a = a[k]; }); a[ks[ks.length - 1]] = v; };
+  // valori tra 0 e 1 mostrati come percentuale, gli altri così come sono
+  const shown = (v, max) => max <= 1.5 ? (v * 100).toFixed(1) : (+v).toFixed(Number.isInteger(+v) ? 0 : 1);
   const el = document.createElement('div'); el.id = 'ov';
   el.innerHTML = `<style>.tp{width:100%;max-width:1200px;display:grid;grid-template-columns:minmax(0,1.7fr) minmax(250px,1fr);gap:14px;align-items:start}
-.tp iframe{width:100%;aspect-ratio:1.414;border:0;border-radius:10px;background:#fff}.tp .sl{max-height:calc(100vh - 140px);overflow:auto;background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px}
+.tp iframe{display:block;width:100%;aspect-ratio:${K.ratio};max-height:calc(100vh - 120px);border:0;border-radius:10px;background:#fff}.tp .sl{max-height:calc(100vh - 140px);overflow:auto;background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px}
 .tp label{display:block;font-size:13px;margin:0 0 8px}.tp label span{display:flex;justify-content:space-between}.tp input[type=range]{width:100%;padding:0;margin:2px 0;border:0;background:none}
 @media(max-width:760px){.tp{grid-template-columns:1fr}.tp .sl{max-height:none}}</style>
-<button class="x" onclick="this.parentNode.remove()">✕</button><div class="tp"><div><iframe id="tpf" title="Anteprima locandina"></iframe>
-<p class="mut" id="tpm" style="font-size:13px">Anteprima dal vivo (dal computer si vede meglio). Le modifiche valgono per tutti solo dopo «Salva per tutti».</p></div>
+<button class="x" onclick="this.parentNode.remove()">✕</button><div class="tp"><div><iframe id="tpf" title="Anteprima ${K.name}"></iframe>
+<p class="mut" id="tpm" style="font-size:13px">${K.name}: anteprima dal vivo (dal computer si vede meglio). Le modifiche valgono per tutti solo dopo «Salva per tutti».</p></div>
 <div class="sl"><div id="tps"></div><div class="btns"><button id="tpsave">Salva per tutti</button><button class="g" id="tpreset">Ripristina predefiniti</button></div></div></div>`;
   document.body.appendChild(el);
   const box = el.querySelector('#tps'), frame = el.querySelector('#tpf'), msg = el.querySelector('#tpm');
   let url = null, timer = null, busy = false, again = false;
   const preview = async () => {
     if (busy) { again = true; return; } busy = true;
-    try { const bytes = await makePosterPdf(c, posterConfig(ov)); const u = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); frame.src = u + '#toolbar=0&navpanes=0&view=Fit'; if (url) URL.revokeObjectURL(url); url = u; }
+    try { const bytes = await K.make(c, K.conf(ov)); const u = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); frame.src = u + '#toolbar=0&navpanes=0&view=Fit'; if (url) URL.revokeObjectURL(url); url = u; }
     catch (e) { msg.textContent = 'Anteprima non riuscita: ' + (e.message || e); }
     busy = false; if (again) { again = false; preview(); }
   };
   const draw = () => {
-    const P = posterConfig(ov);
-    box.innerHTML = posterTuneColors().map(([p, label]) => `<label><span>${esc(label)}</span><select data-p="${p}" style="padding:6px;margin:2px 0">${Object.entries(POSTER_COLORS).map(([k, l]) => `<option value="${k}" ${get(P, p) === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('') + posterTune().map(([p, label, min, max, step]) => { const v = get(P, p); return `<label><span>${esc(label)}<b>${(v * 100).toFixed(1)}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-p="${p}"></label>`; }).join('');
+    const P = K.conf(ov);
+    box.innerHTML = K.colors().map(([p, label]) => `<label><span>${esc(label)}</span><select data-p="${p}" style="padding:6px;margin:2px 0">${Object.entries(POSTER_COLORS).map(([k, l]) => `<option value="${k}" ${get(P, p) === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')
+      + K.tune().map(([p, label, min, max, step]) => { const v = get(P, p); return `<label><span>${esc(label)}<b>${shown(v, max)}</b></span><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-p="${p}" data-max="${max}"></label>`; }).join('');
     box.querySelectorAll('select').forEach(sel => sel.onchange = () => { set(ov, sel.dataset.p, sel.value); preview(); });
     box.querySelectorAll('input').forEach(inp => inp.oninput = () => {
-      set(ov, inp.dataset.p, Number(inp.value)); inp.previousElementSibling.querySelector('b').textContent = (Number(inp.value) * 100).toFixed(1);
+      set(ov, inp.dataset.p, Number(inp.value)); inp.previousElementSibling.querySelector('b').textContent = shown(inp.value, Number(inp.dataset.max));
       clearTimeout(timer); timer = setTimeout(preview, 250);
     });
   };
   el.querySelector('#tpsave').onclick = async () => {
-    try { await q(sb.from('app_settings').upsert({ key: 'poster', value: ov, updated_at: new Date().toISOString() })); posterOv = JSON.parse(JSON.stringify(ov)); alert('Locandina salvata ✓ Da ora tutti la scaricano così.'); }
+    try { await q(sb.from('app_settings').upsert({ key: K.key, value: ov, updated_at: new Date().toISOString() })); ovCache[K.key] = JSON.parse(JSON.stringify(ov)); alert(`${K.name} salvata ✓ Da ora tutti la scaricano così.`); }
     catch (e) { alert('Non salvata: ' + (e.message || e) + '\nHai creato la tabella app_settings su Supabase?'); }
   };
   el.querySelector('#tpreset').onclick = () => { if (!confirm('Tornare alle misure predefinite? (Diventa definitivo solo con «Salva per tutti».)')) return; ov = {}; draw(); preview(); };
@@ -1105,8 +1088,8 @@ async function tunePoster(id) {
 }
 // Pulsanti a riquadro, tutti della stessa misura, in due gruppi: invio della convocazione e locandina
 const tile = (ic, lb, fn) => `<button class="g" onclick="${fn}"><span>${ic}</span>${lb}</button>`;
-const shareTiles = (id, note = '') => `<div class="acts"><p class="ak">📣 Invia la convocazione</p><div class="tiles">${tile('💬', 'WhatsApp', `shareCallup('${id}')`)}${tile('📸', 'Card', `showCallupCard('${id}')`)}${tile('🖨️', 'Stampa A4', `printCallup('${id}')`)}</div>${note ? `<p class="mut" style="font-size:13px;margin-bottom:0">${note}</p>` : ''}</div>`;
-const posterTiles = id => `<div class="acts"><p class="ak">🖼️ Locandina</p><div class="tiles">${tile('📄', 'Scarica PDF', `downloadPoster('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola', `tunePoster('${id}')`) : ''}</div></div>`;
+const shareTiles = (id, note = '') => `<div class="acts"><p class="ak">📣 Invia la convocazione</p><div class="tiles">${tile('💬', 'WhatsApp', `shareCallup('${id}')`)}${tile('📸', 'Card', `showCallupCard('${id}')`)}${tile('🖨️', 'Stampa A4', `printCallup('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola A4', `tunePdf('callup', '${id}')`) : ''}</div>${note ? `<p class="mut" style="font-size:13px;margin-bottom:0">${note}</p>` : ''}</div>`;
+const posterTiles = id => `<div class="acts"><p class="ak">🖼️ Locandina</p><div class="tiles">${tile('📄', 'Scarica PDF', `downloadPoster('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola', `tunePdf('poster', '${id}')`) : ''}</div></div>`;
 
 // Admin: salva solo orari e ritrovi (i convocati si salvano a ogni spunta)
 const saveCallupTimes = id => act(() => q(sb.from('matches').update(callupVals()).eq('id', id)));
