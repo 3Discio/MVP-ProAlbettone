@@ -174,6 +174,20 @@ details.grp summary .tag{margin-left:auto}
 .card.more{background:transparent;margin-top:24px}
 .card.more summary{cursor:pointer}
 .card.ok p{margin:6px 0 0}
+/* gruppi di pulsanti (convocazione, locandina): tutti i riquadri hanno la stessa misura */
+.acts{margin-top:16px;padding-top:12px;border-top:1px dashed var(--line)}
+.ak{font:500 13px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 8px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tiles button{margin:0;min-height:76px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:14px;line-height:1.1}
+.tiles button span{font-size:22px;line-height:1}
+/* ricerca persone (pagina Admin) */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}.chips button{width:auto;margin:0;padding:5px 10px;font-size:13px}
+.sres{margin:6px 0;padding:4px 12px}
+/* card convocazione: niente X, si chiude toccando; l'avviso sparisce prima dello screenshot */
+#ov.tap{cursor:pointer}
+.tapx{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:rgba(0,0,0,.65);color:#fff;padding:6px 14px;border-radius:99px;font-size:13px;pointer-events:none;white-space:nowrap;animation:tapx 2.6s ease forwards}
+@keyframes tapx{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){.tapx{animation-duration:.01s;animation-delay:2.5s}}
 </style>
 </head>
 <body>
@@ -364,8 +378,8 @@ async function manageMatch(id) {
   const badge = (k, txt) => ({ todo: 'da fare', later: 'più avanti', done: '✓' })[st[k]] + (txt ? ' · ' + txt : '');
   const cls = k => st[k] === 'todo' ? 'c-todo' : '';
   const sec = {
-    cv: grp('s-cv', 'Orari e luoghi', badge('cv', m.kickoff ? 'ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<div class="btns"><button onclick="saveCallupTimes('${id}')">Salva orari</button><button class="g" onclick="shareCallup('${id}')">WhatsApp</button><button class="g" onclick="showCallupCard('${id}')">📸 Card</button><button class="g" onclick="printCallup('${id}')">🖨️ Stampa A4</button><button class="g" style="grid-column:1/-1" onclick="downloadPoster('${id}')">📄 Locandina PDF</button>${isAdmin() ? `<button class="g" style="grid-column:1/-1" onclick="tunePoster('${id}')">🎛️ Regola locandina</button>` : ''}</div><p class="mut" style="font-size:13px">Card, stampa e WhatsApp usano anche i convocati della sezione «Convocati».</p>`, '', cls('cv')),
-    cc: grp('mc', 'Convocati', badge('cc', '<span id="mcn">' + nConv + '</span> / ' + nConvocabili), `${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}`, '', cls('cc')),
+    cv: grp('s-cv', 'Orari e luoghi', badge('cv', m.kickoff ? 'ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<button onclick="saveCallupTimes('${id}')">💾 Salva orari e luoghi</button>${posterTiles(id)}`, '', cls('cv')),
+    cc: grp('mc', 'Convocati', badge('cc', '<span id="mcn">' + nConv + '</span> / ' + nConvocabili), `${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${shareTiles(id, 'Usano i convocati spuntati qui sopra e orari e luoghi della sezione «Orari e luoghi»: salvali prima di condividere.')}`, '', cls('cc')),
     vt: grp('s-vt', 'Votazione', badge('vt', ST[m.status]), `${durBlock}${quorumBlock}
   <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
   <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi link</button><button class="g" onclick="copyLink('${id}')">Copia link</button></div>
@@ -550,10 +564,10 @@ async function callupEdit(m) {
   const cids = conv.map(c => c.player_id);
   callupMeta[m.id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase };
   return `<button class="g s" onclick="ck=null;render()">← Tutte le partite</button><h2 style="margin-bottom:2px">vs ${esc(m.opponent)}</h2><div class="mut">${dayTxt(m.played_on)}</div>
-  <div class="card">${callupFields(m)}</div>
-  <h3>Convocati: <span id="cvn">${cids.length}</span></h3><div class="card">${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" value="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="countConv()"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}</div>
-  <div class="btns"><button onclick="saveCallup('${m.id}')">Salva</button><button class="g" onclick="shareCallup('${m.id}')">WhatsApp</button><button class="g" onclick="showCallupCard('${m.id}')">📸 Card</button><button class="g" onclick="printCallup('${m.id}')">🖨️ Stampa A4</button><button class="g" style="grid-column:1/-1" onclick="downloadPoster('${m.id}')">📄 Locandina PDF</button></div>
-  <p class="mut">Salva prima di condividere, così i compagni trovano le stesse informazioni anche sul sito.</p>`;
+  <h3>Orari e luoghi</h3><div class="card">${callupFields(m)}${posterTiles(m.id)}</div>
+  <h3>Convocati: <span id="cvn">${cids.length}</span></h3><div class="card">${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" value="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="countConv()"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}
+  <button onclick="saveCallup('${m.id}')">💾 Salva orari e convocati</button>
+  ${shareTiles(m.id, 'Salva prima di condividere, così i compagni trovano le stesse informazioni anche sul sito.')}</div>`;
 }
 function saveCallup(id) {
   const c = callupVals(), ids = [...document.querySelectorAll('.cvx:checked')].map(x => x.value);
@@ -575,11 +589,15 @@ function logoFallback(img) {
   img.dataset.step = '1'; img.parentNode.classList.add('box'); img.src = 'logo.png';
 }
 // "CALEARO Kevin" -> cognome grande sopra, nome piccolo sotto (il cognome sono le parole iniziali in maiuscolo)
-function nameHtml(full) {
+function nameParts(full) {
   const w = String(full || '').trim().split(/\s+/);
   let k = 0; while (k < w.length - 1 && /\p{Lu}/u.test(w[k]) && w[k] === w[k].toUpperCase()) k++;
   if (!k) k = 1;
-  return `<span class="nm"><b>${esc(w.slice(0, k).join(' '))}</b>${k < w.length ? `<small>${esc(w.slice(k).join(' '))}</small>` : ''}</span>`;
+  return [w.slice(0, k).join(' '), w.slice(k).join(' ')];
+}
+function nameHtml(full) {
+  const [a, b] = nameParts(full);
+  return `<span class="nm"><b>${esc(a)}</b>${b ? `<small>${esc(b)}</small>` : ''}</span>`;
 }
 // Se una card è più alta dello schermo la rimpicciolisce in proporzione: così entra tutta in un solo screenshot
 function fitOverlay(ov) {
@@ -605,10 +623,13 @@ const cardHead = (date, ko, vn, va, opp, mid = 'VS', home = true) => { const lg 
 function showCallupCard(id) {
   const c = callupNow(id);
   if (!c.names.length) return alert('Seleziona almeno un convocato.');
-  const ov = document.createElement('div'); ov.id = 'ov';
-  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  const ov = document.createElement('div'); ov.id = 'ov'; ov.className = 'tap';
+  // nessuna X (così non finisce nello screenshot): si chiude toccando un punto qualsiasi, o con Esc dal computer
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  ov.onclick = close; document.addEventListener('keydown', onKey);
   const mr = meetRows(c);
-  ov.innerHTML = `<button class="x" onclick="this.parentNode.remove()">✕</button><div class="sc">
+  ov.innerHTML = `<div class="tapx">Tocca per chiudere</div><div class="sc">
   ${cardHead(c.date, c.kickoff, c.venue_name, c.venue_address, c.opp, 'VS', c.home !== false)}
   ${mr.length ? `<div class="cbox">${mr.map(([t, p]) => `<b>📍 ${t ? hd(t) : ''}</b><span>${esc(p || '')}</span>`).join('')}</div>` : ''}
   <div class="t" style="margin-top:14px">Convocati · ${c.names.length}</div>
@@ -618,6 +639,8 @@ function showCallupCard(id) {
 }
 // Versione stampabile A4: stampata da un riquadro nascosto nella pagina stessa (niente finestre extra)
 function printCallup(id) {
+  // Telefoni e tablet non stampano da un riquadro nascosto: lì si scarica un PDF A4, da aprire e stampare
+  if (isPhone) return downloadCallupPdf(id);
   const c = callupNow(id);
   if (!c.names.length) return alert('Seleziona almeno un convocato.');
   const team = (getComputedStyle(document.documentElement).getPropertyValue('--team') || '#d7142c').trim();
@@ -880,16 +903,104 @@ async function makePosterPdf(c, P) {
   }
   return pdf.save();
 }
+// Scarica un PDF generato nel browser (stesso metodo per locandina e convocazione)
+function savePdf(bytes, name) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 async function downloadPoster(id) {
   const c = callupNow(id);
   if (!c.opp) return alert('Manca l’avversario.');
+  try { savePdf(await makePosterPdf(c), `Locandina vs ${c.opp}.pdf`); }
+  catch (e) { alert('Locandina non creata: ' + (e.message || e)); console.error(e); }
+}
+// ===== CONVOCAZIONE A4 IN PDF (usata dal telefono) =====
+// Stessa impaginazione della stampa dal computer: data, campo, logo · VS · avversario, ritrovi, convocati.
+async function downloadCallupPdf(id) {
+  const c = callupNow(id);
+  if (!c.names.length) return alert('Seleziona almeno un convocato.');
+  try { savePdf(await makeCallupPdf(c), `Convocazione vs ${c.opp}.pdf`); }
+  catch (e) { alert('Convocazione non creata: ' + (e.message || e)); console.error(e); }
+}
+async function makeCallupPdf(c) {
+  if (!window.PDFLib) await loadScript('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js');
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const pdf = await PDFDocument.create();
+  let fk = false;
+  const useFontkit = async () => { if (fk) return; if (!window.fontkit) await loadScript('https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js'); pdf.registerFontkit(window.fontkit); fk = true; };
+  const simple = s => String(s).replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').normalize('NFC').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
+  const loadFont = async (list, std) => {
+    for (const src of list) { try { const bytes = await fetchBytes(src); await useFontkit(); return { f: await pdf.embedFont(bytes, { subset: true }), plain: s => String(s) }; } catch (e) {} }
+    return { f: await pdf.embedFont(std), plain: simple };
+  };
+  const D = await loadFont(POSTER.fonts.display, StandardFonts.HelveticaBold), T = await loadFont(POSTER.fonts.text, StandardFonts.Helvetica);
+  const W = 595.28, H = 841.89, M = 42, CW = W - 2 * M; // A4 verticale, margini ~15 mm
+  const page = pdf.addPage([W, H]);
+  const hex = (getComputedStyle(document.documentElement).getPropertyValue('--team') || '#d7142c').trim();
+  const mm = /^#?([0-9a-f]{6})$/i.exec(hex), n = parseInt(mm ? mm[1] : 'd7142c', 16);
+  const red = rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255), ink = rgb(.07, .07, .07), grey = rgb(.38, .38, .38), light = rgb(.955, .955, .955), rule = rgb(.85, .85, .85), white = rgb(1, 1, 1);
+  const cap = (fo, sz) => fo.f.heightAtSize(sz, { descender: false }) * .72;
+  const tw = (fo, s, sz) => fo.f.widthOfTextAtSize(fo.plain(s), sz);
+  const fit = (fo, s, sz, maxW, min = 6) => { while (sz > min && tw(fo, s, sz) > maxW) sz -= .5; return sz; };
+  const txt = (fo, s, sz, x, y, color, align = 'left') => { s = fo.plain(s); if (!s) return; const w = fo.f.widthOfTextAtSize(s, sz);
+    page.drawText(s, { x: align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, y, size: sz, font: fo.f, color }); };
+  let y = H - 36;
+  // data e ora, campo
+  const when = whenTxt(c.date, c.kickoff).toUpperCase();
+  let sz = fit(D, when, 26, CW); y -= cap(D, sz); txt(D, when, sz, W / 2, y, ink, 'center');
+  const venue = [c.venue_name, c.venue_address].filter(Boolean).join('  ·  ');
+  if (venue) { sz = fit(T, venue, 13, CW); y -= 8 + cap(T, sz); txt(T, venue, sz, W / 2, y, grey, 'center'); }
+  // logo · VS · avversario (chi gioca in casa a sinistra)
+  const home = c.home !== false, hh = 118, r = 23, half = CW / 2 - r - 12;
+  y -= 12; const cy = y - hh / 2;
+  const sideX = d => W / 2 + d * (r + 12 + half / 2);
   try {
-    const bytes = await makePosterPdf(c);
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-    const a = document.createElement('a'); a.href = url; a.download = `Locandina vs ${c.opp}.pdf`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } catch (e) { alert('Locandina non creata: ' + (e.message || e)); console.error(e); }
+    const img = await pdf.embedPng(await trimPng(await fetchBytes(POSTER.logo)));
+    const k = Math.min(half / img.width, hh / img.height), lw = img.width * k, lh = img.height * k;
+    page.drawImage(img, { x: sideX(home ? -1 : 1) - lw / 2, y: cy - lh / 2, width: lw, height: lh });
+  } catch (e) {} // senza logo resta lo spazio vuoto
+  const lines = oppLines(c.opp).map(D.plain);
+  const osz = Math.min(36, ...lines.map(l => half * .95 / Math.max(1, D.f.widthOfTextAtSize(l, 1)))), olh = osz * 1.02;
+  lines.forEach((l, i) => txt(D, l, osz, sideX(home ? 1 : -1), cy + (lines.length - 1) * olh / 2 - i * olh - cap(D, osz) / 2, ink, 'center'));
+  page.drawCircle({ x: W / 2, y: cy, size: r, color: red });
+  txt(D, 'VS', 19, W / 2, cy - cap(D, 19) / 2, white, 'center');
+  y -= hh + 8; page.drawRectangle({ x: M, y: y - 7, width: CW, height: 7, color: red }); y -= 7;
+  // ritrovi
+  const mr = meetRows(c);
+  if (mr.length) {
+    y -= 22 + cap(D, 17); txt(D, 'RITROVO', 17, M, y, ink); y -= 8;
+    mr.forEach(([t, p]) => {
+      const bh = 30; y -= bh;
+      page.drawRectangle({ x: M, y, width: CW, height: bh, color: light }); page.drawRectangle({ x: M, y, width: 4.5, height: bh, color: red });
+      txt(D, t ? 'ORE ' + hd(t) : '—', 17, M + 14, y + (bh - cap(D, 17)) / 2, red);
+      const ps = fit(T, p || '', 15, CW - 120); txt(T, p || '', ps, M + 104, y + (bh - cap(T, ps)) / 2, ink);
+      y -= 7;
+    });
+  }
+  // convocati: due colonne (tre se sono tanti), il carattere si riduce finché tutto sta nel foglio
+  const N = c.names.length, foot = 62;
+  y -= 18 + cap(D, 17); txt(D, `CONVOCATI  ·  ${N}`, 17, M, y, ink); y -= 6;
+  const avail = y - foot;
+  let cols = 2, fs = 15;
+  for (const cc of [2, 3]) { let f = cc === 2 ? 15 : 12; while (f > 8 && Math.ceil(N / cc) * f * 2.15 > avail) f -= .5; cols = cc; fs = f; if (Math.ceil(N / cc) * f * 2.15 <= avail) break; }
+  const rowH = fs * 2.15, rows = Math.ceil(N / cols), gapC = 22, colW = (CW - (cols - 1) * gapC) / cols, numW = tw(D, '00', fs) + 6;
+  c.names.forEach((full, i) => {
+    const col = Math.floor(i / rows), row = i % rows, x = M + col * (colW + gapC), top = y - row * rowH;
+    const [sur, first] = nameParts(full), ss = fit(D, sur.toUpperCase(), fs, colW - numW);
+    if (first) {
+      txt(D, sur.toUpperCase(), ss, x + numW, top - fs * .95, ink);
+      txt(T, first, fit(T, first, fs * .72, colW - numW), x + numW, top - fs * 1.78, grey);
+    } else txt(D, sur.toUpperCase(), ss, x + numW, top - rowH / 2 - cap(D, ss) / 2, ink);
+    txt(D, String(i + 1), fs, x, top - rowH / 2 - cap(D, fs) / 2, red);
+    page.drawLine({ start: { x, y: top - rowH }, end: { x: x + colW, y: top - rowH }, thickness: .6, color: rule });
+  });
+  // piè di pagina
+  page.drawLine({ start: { x: M, y: 52 }, end: { x: W - M, y: 52 }, thickness: .6, color: rule });
+  txt(T, 'Convocazione ufficiale', 9, M, 38, grey);
+  txt(T, `vs ${c.opp} · ${new Date(c.date + 'T12:00:00').toLocaleDateString('it-IT')}`, 9, W - M, 38, grey, 'right');
+  return pdf.save();
 }
 // Pannello admin: cursori con anteprima dal vivo, salvataggio per tutti
 async function tunePoster(id) {
@@ -931,7 +1042,10 @@ async function tunePoster(id) {
   el.querySelector('#tpreset').onclick = () => { if (!confirm('Tornare alle misure predefinite? (Diventa definitivo solo con «Salva per tutti».)')) return; ov = {}; draw(); preview(); };
   draw(); preview();
 }
-const callupBtns = id => `<div class="row"><button class="g s" onclick="showCallupCard('${id}')">📸 Card da condividere</button><button class="g s" onclick="printCallup('${id}')">🖨️ Stampa A4</button></div>`;
+// Pulsanti a riquadro, tutti della stessa misura, in due gruppi: invio della convocazione e locandina
+const tile = (ic, lb, fn) => `<button class="g" onclick="${fn}"><span>${ic}</span>${lb}</button>`;
+const shareTiles = (id, note = '') => `<div class="acts"><p class="ak">📣 Invia la convocazione</p><div class="tiles">${tile('💬', 'WhatsApp', `shareCallup('${id}')`)}${tile('📸', 'Card', `showCallupCard('${id}')`)}${tile('🖨️', 'Stampa A4', `printCallup('${id}')`)}</div>${note ? `<p class="mut" style="font-size:13px;margin-bottom:0">${note}</p>` : ''}</div>`;
+const posterTiles = id => `<div class="acts"><p class="ak">🍻 Locandina per il bar</p><div class="tiles">${tile('📄', 'Scarica PDF', `downloadPoster('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola', `tunePoster('${id}')`) : ''}</div></div>`;
 
 // Admin: salva solo orari e ritrovi (i convocati si salvano a ogni spunta)
 const saveCallupTimes = id => act(() => q(sb.from('matches').update(callupVals()).eq('id', id)));
@@ -1202,6 +1316,85 @@ async function rankView() {
 // "Può votare" e "Mister" sono proprietà che si aggiungono alla categoria.
 const OUT_LABEL = 'Fuori rosa';
 const CAT = { rosa: 'In rosa', fuori: OUT_LABEL, staff: 'Staff', spett: 'Spettatore' };
+
+// ---------- RICERCA PERSONE (pagina Admin) ----------
+// Si scrivono nomi e/o parole chiave: tutte le condizioni devono valere insieme.
+// «non» davanti a una parola la esclude (es. «mister non votanti», «admin non michele»).
+let admQ = '', admPeople = [];
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+// Filtri: chiave -> [etichetta, prova sulla persona]
+// Persona = { u: account (o null), p: giocatore (o null), cat: categoria, words: parole del nome }
+const SF = {
+  admin: ['Admin', x => !!(x.u && x.u.is_admin)],
+  mister: ['Mister', x => !!(x.u && x.u.is_coach)],
+  rosa: ['In rosa', x => x.cat === 'rosa' || x.cat === 'senza'],
+  fuori: [OUT_LABEL, x => x.cat === 'fuori'],
+  staff: ['Staff', x => x.cat === 'staff'],
+  spett: ['Spettatori', x => x.cat === 'spett'],
+  nuovo: ['Da sistemare', x => x.cat === 'nuovo'],
+  vota: ['Può votare', x => !!(x.u && x.u.can_vote)],
+  online: ['Online', x => !!(x.u && onlineIds.includes(x.u.id))],
+  senza: ['Senza account', x => !x.u],
+  account: ['Iscritti', x => !!x.u],
+  giocatore: ['Giocatori', x => !!x.p],
+  collegato: ['Collegati', x => !!(x.u && x.p)]
+};
+// Parole (singolari, plurali, sinonimi) -> filtro
+const SW = { admin: 'admin', admins: 'admin', amministratore: 'admin', amministratori: 'admin',
+  mister: 'mister', allenatore: 'mister', allenatori: 'mister', coach: 'mister',
+  staff: 'staff', dirigente: 'staff', dirigenti: 'staff',
+  spettatore: 'spett', spettatori: 'spett', spettatrice: 'spett', tifoso: 'spett', tifosi: 'spett',
+  nuovo: 'nuovo', nuovi: 'nuovo', nuova: 'nuovo', nuove: 'nuovo',
+  votante: 'vota', votanti: 'vota', abilitato: 'vota', abilitati: 'vota', abilitata: 'vota', abilitate: 'vota', vota: 'vota', votano: 'vota',
+  online: 'online', connesso: 'online', connessi: 'online',
+  giocatore: 'giocatore', giocatori: 'giocatore',
+  collegato: 'collegato', collegati: 'collegato', iscritto: 'account', iscritti: 'account', iscritta: 'account', account: 'account',
+  infortunato: 'fuori', infortunati: 'fuori', convocabile: 'rosa', convocabili: 'rosa' };
+// Frasi di più parole, riconosciute prima delle singole parole
+const SPH = [['fuori rosa', 'fuori'], ['in rosa', 'rosa'], ['da sistemare', 'nuovo'], ['senza account', 'senza'], ['puo votare', 'vota'], ['possono votare', 'vota'], ['scollegato', 'xcollegato'], ['scollegati', 'xcollegato']];
+const STOP = new Set('tutti tutte tutto gli i il la le lo l e ed con che sono chi di del dei degli delle un una uno mostra cerca trova quali quanti solo anche come tipo per'.split(' '));
+function parseQ(s) {
+  let t = ' ' + norm(s) + ' ';
+  SPH.forEach(([ph, k]) => { t = t.replace(new RegExp('\\b' + ph + '\\b', 'g'), ' k_' + k + ' '); });
+  const f = [], names = []; let neg = false;
+  for (const w of t.split(/\s+/).filter(Boolean)) {
+    if (w === 'non') { neg = !neg; continue; }
+    let k = w.startsWith('k_') ? w.slice(2) : SW[w];
+    if (k === 'xcollegato') { k = 'collegato'; neg = !neg; }
+    if (k) { const i = f.findIndex(x => x.k === k); if (i >= 0) f.splice(i, 1); f.push({ k, neg }); neg = false; continue; }
+    if (STOP.has(w)) continue;
+    names.push({ w, neg }); neg = false;
+  }
+  return { f, names };
+}
+// un pezzo di nome vale se è l'inizio di una parola del nome (o del nome del giocatore collegato)
+const matchP = (x, P) => P.f.every(({ k, neg }) => SF[k][1](x) !== neg) && P.names.every(({ w, neg }) => x.words.some(y => y.startsWith(w)) !== neg);
+const FWORD = { admin: 'admin', mister: 'mister', rosa: 'in rosa', fuori: 'fuori rosa', staff: 'staff', spett: 'spettatori', nuovo: 'da sistemare', vota: 'votanti', online: 'online', senza: 'senza account', account: 'iscritti', giocatore: 'giocatori', collegato: 'collegati' };
+const serQ = P => [...P.names.map(n => (n.neg ? 'non ' : '') + n.w), ...P.f.map(x => (x.neg ? 'non ' : '') + FWORD[x.k])].join(' ');
+// Pulsanti rapidi: [filtro, escluso?, etichetta]
+const CHIPS = [['admin', false, 'Admin'], ['mister', false, '⭐ Mister'], ['rosa', false, 'In rosa'], ['fuori', false, OUT_LABEL], ['staff', false, 'Staff'], ['spett', false, 'Spettatori'],
+  ['nuovo', false, 'Da sistemare'], ['vota', false, 'Può votare'], ['vota', true, 'Non può votare'], ['senza', false, 'Senza account'], ['online', false, '🟢 Online']];
+const admChipsHtml = () => { const P = parseQ(admQ);
+  return CHIPS.map(([k, n, l], i) => `<button class="s ${P.f.some(x => x.k === k && x.neg === n) ? '' : 'g'}" onclick="admChip(${i})">${l}</button>`).join('') + (admQ.trim() ? '<button class="s g" onclick="admSearch(\'\', true)">✕ Azzera</button>' : ''); };
+function admResHtml() {
+  const P = parseQ(admQ);
+  if (!P.f.length && !P.names.length) return '';
+  const r = admPeople.filter(x => matchP(x, P));
+  const what = [...P.names.map(n => (n.neg ? 'non ' : '') + '«' + esc(n.w) + '»'), ...P.f.map(x => (x.neg ? 'non ' : '') + SF[x.k][0].toLowerCase())].join(' + ');
+  return `<p class="mut" style="margin:8px 0 4px">Cerco: ${what} → <b>${r.length}</b> ${r.length === 1 ? 'risultato' : 'risultati'}</p>${r.map(x => `<div class="card sres">${x.html}</div>`).join('')}`;
+}
+function admSearch(val, setInput) {
+  admQ = val;
+  if (setInput && $('admQ')) $('admQ').value = val;
+  if ($('admChips')) $('admChips').innerHTML = admChipsHtml();
+  if ($('admRes')) $('admRes').innerHTML = admResHtml();
+}
+function admChip(i) {
+  const [k, n] = CHIPS[i], P = parseQ(admQ), on = P.f.some(x => x.k === k && x.neg === n);
+  P.f = P.f.filter(x => x.k !== k);
+  if (!on) P.f.push({ k, neg: n });
+  admSearch(serQ(P), true);
+}
 async function adminView() {
   const [pl, pf] = await Promise.all([q(sb.from('players').select('*').order('name')), q(sb.from('profiles').select('*').order('display_name'))]);
   const nm = id => (pf.find(x => x.id === id) || {}).display_name;
@@ -1238,7 +1431,16 @@ async function adminView() {
   const exRow = u => `<div class="ac"><b>${esc(u.display_name)}</b>${tags(u)}<div class="mut">${CAT[cat(u)]}${u.can_vote ? ' · può votare' : ' · non può votare'}</div></div>`;
   const N = pf.length, G = (k, t, list, hint = '', cls = '') => grp(k, t, `${list.length} / ${N}`, list.map(acc).join(''), hint, cls);
   const nonAb = pf.filter(u => !u.can_vote && cat(u) !== 'nuovo');
-  return `<div class="card"><b>🟢 Online ora: <span id="onlN">${onlineIds.length}</span></b><div id="onlList" style="margin-top:6px">${onlineListHtml()}</div><p class="mut" style="font-size:13px;margin:6px 0 0">Chi ha il sito aperto in questo momento, aggiornato in tempo reale. Sul telefono, dopo un po’ che l’app è in background, la persona risulta uscita.</p></div>
+  // Elenco per la ricerca: tutti gli account + i giocatori della rosa che non hanno un account
+  admPeople = [...pf.map(u => { const p = linked(u); return { u, p, cat: cat(u), name: u.display_name || '', words: norm(u.display_name + ' ' + (p ? p.name : '')).split(' '), html: acc(u) }; }),
+    ...free.map(p => ({ u: null, p, cat: 'senza', name: p.name || '', words: norm(p.name).split(' '), html: plRow(p) }))]
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const searchCard = `<div class="card"><b>🔍 Cerca persone</b>
+    <input id="admQ" type="search" placeholder="Es. «Michele admin», «mister non votanti»" value="${esc(admQ)}" oninput="admSearch(this.value)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div id="admChips" class="chips">${admChipsHtml()}</div>
+    <p class="mut" style="font-size:13px;margin:4px 0 0">Scrivi un nome (anche solo l’inizio) e/o tocca i pulsanti: le condizioni valgono tutte insieme. «non» davanti esclude, es. «mister non votanti».</p>
+    <div id="admRes">${admResHtml()}</div></div>`;
+  return `${searchCard}<div class="card"><b>🟢 Online ora: <span id="onlN">${onlineIds.length}</span></b><div id="onlList" style="margin-top:6px">${onlineListHtml()}</div><p class="mut" style="font-size:13px;margin:6px 0 0">Chi ha il sito aperto in questo momento, aggiornato in tempo reale. Sul telefono, dopo un po’ che l’app è in background, la persona risulta uscita.</p></div>
   <h2>Da sistemare (${nuovi.length})</h2>${nuovi.length
     ? `<p class="mut">Spunta «Può votare» (ed eventualmente «Mister»), poi scegli la categoria: collegalo al suo giocatore della rosa, oppure indica se è staff o spettatore. Se il giocatore non è in rosa, aggiungilo qui sotto.</p>${nuovi.map(nuovo).join('')}`
     : '<p class="mut">Nessun nuovo iscritto da sistemare.</p>'}
