@@ -183,6 +183,10 @@ details.grp summary .tag{margin-left:auto}
 /* ricerca persone (pagina Admin) */
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}.chips button{width:auto;margin:0;padding:5px 10px;font-size:13px}
 .sres{margin:6px 0;padding:4px 12px}
+/* convocati: riquadro con conteggio e «Salva», sempre visibile in basso mentre scorri i nomi */
+.cbar{position:sticky;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;justify-content:space-between;align-items:center;gap:10px;margin:10px 0 4px;padding:8px 10px 8px 14px;border-radius:12px;border:2px solid #fff;background:var(--card);box-shadow:0 6px 18px rgba(0,0,0,.55)}
+.cbar b{font-family:Oswald,Impact,sans-serif;font-size:22px}.cbar .s{flex:none}
+.cbar.dirty{background:#fff;color:var(--team)}.cbar.dirty .s{background:var(--team);color:#fff}
 /* card convocazione: niente X, si chiude toccando; l'avviso sparisce prima dello screenshot */
 #ov.tap{cursor:pointer}
 .tapx{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:rgba(0,0,0,.65);color:#fff;padding:6px 14px;border-radius:99px;font-size:13px;pointer-events:none;white-space:nowrap;animation:tapx 2.6s ease forwards}
@@ -278,6 +282,8 @@ async function signUp() {
 // ---------- SCHERMATE ----------
 async function render(keep) {
   const y = window.scrollY;
+  // ridisegno della stessa schermata (es. dopo un «Salva»): ricorda campi e spunte non ancora salvati
+  const snap = keep ? formSnap() : null;
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return authView();
   me = session.user;
@@ -301,6 +307,7 @@ async function render(keep) {
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')">Convocazioni</button>` : ''}
   ${admin ? `<button class="${tab === 'n' && !cur ? 'on' : ''}" onclick="mg=null;go('n')">Gestione</button><button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')">Admin</button>` : ''}</nav>`;
+  formRestore(snap);
   syncRoute();
   window.scrollTo(0, keep ? y : 0);
 }
@@ -414,7 +421,7 @@ async function manageMatch(id) {
   const cls = k => st[k] === 'todo' ? 'c-todo' : '';
   const sec = {
     cv: grp('s-cv', 'Orari e luoghi', badge('cv', m.kickoff ? 'ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<button onclick="saveCallupTimes('${id}')">💾 Salva orari e luoghi</button>${posterTiles(id)}`, '', cls('cv')),
-    cc: grp('mc', 'Convocati', convBadge(nConv, nConvocabili, m.status === 'draft'), `${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="conv('${id}','${p.id}',this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${shareTiles(id, 'Usano i convocati spuntati qui sopra e orari e luoghi della sezione «Orari e luoghi»: salvali prima di condividere.')}`, CONV_HINT, cls('cc')),
+    cc: grp('mc', 'Convocati', convBadge(nConv, nConvocabili, m.status === 'draft'), `${meetFields(m, "adminSaveMeet('" + id + "')")}${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} data-pid="${p.id}" onchange="countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${convBar(cids, "adminSaveConv('" + id + "')")}${shareTiles(id, 'Usano ritrovi e convocati qui sopra, più orario e luogo della sezione «Orari e luoghi» (salvali prima di condividere).')}`, CONV_HINT, cls('cc')),
     vt: grp('s-vt', 'Votazione', badge('vt', ST[m.status]), `${durBlock}${quorumBlock}
   <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
   <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi link</button><button class="g" onclick="copyLink('${id}')">Copia link</button></div>
@@ -568,19 +575,55 @@ const callupFields = m => `<p class="mut">Orario della partita:</p><input id="ko
   <p class="mut">Luogo della partita:</p><input id="vn" placeholder="Campo (es. «Campo di Albettone»)" value="${esc(m.venue_name || '')}"><input id="va" placeholder="Indirizzo (es. «Via Pozzetto 1, Albettone»)" value="${esc(m.venue_address || '')}">
   <input id="vm" type="url" inputmode="url" placeholder="Link Google Maps (facoltativo)" value="${esc(m.venue_map || '')}">
   <p class="mut" style="font-size:13px;margin:2px 0 0">Su Google Maps: tocca il punto → Condividi → Copia link, poi incollalo qui. Se lo lasci vuoto, il sito cerca campo e indirizzo.</p>
-  <p class="mut">Ritrovo 1 (es. «dalla Rosa»):</p><div class="tmr"><input id="m1t" type="time" value="${hm(m.meet1_time)}"><input id="m1p" placeholder="Luogo (facoltativo)" value="${esc(m.meet1_place || '')}"></div>
-  <p class="mut">Ritrovo 2 (es. «Campo di Albettone»):</p><div class="tmr"><input id="m2t" type="time" value="${hm(m.meet2_time)}"><input id="m2p" placeholder="Luogo (facoltativo)" value="${esc(m.meet2_place || '')}"></div>`;
-const callupVals = () => ({ kickoff: v('ko') || null, venue_name: v('vn').trim() || null, venue_address: v('va').trim() || null, venue_map: safeUrl(v('vm').trim()) || null, meet1_time: v('m1t') || null, meet1_place: v('m1p').trim() || null, meet2_time: v('m2t') || null, meet2_place: v('m2p').trim() || null });
+`;
+// Ritrovi: stanno nella sezione «Convocati» (servono alla convocazione, non alla locandina) e si salvano da soli.
+// fn = funzione da chiamare a ogni modifica (admin o mister)
+const meetFields = (m, fn) => `<p class="ak" style="margin:0 0 4px">📍 Ritrovi</p>
+  <p class="mut" style="margin:4px 0 0">Ritrovo 1 (es. «dalla Rosa»):</p><div class="tmr"><input id="m1t" type="time" value="${hm(m.meet1_time)}"><input id="m1p" placeholder="Luogo (facoltativo)" value="${esc(m.meet1_place || '')}"></div>
+  <p class="mut" style="margin:4px 0 0">Ritrovo 2 (es. «Campo di Albettone»):</p><div class="tmr"><input id="m2t" type="time" value="${hm(m.meet2_time)}"><input id="m2p" placeholder="Luogo (facoltativo)" value="${esc(m.meet2_place || '')}"></div>
+  <button onclick="${fn}">💾 Salva ritrovi</button>
+  <p class="ak" style="margin:18px 0 4px">✅ Convocati</p>`;
+// Riquadro fisso con il conteggio delle spunte (anche non salvate) e il pulsante «Salva convocati»
+const convBar = (cids, fn) => `<div class="cbar" id="cbar" data-saved="${cids.join(',')}"><span><b id="cbn">${cids.length}</b> convocati <span id="cbs">· ✓ salvati</span></span><button class="s" onclick="${fn}">💾 Salva convocati</button></div>`;
+// valori a schermo: orario e luogo (sezione «Orari e luoghi») e ritrovi (sezione «Convocati»)
+const placeVals = () => ({ kickoff: v('ko') || null, venue_name: v('vn').trim() || null, venue_address: v('va').trim() || null, venue_map: safeUrl(v('vm').trim()) || null });
+const meetVals = () => ({ meet1_time: v('m1t') || null, meet1_place: v('m1p').trim() || null, meet2_time: v('m2t') || null, meet2_place: v('m2p').trim() || null });
+const callupVals = () => ({ ...placeVals(), ...meetVals() });
+// Campi e spunte non salvati: restano se la stessa schermata si ridisegna, si perdono se si esce
+const FORM_IDS = ['ko', 'vn', 'va', 'vm', 'm1t', 'm1p', 'm2t', 'm2p'];
+const formSnap = () => ({ route: routeOf(), vals: Object.fromEntries(FORM_IDS.filter(k => $(k)).map(k => [k, $(k).value])),
+  conv: document.querySelector('.cvx') ? [...document.querySelectorAll('.cvx:checked')].map(x => x.dataset.pid) : null });
+function formRestore(sn) {
+  if (!sn || sn.route !== routeOf()) return;
+  FORM_IDS.forEach(k => { const e = $(k); if (e && k in sn.vals) e.value = sn.vals[k]; });
+  if (sn.conv) document.querySelectorAll('.cvx').forEach(x => { x.checked = sn.conv.includes(x.dataset.pid); });
+  countConv();
+}
+const checkedIds = () => [...document.querySelectorAll('.cvx:checked')].map(x => x.dataset.pid);
+// Admin: salva ritrovi e convocati con i rispettivi pulsanti
+const adminSaveMeet = id => act(() => q(sb.from('matches').update(meetVals()).eq('id', id)));
+function adminSaveConv(id) {
+  const ids = checkedIds();
+  act(async () => {
+    const now = (await q(sb.from('match_players').select('player_id').eq('match_id', id))).map(x => x.player_id);
+    const add = ids.filter(p => !now.includes(p)), del = now.filter(p => !ids.includes(p));
+    if (add.length) await q(sb.from('match_players').insert(add.map(p => ({ match_id: id, player_id: p }))));
+    if (del.length) await q(sb.from('match_players').delete().eq('match_id', id).in('player_id', del));
+  });
+}
 // Sezione «Convocati» completa da 11 convocati in su (admin e mister)
 const CONV_MIN = 11;
 const convBadge = (n, tot, live) => `<span id="mcs"${live ? ' data-live="1"' : ''}>${!live || n >= CONV_MIN ? '✓' : 'da fare'}</span> · <span id="mcn">${n}</span> / ${tot}`;
-const CONV_HINT = `Ogni spunta si salva subito. La sezione è completa da ${CONV_MIN} convocati in su.`;
+const CONV_HINT = `Ritrovi e convocati hanno ognuno il suo «Salva». Il riquadro con il conteggio resta visibile in basso mentre scorri i nomi: se esci senza salvare, le spunte nuove si perdono. La sezione è completa da ${CONV_MIN} convocati salvati in su.`;
 // aggiorna contatore e stato della sezione a ogni spunta, senza ricaricare la pagina
 const countConv = () => {
-  const n = document.querySelectorAll('.cvx:checked').length;
-  ['cvn', 'mcn'].forEach(k => { const el = $(k); if (el) el.textContent = n; });
+  const on = checkedIds(), n = on.length, bar = $('cbar');
+  const saved = bar ? (bar.dataset.saved || '').split(',').filter(Boolean) : null;
+  const dirty = !!saved && (saved.length !== n || on.some(p => !saved.includes(p)));
+  ['cvn', 'mcn', 'cbn'].forEach(k => { const el = $(k); if (el) el.textContent = n; });
+  if (bar) { bar.classList.toggle('dirty', dirty); $('cbs').textContent = dirty ? '· da salvare' : '· ✓ salvati'; }
   const s = $('mcs');
-  if (s && s.dataset.live) { const ok = n >= CONV_MIN; s.textContent = ok ? '✓' : 'da fare'; const d = s.closest('details'); if (d) d.classList.toggle('c-todo', !ok); }
+  if (s && s.dataset.live) { const ok = n >= CONV_MIN && !dirty; s.textContent = ok ? '✓' : 'da fare'; const d = s.closest('details'); if (d) d.classList.toggle('c-todo', !ok); }
 };
 // Testo da incollare nel gruppo WhatsApp, costruito da quello che c'è a schermo
 const callupMeta = {}; // id partita -> { opp, date } per il testo da condividere
@@ -608,15 +651,15 @@ async function callupView() {
 async function callupEdit(m) {
   const [roster, conv] = await Promise.all([q(sb.rpc('coach_roster')), q(sb.from('match_players').select('player_id').eq('match_id', m.id))]);
   const id = m.id, cids = conv.map(c => c.player_id), n = cids.length;
-  // «saved» = orari e luoghi già salvati: le spunte li rimandano così come sono, senza toccare quelli non ancora salvati
-  callupMeta[id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase,
+  // «saved» / «savedIds» = quello che c'è già su Supabase: ogni «Salva» del mister rimanda il resto così com'è
+  callupMeta[id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase, savedIds: cids,
     saved: { kickoff: m.kickoff, venue_name: m.venue_name, venue_address: m.venue_address, venue_map: m.venue_map, meet1_time: m.meet1_time, meet1_place: m.meet1_place, meet2_time: m.meet2_time, meet2_place: m.meet2_place } };
   // stesse sezioni dell'admin, in ordine di priorità: prima orari e luoghi, poi i convocati
   const st = { cv: m.kickoff && (m.venue_name || m.venue_address) ? 'done' : 'todo', cc: n >= CONV_MIN ? 'done' : 'todo' };
   const cls = k => st[k] === 'todo' ? 'c-todo' : '';
   const sec = {
     cv: grp('s-cv', 'Orari e luoghi', (st.cv === 'todo' ? 'da fare' : '✓') + (m.kickoff ? ' · ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<button onclick="coachSaveTimes('${id}')">💾 Salva orari e luoghi</button>${posterTiles(id)}`, '', cls('cv')),
-    cc: grp('mc', 'Convocati', convBadge(n, roster.length, true), `${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" value="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="coachTick('${id}')"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}${shareTiles(id, 'Usano i convocati spuntati qui sopra e orari e luoghi della sezione «Orari e luoghi»: salvali prima di condividere.')}`, CONV_HINT, cls('cc')) };
+    cc: grp('mc', 'Convocati', convBadge(n, roster.length, true), `${meetFields(m, "coachSaveMeet('" + id + "')")}${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" data-pid="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="countConv()"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}${convBar(cids, "coachSaveConv('" + id + "')")}${shareTiles(id, 'Usano ritrovi e convocati qui sopra, più orario e luogo della sezione «Orari e luoghi» (salvali prima di condividere).')}`, CONV_HINT, cls('cc')) };
   const sorted = ['cv', 'cc'].sort((x, y) => (st[x] === 'todo' ? 0 : 1) - (st[y] === 'todo' ? 0 : 1));
   if (!autoOpen.has(id)) { autoOpen.add(id); const f = sorted.find(k => st[k] === 'todo'); if (f) openG.add(f === 'cc' ? 'mc' : 's-cv'); }
   return `<button class="g s" onclick="ck=null;render()">← Tutte le partite</button>${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 4px;text-transform:capitalize">${dayTxt(m.played_on)}</div>${sorted.map(k => sec[k]).join('')}`;
@@ -624,19 +667,14 @@ async function callupEdit(m) {
 // Il mister salva tutto con la funzione coach_set_callup (orari, luoghi e lista convocati insieme)
 const coachArgs = (id, c, ids) => ({ p_match: id, p_kickoff: c.kickoff || null, p_m1_time: c.meet1_time || null, p_m1_place: c.meet1_place || null, p_m2_time: c.meet2_time || null, p_m2_place: c.meet2_place || null,
   p_venue_name: c.venue_name || null, p_venue_address: c.venue_address || null, p_venue_map: c.venue_map || null, p_players: ids });
-const checkedIds = () => [...document.querySelectorAll('.cvx:checked')].map(x => x.value);
-// Spunta del mister: si salva subito. I salvataggi vanno in fila, così anche spunte rapide arrivano nell'ordine giusto.
-let coachQ = Promise.resolve();
-function coachTick(id) {
-  countConv();
-  const saved = (callupMeta[id] || {}).saved || {}, ids = checkedIds(); // elenco preso adesso, al momento della spunta
-  coachQ = coachQ.then(() => q(sb.rpc('coach_set_callup', coachArgs(id, saved, ids))))
-    .catch(e => { alert('Convocati non salvati: ' + (e.message || e)); render(true); });
-}
-function coachSaveTimes(id) {
-  const c = callupVals(), ids = checkedIds();
-  act(async () => { await coachQ; await q(sb.rpc('coach_set_callup', coachArgs(id, c, ids))); });
-}
+// Mister: tre «Salva» distinti. coach_set_callup salva tutto insieme, quindi per le parti non toccate rimanda i valori già salvati.
+const coachSave = (id, part) => {
+  const meta = callupMeta[id] || {}, c = { ...(meta.saved || {}), ...(part.vals || {}) }, ids = part.conv ? checkedIds() : meta.savedIds || [];
+  act(() => q(sb.rpc('coach_set_callup', coachArgs(id, c, ids))));
+};
+const coachSaveTimes = id => coachSave(id, { vals: placeVals() });  // orario e luogo (locandina)
+const coachSaveMeet = id => coachSave(id, { vals: meetVals() });    // ritrovi
+const coachSaveConv = id => coachSave(id, { conv: true });          // convocati
 // Dati della convocazione presi da quello che c'è a schermo (anche se non ancora salvato)
 const callupNow = id => ({ ...(callupMeta[id] || {}), ...callupVals(), names: [...document.querySelectorAll('.cvx:checked')].map(x => x.dataset.name) });
 // Ritrovi in ordine di orario (quelli senza orario in fondo)
@@ -1121,7 +1159,7 @@ const shareTiles = (id, note = '') => `<div class="acts"><p class="ak">📣 Invi
 const posterTiles = id => `<div class="acts"><p class="ak">🖼️ Locandina</p><div class="tiles">${tile('📄', 'Scarica PDF', `downloadPoster('${id}')`)}${isAdmin() ? tile('🎛️', 'Regola', `tunePdf('poster', '${id}')`) : ''}</div></div>`;
 
 // Admin: salva solo orari e ritrovi (i convocati si salvano a ogni spunta)
-const saveCallupTimes = id => act(() => q(sb.from('matches').update(callupVals()).eq('id', id)));
+const saveCallupTimes = id => act(() => q(sb.from('matches').update(placeVals()).eq('id', id)));
 
 // Medaglie del voto: [icona, nome con articolo, punti]
 const MED = [['🥇', 'l’oro', 3], ['🥈', 'l’argento', 2], ['🥉', 'il bronzo', 1]];
