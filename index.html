@@ -950,6 +950,7 @@ const CALLUP = {
   oppFill: .95,     // larghezza massima del nome avversario, come quota della sua metà
   barH: 7,          // spessore della barra colorata sotto le squadre
   headSize: 17,     // titoli «Ritrovo» e «Convocati»
+  listGap: 16,      // spazio tra il titolo «Convocati» e il primo nome
   nameSize: 15,     // grandezza massima dei nomi (si riduce da sola se i convocati sono tanti)
   // Colori, come nella locandina: 'red' (rosso squadra), 'mute' (rosso attenuato), 'ink' (nero), 'soft' (grigio scuro), 'grey' (grigio), 'white' (bianco)
   oppColor: 'ink',      // nome dell'avversario
@@ -971,6 +972,7 @@ const callupTune = () => [
   ['venueSize', 'Campo: grandezza', 8, 20, .5],
   ['barH', 'Barra colorata: spessore', 0, 16, .5],
   ['headSize', 'Titoli: grandezza', 10, 28, .5],
+  ['listGap', 'Spazio sotto «Convocati»', 0, 40, 1],
   ['nameSize', 'Nomi: grandezza massima', 8, 22, .5],
   ['muteMix', 'Rosso attenuato: quanto spento', 0, 1, .01]
 ];
@@ -998,7 +1000,9 @@ async function makeCallupPdf(c, P) {
   const rr = (n >> 16 & 255) / 255, rg = (n >> 8 & 255) / 255, rb = (n & 255) / 255, mx = Math.min(1, Math.max(0, P.muteMix));
   const red = rgb(rr, rg, rb), ink = rgb(.07, .07, .07), grey = rgb(.38, .38, .38), light = rgb(.955, .955, .955), rule = rgb(.85, .85, .85), white = rgb(1, 1, 1);
   const colors = { red, mute: rgb(rr + (.5 - rr) * mx, rg + (.5 - rg) * mx, rb + (.5 - rb) * mx), ink, soft: rgb(.3, .3, .3), grey: rgb(.45, .45, .45), white };
-  const cap = (fo, sz) => fo.f.heightAtSize(sz, { descender: false }) * .72;
+  // altezza vera delle maiuscole, letta dal font (serve a centrare bene le scritte); se manca, una stima
+  const capRatio = fo => { try { const f = fo.f.embedder.font; if (f.capHeight && f.unitsPerEm) return f.capHeight / f.unitsPerEm; if (f.CapHeight) return f.CapHeight / 1000; } catch (e) {} return .7; };
+  const cap = (fo, sz) => sz * capRatio(fo);
   const tw = (fo, s, sz) => fo.f.widthOfTextAtSize(fo.plain(s), sz);
   const fit = (fo, s, sz, maxW, min = 6) => { while (sz > min && tw(fo, s, sz) > maxW) sz -= .5; return sz; };
   const txt = (fo, s, sz, x, y, color, align = 'left') => { s = fo.plain(s); if (!s) return; const w = fo.f.widthOfTextAtSize(s, sz);
@@ -1038,7 +1042,7 @@ async function makeCallupPdf(c, P) {
   }
   // convocati: due colonne (tre se sono tanti), il carattere si riduce finché tutto sta nel foglio
   const N = c.names.length, foot = 62;
-  y -= 18 + cap(D, P.headSize); txt(D, `CONVOCATI  ·  ${N}`, P.headSize, M, y, ink); y -= 6;
+  y -= 18 + cap(D, P.headSize); txt(D, `CONVOCATI  ·  ${N}`, P.headSize, M, y, ink); y -= P.listGap;
   const avail = y - foot;
   let cols = 2, fs = P.nameSize;
   for (const cc of [2, 3]) { let f = cc === 2 ? P.nameSize : P.nameSize * .8; while (f > 8 && Math.ceil(N / cc) * f * 2.15 > avail) f -= .5; cols = cc; fs = f; if (Math.ceil(N / cc) * f * 2.15 <= avail) break; }
@@ -1047,8 +1051,11 @@ async function makeCallupPdf(c, P) {
     const col = Math.floor(i / rows), row = i % rows, x = M + col * (colW + gapC), top = y - row * rowH;
     const [sur, first] = nameParts(full), ss = fit(D, sur.toUpperCase(), fs, colW - numW);
     if (first) {
-      txt(D, sur.toUpperCase(), ss, x + numW, top - fs * .95, ink);
-      txt(T, first, fit(T, first, fs * .72, colW - numW), x + numW, top - fs * 1.78, grey);
+      // cognome + nome formano un blocco, centrato in altezza nella cella
+      const fsz = fit(T, first, fs * .72, colW - numW), gap = fs * .32, blockH = cap(D, ss) + gap + cap(T, fsz);
+      const base1 = top - (rowH - blockH) / 2 - cap(D, ss);
+      txt(D, sur.toUpperCase(), ss, x + numW, base1, ink);
+      txt(T, first, fsz, x + numW, base1 - gap - cap(T, fsz), grey);
     } else txt(D, sur.toUpperCase(), ss, x + numW, top - rowH / 2 - cap(D, ss) / 2, ink);
     txt(D, String(i + 1), fs, x, top - rowH / 2 - cap(D, fs) / 2, red);
     page.drawLine({ start: { x, y: top - rowH }, end: { x: x + colW, y: top - rowH }, thickness: .6, color: rule });
