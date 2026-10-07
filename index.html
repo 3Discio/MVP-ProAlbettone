@@ -176,7 +176,11 @@ select:disabled{opacity:.45}
 .calm{font:500 14px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--hl);margin:12px 0 4px;padding-bottom:3px;border-bottom:1px dashed var(--line)}.calm:first-child{margin-top:0}
 .calr{display:flex;gap:12px;align-items:flex-start;padding:8px 0}.calr.oggi{background:color-mix(in srgb,var(--team) 20%,transparent);border-radius:10px;padding:8px;margin:0 -8px}
 .cald{min-width:46px;text-align:center;border-radius:10px;background:#fff;color:var(--team);padding:4px 0;line-height:1}.cald span{display:block;font-size:11px;text-transform:uppercase;font-weight:700}.cald b{font:700 22px Oswald,Impact,sans-serif}
-.calr a,.card p a{color:var(--hl)}.calb{display:flex;flex-direction:column;gap:8px}
+.calr a,.card p a{color:var(--hl)}
+.calr.kpar{background:color-mix(in srgb,var(--team) 22%,transparent);border-left:4px solid var(--team);border-radius:10px;padding:8px;margin:2px -8px}
+.calr.kpar .cald{background:var(--team);color:#fff;box-shadow:0 0 0 2px #fff}.calr.kpar b{color:#fff}
+.calr.kall .cald{background:rgba(255,255,255,.14);color:#fff}.calr.kall>.f>b{font-weight:600;opacity:.85}
+.calgo{align-self:center;font-size:26px;color:var(--hl);padding-right:4px}.calb{display:flex;flex-direction:column;gap:8px}
 a.btn{display:block;text-align:center;text-decoration:none;background:var(--acc,#d7142c);color:#fff;border-radius:12px;padding:12px 10px;font-weight:600}a.btn.g{background:none;border:2px solid var(--line);color:inherit}
 .sugc{border-color:#f5c518;margin:0 0 10px}.warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 .mts{background:#fff;color:var(--team);border-radius:14px;padding:4px 14px;font-size:clamp(26px,8vw,36px);font-weight:700;line-height:1.1;white-space:nowrap}.mts i{font-style:normal;margin:0 .15em;opacity:.6}
@@ -1958,7 +1962,9 @@ function updOnline() {
 // quindi passa da una piccola funzione su Supabase («calendario», Edge Function) che lo scarica e lo gira al sito.
 const CAL_WEBCAL = 'webcal://p137-caldav.icloud.com/published/2/MTczOTA5MTEwMjE3MzkwOWfa44lMcBSebyKKjAn9BHa1H8hcqLFb2PgBvfgLHt7IzA0na2nEzKASzJDCVRMg6eOBxnkJf2P-u6YCmbCTjuI';
 const CAL_TZ = 'Europe/Rome', CAL_DAYS = 60, CAL_MAX = 150; // eventi ripetuti (es. allenamenti): solo i prossimi 2 mesi; al massimo 150 righe
-let calCache = null;
+let calCache = null, calF = 'tutti';
+// tipo di evento dal titolo: 'all' allenamento, 'par' partita (es. «2a | Robur Roveredo - Pro Albettone»), 'alt' tutto il resto
+const calKind = t => /allenament/i.test(t || '') ? 'all' : /\||pro\s*albettone/i.test(t || '') ? 'par' : 'alt';
 // Legge il testo .ics: { events: [{ d:'2026-10-10', t:'15:00' | '', end:'17:00', title, loc, desc, allDay }] }
 function parseIcs(txt) {
   const lines = txt.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
@@ -2056,18 +2062,25 @@ async function calView() {
   const and = `<a class="btn${isAndroid ? '' : ' g'}" href="${calGoogle()}" target="_blank" rel="noopener">🤖 Aggiungi a Google Calendar (Android)</a>`;
   const add = grp('caladd', '📲 Aggiungilo al tuo telefono', isIOS ? 'iPhone' : isAndroid ? 'Android' : 'facoltativo', `<div class="calb">${isAndroid ? and + ios : ios + and}</div>
     <p class="mut" style="font-size:13px;margin:8px 0 0">Ti iscrivi al calendario della squadra: gli eventi compaiono nel tuo calendario e si aggiornano da soli. iPhone: conferma con «Iscriviti». Android: si apre Google Calendar, conferma con «Aggiungi» (Google lo aggiorna con qualche ora di ritardo). Altro calendario? <a href="#" onclick="copyCal();return false">Copia il link</a>.</p>`);
-  const evs = data ? data.evs : [];
+  // partite del sito, per aprire la pagina della partita toccando l'evento dello stesso giorno
+  const ms = data ? await sb.from('matches').select('id,played_on,is_test').then(r => (r.data || []).filter(m => isAdmin() || !m.is_test), () => []) : [];
+  const all = data ? data.evs.map(e => ({ ...e, k: calKind(e.title) })) : [];
+  const evs = calF === 'tutti' ? all : all.filter(e => e.k === calF);
+  const nK = k => all.filter(e => e.k === k).length;
+  const filt = all.length ? `<div class="row" style="justify-content:flex-start;margin:0 0 8px">${[['tutti', 'Tutti'], ['par', '⚽ Partite'], ['all', '🏃 Allenamenti']].map(([k, l]) => `<button class="s ${calF === k ? '' : 'g'}" onclick="calF='${k}';render(true)">${l}${k !== 'tutti' ? ` (${nK(k)})` : ''}</button>`).join('')}</div>` : '';
   const today = todayStr();
   let lastM = '';
   const list = evs.map(e => {
     const dt = new Date(e.d + 'T12:00:00'), mk = e.d.slice(0, 7);
     const head = mk !== lastM ? `<div class="calm">${dt.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}</div>` : ''; lastM = mk;
     const when = e.allDay ? (e.endD ? `fino a ${dayShort(e.endD)}` : 'Tutto il giorno') : `ore ${e.t}${e.end ? '–' + e.end : ''}${e.endD ? ` · fino a ${dayShort(e.endD)}` : ''}`;
-    return `${head}<div class="calr${e.d === today ? ' oggi' : ''}"><div class="cald"><span>${dt.toLocaleDateString('it-IT', { weekday: 'short' })}</span><b>${dt.getDate()}</b></div>
-      <div class="f"><b>${esc(e.title)}</b><div class="mut">${e.d === today ? '<span class="tag o">Oggi</span> ' : ''}${esc(when)}</div></div></div>`;
+    const m = e.k === 'par' ? ms.find(x => x.played_on === e.d) : null;
+    return `${head}<div class="calr k${e.k}${e.d === today ? ' oggi' : ''}"${m ? ` onclick="go('p','${m.id}')" style="cursor:pointer"` : ''}><div class="cald"><span>${dt.toLocaleDateString('it-IT', { weekday: 'short' })}</span><b>${dt.getDate()}</b></div>
+      <div class="f"><b>${esc(e.title)}</b><div class="mut">${e.d === today ? '<span class="tag o">Oggi</span> ' : ''}${e.k === 'par' ? '⚽ ' : e.k === 'all' ? '🏃 ' : ''}${esc(when)}</div></div>${m ? '<span class="calgo">›</span>' : ''}</div>`;
   }).join('');
-  return `<h2>📅 Calendario Pro Albettone</h2>${add}
+  return `<h2>📅 Calendario Pro Albettone</h2>${add}${filt}
     ${err ? `<div class="warn">Non riesco a leggere il calendario adesso.${isAdmin() ? `<br><span style="font-size:13px">Risposta: ${esc(err)}. Controlla che su Supabase ci sia la Edge Function «calendario».</span>` : ' Riprova tra poco.'}</div>`
+      : all.length && !evs.length ? '<div class="card mut">Nessun evento di questo tipo in programma.</div>'
       : evs.length ? `<div class="card">${list}</div><p class="mut" style="font-size:13px">Gli eventi che si ripetono (es. allenamenti) sono mostrati per i prossimi ${Math.round(CAL_DAYS / 30)} mesi.</p>` : '<div class="card mut">Nessun evento in programma.</div>'}`;
 }
 
