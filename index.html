@@ -152,6 +152,7 @@ select:disabled{opacity:.45}
 .cst{display:inline-block;border-radius:8px;padding:2px 8px;font-size:13px;font-weight:700;margin-top:2px}.cst.cdf{background:#f5c518;color:#1a1200}.cst.csq{background:#ff5a5a;color:#fff}
 .cnum{text-align:center;min-width:46px}.cnum b{display:block;font:500 26px Oswald,Impact,sans-serif;color:#f5c518;line-height:1}.cnum span{font-size:11px;color:var(--mut);text-transform:uppercase}
 .cdet{margin-top:4px;font-size:13px}.cdet summary{color:var(--mut);cursor:pointer}.cdet div{padding:1px 0}
+.tl .ntm{color:#f5c518!important}.tl a{color:var(--hl)}
 .sugc{border-color:#f5c518;margin:0 0 10px}.warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 .mts{background:#fff;color:var(--team);border-radius:14px;padding:4px 14px;font-size:clamp(26px,8vw,36px);font-weight:700;line-height:1.1;white-space:nowrap}.mts i{font-style:normal;margin:0 .15em;opacity:.6}
 .ist{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.ist:last-child{border-bottom:0}.ist .rk{flex:none}.ist b{display:block;margin-bottom:2px}
@@ -766,7 +767,14 @@ function chronTx(x, nameOf) {
 }
 const chronIc = x => x.t === 'g' ? '⚽' : (EV[x.kind] || ['•'])[0]; // il tipo di gol è già scritto tra parentesi
 // Cronaca in sola lettura (pagina della partita), con le intestazioni dei tempi
-function chronHtml(all, nameOf, rowFn) {
+// grouped = (pagina della partita) prima il 1° tempo, poi il 2°, in fondo gli eventi senza tempo («Tempo non indicato»).
+// noTimeFn(x) = contenuto aggiunto sotto gli eventi senza tempo (es. «Suggerisci il tempo»)
+function chronHtml(all, nameOf, rowFn, grouped = false, noTimeFn = null) {
+  if (grouped && all.some(x => x.half) && all.some(x => !x.half)) {
+    const row = x => `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}${noTimeFn && !x.half ? noTimeFn(x) : ''}</span></div>`;
+    const part = (lb, xs) => xs.length ? `<div class="tlh">${lb}</div>${xs.map(row).join('')}` : '';
+    return `<div class="tl">${part('1° tempo', all.filter(x => x.half === 1))}${part('2° tempo', all.filter(x => x.half === 2))}${part('⏱️ Tempo non indicato', all.filter(x => !x.half))}</div>`;
+  }
   let lastH = null;
   return `<div class="tl">${all.map((x, i) => {
     const hd0 = x.half && x.half !== lastH ? `<div class="tlh">${x.half}° tempo</div>` : ''; if (x.half) lastH = x.half;
@@ -843,7 +851,7 @@ function chronAdmin(m, all, plist, nameOf) {
       <div class="row"><select id="yh" style="flex:1"><option value="">Tempo: non indicato</option>${[1, 2].map(h => `<option value="${h}" ${x.half === h ? 'selected' : ''}>${h}° tempo</option>`).join('')}</select><input id="ym" type="number" min="0" max="130" inputmode="numeric" placeholder="Minuto" value="${x.minute ?? ''}" style="width:100px"></div>
       ${x.t === 'e' ? `<input id="yn" placeholder="${x.kind === 'nota' ? 'Testo della nota' : 'Nota (facoltativa)'}" value="${esc(x.note || '')}">` : ''}
       <div class="row" style="justify-content:flex-end;margin-top:4px">${btn('Annulla', 'evEdit=null;render(true)')}${btn('💾 Salva', `saveChronEdit(${i})`, '')}</div></div>`;
-    return `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}
+    return `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}${!x.half && all.some(y => y.half) ? '<small class="ntm">⏱️ senza tempo</small>' : ''}
       <span class="ab" style="margin-top:4px">${btn('▲', `moveChron(${i},-1)`, 'g', !i)}${btn('▼', `moveChron(${i},1)`, 'g', i === all.length - 1)}${btn('✏️', `evEdit='${x.id}';render(true)`)}${btn('✕', x.t === 'g' ? `delGoal('${x.id}')` : `delEv('${x.id}')`, 'r')}</span></span></div>`;
   };
   const kindOpts = `<option value="goal">⚽ Gol</option>${EV_GROUPS.map(g => `<optgroup label="${g}">${Object.entries(EV).filter(([, e]) => e[2] === g).map(([k, e]) => `<option value="${k}">${e[0]} ${e[1]}</option>`).join('')}</optgroup>`).join('')}`;
@@ -860,7 +868,7 @@ function chronAdmin(m, all, plist, nameOf) {
     <div class="row"><select id="xh" style="flex:1"><option value="">Tempo: non indicato</option><option value="1">1° tempo</option><option value="2">2° tempo</option></select><input id="xm" type="number" min="0" max="130" inputmode="numeric" placeholder="Minuto" style="width:100px"></div>
     <input id="xn" placeholder="Nota (facoltativa)">
     <button onclick="addChron('${id}')">Aggiungi</button>
-    <p class="mut" style="font-size:13px;margin-bottom:0">Con tempo o minuto l’evento si mette da solo al posto giusto; senza, va in fondo e lo sposti con ▲▼. Tempo e minuto sono facoltativi e li puoi aggiungere dopo con ✏️.</p></div>`;
+    <p class="mut" style="font-size:13px;margin-bottom:0">Con tempo o minuto l’evento si mette da solo al posto giusto; senza, va in fondo e lo sposti con ▲▼. Tempo e minuto sono facoltativi e li puoi aggiungere dopo con ✏️. Gli eventi «⏱️ senza tempo» nella pagina della partita finiscono in fondo, in «Tempo non indicato», e i compagni possono suggerirti quando sono successi.</p></div>`;
   return `${chk}${all.length ? chronHtml(all, nameOf, row) : '<p class="mut">Nessun evento ancora.</p>'}${plist.length ? form : '<p class="mut">Per compilare la cronaca seleziona prima i convocati.</p>'}`;
 }
 function onEvKind() {
@@ -946,6 +954,7 @@ const SUG_ST = { pending: ['⏳', 'In attesa dell’admin'], approved: ['✓', '
 function sugForm(m, plist, mine, nameOf) {
   const opts = plist.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   const kindOpts = `<option value="goal">⚽ Gol</option>${EV_GROUPS.map(g => `<optgroup label="${g}">${Object.entries(EV).filter(([, e]) => e[2] === g).map(([k, e]) => `<option value="${k}">${e[0]} ${e[1]}</option>`).join('')}</optgroup>`).join('')}`;
+  mine = mine.filter(x => x.kind !== 'time'); // i suggerimenti di tempo stanno direttamente nella cronaca
   const list = mine.length ? `<div class="tl" style="margin-bottom:8px">${mine.map(x => { const it = sugItem(x), st = SUG_ST[x.status] || SUG_ST.pending;
     return `<div class="tli"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(it)}</span><span class="tx">${chronTx(it, nameOf)}<small>${st[0]} ${st[1]}${x.half ? ' · ' + x.half + '° tempo' : ''}</small>${x.status === 'pending' ? `<span class="ab" style="margin-top:4px"><button class="g s" onclick="withdrawSug('${x.id}')">Ritira</button></span>` : ''}</span></div>`; }).join('')}</div>` : '';
   return `${list}<div class="card" style="margin:0">
@@ -983,11 +992,22 @@ function sendSug(id) {
   }
   act(() => q(sb.from('chron_suggestions').insert({ match_id: id, ...rec, half, minute, note, suggested_by: me.id, status: 'pending' })), true, 'Suggerimento inviato, grazie ✓');
 }
+let sugTime = null; // evento senza tempo per cui il compagno sta suggerendo tempo e minuto
+function sendTimeSug(mid, tbl, tid) {
+  const half = v('th') ? +v('th') : null, mRaw = v('tmn'), minute = mRaw === '' ? null : Math.round(+mRaw);
+  if (!half) return alert('Scegli almeno il tempo (1° o 2°).');
+  if (minute != null && (isNaN(minute) || minute < 0 || minute > 130)) return alert('Il minuto deve essere tra 0 e 130.');
+  act(async () => { await q(sb.from('chron_suggestions').insert({ match_id: mid, kind: 'time', target_table: tbl, target_id: String(tid), half, minute, suggested_by: me.id, status: 'pending' })); sugTime = null; }, true, 'Suggerimento inviato, grazie ✓');
+}
 const withdrawSug = sid => confirm('Ritirare questo suggerimento?') && act(() => q(sb.from('chron_suggestions').delete().eq('id', sid)), true, 'Suggerimento ritirato ✓');
 // lato admin
 function sugAdmin(sugs, nameOf, whoOf) {
   if (!sugs.length) return '';
-  return `<div class="card sugc"><p class="ak">✍️ Suggerimenti dei compagni (${sugs.length})</p><div class="tl">${sugs.map(x => { const it = sugItem(x);
+  return `<div class="card sugc"><p class="ak">✍️ Suggerimenti dei compagni (${sugs.length})</p><div class="tl">${sugs.map(x => {
+    if (x.kind === 'time') { const tg = curChron.find(y => String(y.id) === String(x.target_id) && chronTb(y) === x.target_table);
+      return `<div class="tli"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">🕒</span><span class="tx">${tg ? `<b>Tempo per:</b> ${chronIc(tg)} ${chronTx(tg, nameOf)}` : '<i>Evento non più presente in cronaca</i>'}<small>proposto: <b>${tmTxt(x) || '—'}</b> · da ${esc(whoOf(x.suggested_by))}${tg && (tg.half || tg.minute != null) ? ` · ora: ${tmTxt(tg)}` : ''}</small>
+        <span class="ab" style="margin-top:4px">${tg ? `<button class="s" onclick="approveSug('${x.id}')">✓ Approva</button>` : ''}<button class="r s" onclick="rejectSug('${x.id}')">✕ Scarta</button></span></span></div>`; }
+    const it = sugItem(x);
     return `<div class="tli"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(it)}</span><span class="tx">${chronTx(it, nameOf)}<small>da ${esc(whoOf(x.suggested_by))}${x.half ? ' · ' + x.half + '° tempo' : ''}${x.kind === 'goal' && x.note ? ' · ' + esc(x.note) : ''}</small>
       <span class="ab" style="margin-top:4px"><button class="s" onclick="approveSug('${x.id}')">✓ Approva</button><button class="r s" onclick="rejectSug('${x.id}')">✕ Scarta</button></span></span></div>`; }).join('')}</div>
     <p class="mut" style="font-size:13px;margin:6px 0 0">Approvato, l’episodio entra in cronaca al posto giusto (se ha tempo o minuto); poi puoi correggerlo con ✏️.</p></div>`;
@@ -995,6 +1015,13 @@ function sugAdmin(sugs, nameOf, whoOf) {
 function approveSug(sid) {
   const x = curSugs.find(y => y.id === sid), m = curMatch, all = curChron; if (!x) return;
   const tm = { half: x.half, minute: x.minute };
+  if (x.kind === 'time') { // aggiorna tempo e minuto dell'evento e lo rimette al posto giusto
+    const tg = all.find(y => String(y.id) === String(x.target_id) && chronTb(y) === x.target_table);
+    if (!tg) return alert('Questo evento non è più nella cronaca: scarta il suggerimento.');
+    const up = { ...tm, ...(tKey(tm) != null ? { pos: slotPos(all.filter(y => y !== tg), tm)[0] } : {}) };
+    return act(async () => { await q(sb.from(chronTb(tg)).update(up).eq('id', tg.id));
+      await q(sb.from('chron_suggestions').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', sid)); }, true, 'Approvato: tempo aggiornato ✓');
+  }
   let tb, rec;
   if (x.kind === 'goal') {
     if (!hasScore(m)) return alert('Inserisci prima il risultato (sezione «Risultato e marcatori»): serve a controllare che i gol tornino.');
@@ -1643,11 +1670,17 @@ async function matchView(id) {
   let h = `<button class="g s" onclick="go('p')">← Partite</button>${matchTitle(m, sbo.rows)}${sbo.miss}<div class="mut" style="text-align:center;margin:4px 0 8px;text-transform:capitalize">${dayTxt(m.played_on)}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
   <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
   // Cronaca (menù a scomparsa): compare solo se aggiunge qualcosa ai marcatori (un evento, un assist, un minuto o un tempo)
-  if (chAll.some(x => x.t === 'e' || x.assist_id || x.minute != null || x.half)) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn) + legendLine(chAll));
-  // i compagni possono suggerire un episodio dimenticato (partita giocata); l'admin lo approva da Gestione
-  if (!admin && (m.status !== 'draft' || m.played_on <= new Date().toISOString().slice(0, 10))) {
-    const ms0 = await sb.from('chron_suggestions').select('*').eq('match_id', id).eq('suggested_by', me.id).order('created_at').then(r => r.error ? null : r.data || [], () => null);
-    if (ms0) { const pend = ms0.filter(x => x.status === 'pending').length, plist = cids.length ? players.filter(p => cids.includes(p.id)) : players;
+  // i compagni possono suggerire un episodio dimenticato o il tempo di un evento senza tempo (partita giocata); l'admin approva da Gestione
+  const canSug = !admin && (m.status !== 'draft' || m.played_on <= new Date().toISOString().slice(0, 10));
+  const ms0 = canSug ? await sb.from('chron_suggestions').select('*').eq('match_id', id).eq('suggested_by', me.id).order('created_at').then(r => r.error ? null : r.data || [], () => null) : null;
+  const noTimeFn = ms0 ? x => { const mineT = ms0.find(y => y.kind === 'time' && y.target_id === String(x.id) && y.status === 'pending');
+    if (mineT) return `<small>⏳ Hai suggerito: ${tmTxt(mineT) || '—'} · <a href="#" onclick="withdrawSug('${mineT.id}');return false">ritira</a></small>`;
+    if (sugTime === x.id) return `<span class="row" style="margin-top:4px;flex-wrap:nowrap"><select id="th" style="flex:1;margin:0"><option value="">Tempo…</option><option value="1">1° tempo</option><option value="2">2° tempo</option></select><input id="tmn" type="number" min="0" max="130" inputmode="numeric" placeholder="Min." style="width:76px;margin:0"></span>
+      <span class="ab" style="margin-top:4px"><button class="g s" onclick="sugTime=null;render(true)">Annulla</button><button class="s" onclick="sendTimeSug('${id}','${x.t === 'g' ? 'goals' : 'match_events'}','${x.id}')">Invia</button></span>`;
+    return `<span class="ab" style="margin-top:4px"><button class="g s" onclick="sugTime='${x.id}';render(true)">🕒 Suggerisci quando</button></span>`; } : null;
+  if (chAll.some(x => x.t === 'e' || x.assist_id || x.minute != null || x.half)) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn, null, true, noTimeFn) + legendLine(chAll));
+  if (canSug) {
+    if (ms0) { const pend = ms0.filter(x => x.status === 'pending' && x.kind !== 'time').length, plist = cids.length ? players.filter(p => cids.includes(p.id)) : players;
       h += grp('v-sg', '✍️ Suggerisci un episodio', pend ? `${pend} in attesa` : 'manca qualcosa?', sugForm(m, plist, ms0, pn),
         'Ti sei accorto che nella cronaca manca un gol, un assist, una parata o un altro episodio? Suggeriscilo qui: l’admin lo controlla e, se va bene, lo aggiunge.'); }
   }
