@@ -132,7 +132,8 @@ select:disabled{opacity:.45}
 .cred{border:2px solid #fff;border-radius:12px;padding:8px 10px;margin:4px 0 8px}
 /* simboli accanto ai nomi, marcatori e legenda */
 .bdg{font-size:15px;letter-spacing:1px;white-space:normal}
-.scl{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;padding:4px 0}.scl span{letter-spacing:2px;white-space:nowrap}
+.sbd{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:start;margin:-4px 0 2px;font-size:14px;line-height:1.5}
+.sbd>div{text-align:center;overflow-wrap:anywhere}.sbd .sbi{font-size:13px;opacity:.8;min-width:88px;text-align:center}.sbd .sbn{font-weight:700}
 .lgl{color:var(--mut);font-size:13px;margin:8px 0 0;padding-top:6px;border-top:1px dashed var(--line);line-height:1.6}
 .li .vn{display:block;color:#fff;margin-top:2px}.li .mvpl{display:inline-block;background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 10px;font-weight:700;margin-bottom:3px}
 .warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
@@ -677,23 +678,20 @@ function chronHtml(all, nameOf, rowFn) {
     return hd0 + (rowFn ? rowFn(x, i) : `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>`);
   }).join('')}</div>`;
 }
-// Marcatori: una riga per giocatore, chi ha segnato di più in alto; assist e autogol in piccolo in fondo
-function scorersList(m, all, nameOf) {
+// Marcatori sotto il tabellone, come in TV: i nostri sotto la Pro Albettone (chi ha segnato di più in alto),
+// gli eventuali nostri autogol sotto gli avversari. Gli assist stanno nella cronaca e nei simboli del voto.
+function scorersBoard(m, all, nameOf) {
   const gl = all.filter(x => x.t === 'g'), nm = id => esc(nameOf(id) || 'Giocatore eliminato');
-  const tally = key => { const c = {}; gl.forEach(g => { const id = g[key]; if (id && !(key === 'scorer_id' && g.kind === 'autogol')) c[id] = (c[id] || 0) + 1; });
-    return Object.entries(c).sort((a, b) => b[1] - a[1] || String(nameOf(a[0])).localeCompare(String(nameOf(b[0])))); };
-  const balls = n => n > 3 ? `⚽ ×${n}` : '⚽'.repeat(n);
-  const sc = tally('scorer_id'), as = tally('assist_id');
+  const c = {}; gl.forEach(g => { if (g.kind !== 'autogol' && g.scorer_id) c[g.scorer_id] = (c[g.scorer_id] || 0) + 1; });
+  const sc = Object.entries(c).sort((a, b) => b[1] - a[1] || String(nameOf(a[0])).localeCompare(String(nameOf(b[0]))));
   const ogOpp = gl.filter(g => g.kind === 'autogol').length, ogUs = all.filter(x => x.t === 'e' && x.kind === 'autogol');
+  const us = sc.map(([id, n]) => `<div>${nm(id)}${n > 1 ? ` <span class="sbn">×${n}</span>` : ''}</div>`).join('')
+    + (ogOpp ? `<div class="mut">${ogOpp > 1 ? ogOpp + ' autogol' : 'Autogol'} avv.</div>` : '');
+  const them = ogUs.map(e => `<div>${nm(e.player_id)} <span class="mut">(autogol)</span></div>`).join('');
   const miss = isAdmin() && hasScore(m) ? m.goals_for - gl.length : 0;
-  const rows = sc.map(([id, n]) => `<div class="scl"><span>${balls(n)}</span><b>${nm(id)}</b></div>`).join('');
-  const small = [
-    as.length ? `👟 Assist: ${as.map(([id, n]) => nm(id) + (n > 1 ? ` ×${n}` : '')).join(', ')}` : '',
-    ogOpp ? `🔁 ${ogOpp} ${ogOpp === 1 ? 'autogol avversario' : 'autogol avversari'}` : '',
-    ogUs.length ? `🙈 ${ogUs.length === 1 ? 'Nostro autogol' : 'Nostri autogol'}: ${ogUs.map(e => nm(e.player_id)).join(', ')}` : '',
-    miss > 0 ? `⚠ ${miss === 1 ? 'Manca 1 marcatore' : `Mancano ${miss} marcatori`} da inserire (lo vedi solo tu)` : ''].filter(Boolean);
-  const empty = !gl.length ? `<p class="mut" style="margin:0">${hasScore(m) && m.goals_for === 0 ? 'Nessun gol segnato.' : 'Marcatori non ancora inseriti.'}</p>` : '';
-  return `${empty}${rows}${small.length ? `<p class="lgl">${small.join('<br>')}</p>` : ''}`;
+  if (!us && !them && miss <= 0) return '';
+  const [l, r] = isHome(m) ? [us, them] : [them, us];
+  return `${us || them ? `<div class="sbd"><div>${l}</div><span class="sbi">${us || them ? '⚽' : ''}</span><div>${r}</div></div>` : ''}${miss > 0 ? `<p class="mut" style="text-align:center;font-size:13px;margin:4px 0 0">⚠ ${miss === 1 ? 'Manca 1 marcatore' : `Mancano ${miss} marcatori`} da inserire (lo vedi solo tu)</p>` : ''}`;
 }
 
 function saveScore(id) {
@@ -1459,16 +1457,13 @@ async function matchView(id) {
   const cids = conv.map(c => c.player_id), my = players.find(p => p.profile_id === me.id), admin = isAdmin();
   if (pick === null) pick = mine.map(x => x.player_id);
   const eligible = prof.can_vote && (m.voters === 'tutti' || prof.is_coach || (my && cids.includes(my.id)) || (m.voters === 'extra' && extras.some(e => e.profile_id === me.id)));
-  let h = `<button class="g s" onclick="go('p')">← Partite</button>${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 8px;text-transform:capitalize">${dayTxt(m.played_on)}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
-  <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
-  // Risultato con i marcatori, cronaca e legenda: tre menù a scomparsa
   const chAll = goalsAll.all, pn = pid => (players.find(p => p.id === pid) || {}).name, bdg = badgesOf(chAll);
   const withB = p => esc(p.name) + (bdg[p.id] ? ' ' + bdg[p.id] : '');
-  if (hasScore(m) || chAll.length) {
-    h += grp('v-rs', '⚽ Risultato e marcatori', hasScore(m) ? scoreTxt(m) : '—', scorersList(m, chAll, pn));
-    // la cronaca compare solo se aggiunge qualcosa ai marcatori: un evento o almeno un minuto/tempo
-    if (chAll.some(x => x.t === 'e' || x.minute != null || x.half)) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn) + legendLine(chAll));
-  }
+  // marcatori direttamente sotto il tabellone, ognuno sotto la propria squadra
+  let h = `<button class="g s" onclick="go('p')">← Partite</button>${matchTitle(m)}${scorersBoard(m, chAll, pn)}<div class="mut" style="text-align:center;margin:4px 0 8px;text-transform:capitalize">${dayTxt(m.played_on)}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
+  <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
+  // Cronaca (menù a scomparsa): compare solo se aggiunge qualcosa ai marcatori (un evento, un assist, un minuto o un tempo)
+  if (chAll.some(x => x.t === 'e' || x.assist_id || x.minute != null || x.half)) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn) + legendLine(chAll));
   if (m.status === 'draft') h += callupInfo(m);
   if (m.is_test) h += '<div class="pv"><span>🧪 <b>Partita di test.</b> La vedono solo gli admin e non conta nell’albo MVP.' + (asPlayer ? ' Sei in Vista giocatore: qui provi l’esperienza di un compagno, ma i compagni veri non la vedono.' : ' Eliminala quando hai finito.') + '</span></div>';
   if (m.status === 'open' && m.voting_deadline) h += `<div class="card"><b class="cd" data-live="1" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</b> <span class="mut">(${new Date(m.voting_deadline).toLocaleString('it-IT', { weekday: 'long', hour: '2-digit', minute: '2-digit' })})</span></div>`;
