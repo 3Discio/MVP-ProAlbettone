@@ -132,8 +132,15 @@ select:disabled{opacity:.45}
 .cred{border:2px solid #fff;border-radius:12px;padding:8px 10px;margin:4px 0 8px}
 /* simboli accanto ai nomi, marcatori e legenda */
 .bdg{font-size:15px;letter-spacing:1px;white-space:normal}
-.sbd{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:start;margin:-4px 0 2px;font-size:14px;line-height:1.5}
-.sbd>div{text-align:center;overflow-wrap:anywhere}.sbd .sbi{font-size:13px;opacity:.8;min-width:88px;text-align:center}.sbd .sbn{font-weight:700}
+.mt{row-gap:6px}
+.mt .bx{grid-column:1/3;display:grid;grid-template-columns:subgrid;align-items:center;border-radius:10px;padding:5px 0;min-height:28px;font:600 14px/1.3 system-ui,-apple-system,sans-serif;text-transform:none;letter-spacing:0}
+.mt .bx.R{grid-column:2/4}
+@supports not (grid-template-columns:subgrid){.mt .bx.L{grid-template-columns:minmax(0,1fr) auto;column-gap:12px}.mt .bx.R{grid-template-columns:auto minmax(0,1fr);column-gap:12px}}
+.mt .sbt{text-align:center;padding:0 6px;overflow-wrap:anywhere;min-width:0}.mt .sbt small{opacity:.75;font-size:12px;font-weight:400}
+.mt .bl{text-align:center;font-size:13px;letter-spacing:1px;white-space:nowrap}
+.mt .bx.us{background:linear-gradient(90deg,var(--team),color-mix(in srgb,var(--team) 80%,#000));color:#fff;box-shadow:0 0 12px color-mix(in srgb,var(--team) 45%,transparent)}
+.mt .bx.us.R{background:linear-gradient(270deg,var(--team),color-mix(in srgb,var(--team) 80%,#000))}
+.mt .bx.op{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.7);font-weight:400}
 .lgl{color:var(--mut);font-size:13px;margin:8px 0 0;padding-top:6px;border-top:1px dashed var(--line);line-height:1.6}
 .li .vn{display:block;color:#fff;margin-top:2px}.li .mvpl{display:inline-block;background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 10px;font-weight:700;margin-bottom:3px}
 .warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
@@ -580,8 +587,9 @@ const scoreLine = m => { const [a, b, ga, gb] = sides(m);
 // nomi dei due lati: se uno va su due righe (più parole), anche l'altro va su due righe, così restano simmetrici
 const sideNames = m => { const [a, b] = sides(m), two = [a, b].some(x => String(x || '').trim().split(/\s+/).length > 1);
   const nm = x => two ? oppHtml(x) : esc(x); return [nm(a), nm(b)]; };
-const matchTitle = m => { const [, , ga, gb] = sides(m), [na, nb] = sideNames(m);
-  return `<div class="mt"><span class="mta">${na}</span><span class="mts">${hasScore(m) ? `${ga}<i>–</i>${gb}` : 'VS'}</span><span class="mtb">${nb}</span></div>${!hasScore(m) && m.outcome ? `<div class="mut" style="text-align:center">${OUT[m.outcome]}</div>` : ''}`; };
+// rows = righe dei marcatori, dentro la stessa griglia del tabellone (così i nomi stanno esattamente sotto la squadra)
+const matchTitle = (m, rows = '') => { const [, , ga, gb] = sides(m), [na, nb] = sideNames(m);
+  return `<div class="mt"><span class="mta">${na}</span><span class="mts">${hasScore(m) ? `${ga}<i>–</i>${gb}` : 'VS'}</span><span class="mtb">${nb}</span>${rows}</div>${!hasScore(m) && m.outcome ? `<div class="mut" style="text-align:center">${OUT[m.outcome]}</div>` : ''}`; };
 // versione compatta del tabellone per gli elenchi: vs (o risultato) sempre al centro
 const miniTitle = m => { const [, , ga, gb] = sides(m), [na, nb] = sideNames(m);
   return `<div class="mt mini"><span class="mta">${na}</span>${hasScore(m) ? `<span class="spill">${ga}–${gb}</span>` : '<span class="mvs">vs</span>'}<span class="mtb">${nb}</span></div>`; };
@@ -678,20 +686,27 @@ function chronHtml(all, nameOf, rowFn) {
     return hd0 + (rowFn ? rowFn(x, i) : `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>`);
   }).join('')}</div>`;
 }
-// Marcatori sotto il tabellone, come in TV: i nostri sotto la Pro Albettone (chi ha segnato di più in alto),
-// gli eventuali nostri autogol sotto gli avversari. Gli assist stanno nella cronaca e nei simboli del voto.
+// Marcatori sotto il tabellone, come in TV: una riga per marcatore, un pallone per ogni gol al centro.
+// I nostri gol in un riquadro rosso dal bordo dalla nostra parte fino ai palloni (chi ha segnato di più sta in alto);
+// i gol degli avversari in un riquadro bianco smorto che va dai palloni fino al bordo dalla loro parte.
+// I nostri autogol stanno con gli avversari, col nome. Gli assist sono nella cronaca e nei simboli del voto.
 function scorersBoard(m, all, nameOf) {
   const gl = all.filter(x => x.t === 'g'), nm = id => esc(nameOf(id) || 'Giocatore eliminato');
   const c = {}; gl.forEach(g => { if (g.kind !== 'autogol' && g.scorer_id) c[g.scorer_id] = (c[g.scorer_id] || 0) + 1; });
-  const sc = Object.entries(c).sort((a, b) => b[1] - a[1] || String(nameOf(a[0])).localeCompare(String(nameOf(b[0]))));
-  const ogOpp = gl.filter(g => g.kind === 'autogol').length, ogUs = all.filter(x => x.t === 'e' && x.kind === 'autogol');
-  const us = sc.map(([id, n]) => `<div>${nm(id)}${n > 1 ? ` <span class="sbn">×${n}</span>` : ''}</div>`).join('')
-    + (ogOpp ? `<div class="mut">${ogOpp > 1 ? ogOpp + ' autogol' : 'Autogol'} avv.</div>` : '');
-  const them = ogUs.map(e => `<div>${nm(e.player_id)} <span class="mut">(autogol)</span></div>`).join('');
+  const rows = Object.entries(c).sort((a, b) => b[1] - a[1] || String(nameOf(a[0])).localeCompare(String(nameOf(b[0]))))
+    .map(([id, n]) => ({ us: true, tx: nm(id), n }));
+  const ogOpp = gl.filter(g => g.kind === 'autogol').length;
+  if (ogOpp) rows.push({ us: true, tx: 'Autogol avversario', n: ogOpp });
+  const ogUs = {}; all.filter(x => x.t === 'e' && x.kind === 'autogol').forEach(e => { ogUs[e.player_id] = (ogUs[e.player_id] || 0) + 1; });
+  Object.entries(ogUs).forEach(([id, n]) => rows.push({ us: false, tx: `${nm(id)} <small>(autogol)</small>`, n }));
+  const restOpp = hasScore(m) ? m.goals_against - Object.values(ogUs).reduce((a, b) => a + b, 0) : 0;
+  if (restOpp > 0) rows.push({ us: false, tx: `<i>${restOpp === 1 ? 'Gol avversario' : 'Gol avversari'}</i>`, n: restOpp });
   const miss = isAdmin() && hasScore(m) ? m.goals_for - gl.length : 0;
-  if (!us && !them && miss <= 0) return '';
-  const [l, r] = isHome(m) ? [us, them] : [them, us];
-  return `${us || them ? `<div class="sbd"><div>${l}</div><span class="sbi">${us || them ? '⚽' : ''}</span><div>${r}</div></div>` : ''}${miss > 0 ? `<p class="mut" style="text-align:center;font-size:13px;margin:4px 0 0">⚠ ${miss === 1 ? 'Manca 1 marcatore' : `Mancano ${miss} marcatori`} da inserire (lo vedi solo tu)</p>` : ''}`;
+  if (!rows.length && miss <= 0) return { rows: '', miss: '' };
+  const balls = n => n > 5 ? `⚽×${n}` : '⚽'.repeat(n);
+  const body = rows.map(r => { const left = r.us === isHome(m), b = `<span class="bl">${balls(r.n)}</span>`, t = `<span class="sbt">${r.tx}</span>`;
+    return `<div class="bx ${r.us ? 'us' : 'op'} ${left ? 'L' : 'R'}">${left ? t + b : b + t}</div>`; }).join('');
+  return { rows: body, miss: miss > 0 ? `<p class="mut" style="text-align:center;font-size:13px;margin:0">⚠ ${miss === 1 ? 'Manca 1 marcatore' : `Mancano ${miss} marcatori`} da inserire (lo vedi solo tu)</p>` : '' };
 }
 
 function saveScore(id) {
@@ -1460,7 +1475,8 @@ async function matchView(id) {
   const chAll = goalsAll.all, pn = pid => (players.find(p => p.id === pid) || {}).name, bdg = badgesOf(chAll);
   const withB = p => esc(p.name) + (bdg[p.id] ? ' ' + bdg[p.id] : '');
   // marcatori direttamente sotto il tabellone, ognuno sotto la propria squadra
-  let h = `<button class="g s" onclick="go('p')">← Partite</button>${matchTitle(m)}${scorersBoard(m, chAll, pn)}<div class="mut" style="text-align:center;margin:4px 0 8px;text-transform:capitalize">${dayTxt(m.played_on)}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
+  const sbo = scorersBoard(m, chAll, pn);
+  let h = `<button class="g s" onclick="go('p')">← Partite</button>${matchTitle(m, sbo.rows)}${sbo.miss}<div class="mut" style="text-align:center;margin:4px 0 8px;text-transform:capitalize">${dayTxt(m.played_on)}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
   <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
   // Cronaca (menù a scomparsa): compare solo se aggiunge qualcosa ai marcatori (un evento, un assist, un minuto o un tempo)
   if (chAll.some(x => x.t === 'e' || x.assist_id || x.minute != null || x.half)) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn) + legendLine(chAll));
