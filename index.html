@@ -617,12 +617,12 @@ const EV_NEG = ['gol_sbagliato', 'rig_sbagliato', 'rig_causato', 'autogol', 'gia
 const EV_NOBADGE = ['sost', 'infortunio', 'nota']; // non compaiono accanto ai nomi nel voto
 // "23’", "1° tempo", "23’ · 1° t." ...
 const tmTxt = x => { const mi = x.minute != null ? x.minute + '’' : '', ha = x.half ? x.half + '° t.' : ''; return [mi, ha].filter(Boolean).join(' · '); };
-let chronOK = null; // false = tabella match_events non ancora creata su Supabase
+let chronOK = null, chronErr = ''; // false = tabella match_events non raggiungibile (chronErr = messaggio di Supabase)
 // Carica gol ed eventi di una partita in un'unica lista ordinata. fix = (solo admin) assegna l'ordine a chi non ce l'ha ancora.
 async function loadChron(id, fix = false) {
   const [goals, evs] = await Promise.all([
     sb.from('goals').select('*').eq('match_id', id).order('created_at').then(r => r.data || [], () => []),
-    sb.from('match_events').select('*').eq('match_id', id).order('created_at').then(r => r.error ? null : r.data || [], () => null)]);
+    sb.from('match_events').select('*').eq('match_id', id).order('created_at').then(r => { chronErr = r.error ? r.error.message || String(r.error.code || '') : ''; return r.error ? null : r.data || []; }, e => { chronErr = e.message || String(e); return null; })]);
   chronOK = evs !== null;
   const all = goals.map(g => ({ ...g, t: 'g' })).concat((evs || []).map(e => ({ ...e, t: 'e' })));
   all.sort((a, b) => (a.pos ?? Infinity) - (b.pos ?? Infinity) || String(a.created_at).localeCompare(String(b.created_at)));
@@ -733,7 +733,7 @@ const OUTC = {
 function chronAdmin(m, all, plist, nameOf) {
   const id = m.id, opts = plist.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   const nG = all.filter(x => x.t === 'g').length, og = all.filter(x => x.t === 'e' && x.kind === 'autogol').length;
-  if (chronOK === false) return '<div class="warn">Per usare la cronaca esegui prima su Supabase lo script <b>cronaca.sql</b> (SQL Editor → incolla → Run), poi ricarica la pagina.</div>';
+  if (chronOK === false) return '<div class="warn">Per usare la cronaca esegui prima su Supabase lo script <b>cronaca.sql</b> (SQL Editor → incolla → Run), poi ricarica la pagina.' + (chronErr ? `<br><span style="font-size:13px;opacity:.85">Risposta di Supabase: ${esc(chronErr)}</span>` : '') + '</div>';
   const chk = !hasScore(m) ? '<p class="mut">Inserisci il risultato per controllare che i gol tornino.</p>'
     : `<div class="${nG === m.goals_for ? 'mut' : 'warn'}" style="margin:4px 0">${nG === m.goals_for ? '✓' : '⚠'} Gol nostri nella cronaca: <b>${nG}</b> su ${m.goals_for}${nG < m.goals_for ? ` · ne mancano ${m.goals_for - nG}` : ''}</div>`
       + (og ? `<div class="${og <= m.goals_against ? 'mut' : 'warn'}" style="margin:4px 0">${og <= m.goals_against ? '✓' : '⚠'} Autogol nostri: <b>${og}</b> · gol subiti: ${m.goals_against}</div>` : '');
