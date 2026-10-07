@@ -118,6 +118,26 @@ select:disabled{opacity:.45}
 .mt{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:14px 0 10px;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.02em}
 .mta,.mtb{font-size:clamp(18px,5.4vw,26px);line-height:1.1;color:var(--hl)}.mta,.mtb{text-align:center}
 .scg{margin:6px 0}.sci{display:flex;align-items:center;gap:8px}.sci input{width:60px;text-align:center;font-size:24px;font-family:Oswald,Impact,sans-serif;margin:0;padding:8px 4px}.sci b{font-size:22px}
+/* risultato in Gestione: squadre su una riga, sotto ciascuna il suo campo (non esce dallo schermo su iPhone) */
+.scg2{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px 10px;align-items:center;justify-items:center;margin:6px 0;font-family:Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.02em}
+.scg2 .mta,.scg2 .mtb{font-size:clamp(15px,4.6vw,22px);overflow-wrap:anywhere;text-align:center;align-self:end}
+.scg2 input{width:72px;text-align:center;font-size:26px;font-family:Oswald,Impact,sans-serif;margin:0;padding:8px 4px}.scg2 b{font-size:22px}
+/* cronaca della partita */
+.tl{margin:2px 0}.tlh{font:500 13px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:12px 0 4px;padding-bottom:3px;border-bottom:1px dashed var(--line)}.tlh:first-child{margin-top:0}
+.tli{display:grid;grid-template-columns:38px 30px 1fr;gap:6px;align-items:start;padding:5px 0}
+.tli .tm{font-family:Oswald,Impact,sans-serif;color:var(--hl);text-align:right;padding-top:1px}.tli .ic{text-align:center;font-size:18px;line-height:1.2;white-space:nowrap}
+.tli .tx{min-width:0;overflow-wrap:anywhere}.tli .tx small{display:block;color:var(--mut);font-size:13px}
+.tli.ad{grid-template-columns:38px 30px 1fr auto}.tli .ab{display:flex;gap:4px}.tli .ab button{padding:4px 8px;font-size:13px}
+.tli.ng .tx b{color:var(--mut)}
+.cred{border:2px solid #fff;border-radius:12px;padding:8px 10px;margin:4px 0 8px}
+/* marcatori divisi per squadra */
+.sco{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sco>div{min-width:0}.sco{row-gap:4px}.sco .sh{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;font:500 14px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--hl);border-bottom:1px dashed var(--line);padding-bottom:6px;text-align:center}
+.sco .gr{padding:3px 0;overflow-wrap:anywhere}.sco .gr small{display:block;color:var(--mut);font-size:12px}
+/* simboli accanto ai nomi e legenda */
+.bdg{font-size:15px;letter-spacing:1px;white-space:normal}
+.lgd{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 12px}.lgd div{display:flex;gap:8px;align-items:center;font-size:14px}.lgd span{min-width:28px;text-align:center;font-size:17px}
+.li .vn{display:block;color:#fff;margin-top:2px}.li .mvpl{display:inline-block;background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 10px;font-weight:700;margin-bottom:3px}
+.warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 .mts{background:#fff;color:var(--team);border-radius:14px;padding:4px 14px;font-size:clamp(26px,8vw,36px);font-weight:700;line-height:1.1;white-space:nowrap}.mts i{font-style:normal;margin:0 .15em;opacity:.6}
 .ist{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.ist:last-child{border-bottom:0}.ist .rk{flex:none}.ist b{display:block;margin-bottom:2px}
 .cvs{font-weight:600}.cvs.yes{background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 8px}.cvs.no{opacity:.75}.cvs.wait{font-style:italic;font-weight:400}
@@ -326,6 +346,7 @@ async function render(keep) {
   <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')">Convocazioni</button>` : ''}
   ${admin ? `<button class="${tab === 'n' && !cur ? 'on' : ''}" onclick="mg=null;go('n')">Gestione</button><button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')">Admin</button>` : ''}</nav>`;
   formRestore(snap);
+  if ($('xk')) onEvKind();
   syncRoute();
   window.scrollTo(0, keep ? y : 0);
 }
@@ -389,7 +410,9 @@ async function manageMatch(id) {
   const cids = conv.map(c => c.player_id);
   let h = `${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 4px"><span style="text-transform:capitalize">${dayTxt(m.played_on)}</span>${m.phase ? ' · ' + PH[m.phase] : ''}${m.is_test ? ' · 🧪 test' : ''}</div><div class="row" style="margin:6px 0"><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span>${m.status !== 'draft' ? `<button class="g s" onclick="go('p','${id}')">Vai alla votazione</button>` : ''}</div>`;
   // Risultato e marcatori
-  const goals = await q(sb.from('goals').select('*').eq('match_id', id).order('created_at'));
+  const ch = await loadChron(id, true), goals = ch.goals;
+  curChron = ch.all;
+  if (evEdit && !ch.all.some(x => x.id === evEdit)) evEdit = null;
   const pName = pid => (players.find(p => p.id === pid) || {}).name;
   const conv1 = players.filter(p => cids.includes(p.id)), other = players.filter(p => !cids.includes(p.id));
   // marcatori e assist si scelgono solo tra i convocati
@@ -398,7 +421,7 @@ async function manageMatch(id) {
   const inF = `<input id="gf" type="number" min="0" inputmode="numeric" value="${m.goals_for ?? ''}" aria-label="Gol ${TEAM}">`;
   const inA = `<input id="ga" type="number" min="0" inputmode="numeric" value="${m.goals_against ?? ''}" aria-label="Gol ${esc(m.opponent)}">`;
   const [sna, snb] = sideNames(m);
-  const scoreBlock = `<p class="mut">Risultato:</p><div class="mt scg"><span class="mta">${sna}</span><span class="sci">${isHome(m) ? inF : inA}<b>–</b>${isHome(m) ? inA : inF}</span><span class="mtb">${snb}</span></div>
+  const scoreBlock = `<p class="mut">Risultato:</p><div class="scg2"><span class="mta">${sna}</span><span></span><span class="mtb">${snb}</span>${isHome(m) ? inF : inA}<b>–</b>${isHome(m) ? inA : inF}</div>
     <div class="row" style="margin-top:18px;justify-content:center;gap:10px"><button class="s" onclick="saveScore('${id}')">Salva risultato</button>${m.status === 'draft' && (hasScore(m) || m.outcome) ? `<button class="g s" onclick="clearScore('${id}')">Cancella risultato</button>` : ''}</div>
     <p class="mut">Esito: <b>${m.outcome ? OUT[m.outcome] : 'da decidere'}</b>${hasScore(m) ? ' (calcolato dal risultato)' : m.outcome ? ' — inserisci il risultato per confermarlo' : ''}</p>`;
   const goalsBlock = !hasScore(m) ? '<p class="mut">Inserisci prima il risultato, poi potrai indicare chi ha segnato.</p>'
@@ -444,8 +467,11 @@ async function manageMatch(id) {
   <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
   <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi link</button><button class="g" onclick="copyLink('${id}')">Copia link</button></div>
   <p class="mut">Chi vota:</p><select onchange="setM('${id}',{voters:this.value})"><option value="convocati" ${m.voters === 'convocati' ? 'selected' : ''}>Solo i convocati</option><option value="extra" ${m.voters === 'extra' ? 'selected' : ''}>Convocati + extra scelti</option><option value="tutti" ${m.voters === 'tutti' ? 'selected' : ''}>Tutti quelli che possono votare</option></select>${extraList}`, '', cls('vt')),
-    rs: grp('s-rs', 'Risultato e marcatori', badge('rs', hasScore(m) ? scoreTxt(m) : ''), `${scoreBlock}${forceBlock}<h3>Marcatori</h3>${goalsBlock}`, '', cls('rs')) };
-  const order = ['cv', 'cc', 'rs', 'vt'], rank = { todo: 0, later: 1, done: 2 };
+    rs: grp('s-rs', 'Risultato e marcatori', badge('rs', hasScore(m) ? scoreTxt(m) : ''), `${scoreBlock}${forceBlock}<h3>Marcatori</h3>${goalsBlock}`, '', cls('rs')),
+    cr: grp('s-cr', '📋 Cronaca', chronOK === false ? 'da attivare' : ch.all.length ? ch.all.length + (ch.all.length === 1 ? ' evento' : ' eventi') : played ? 'facoltativa' : 'più avanti',
+      chronAdmin(m, ch.all, conv1.length ? conv1 : players.filter(p => !isOutP(p)), pName), 'Gol e azioni individuali in ordine di tempo. I compagni la vedono nella pagina della partita e i simboli compaiono accanto ai nomi nel voto.') };
+  const order = ['cv', 'cc', 'rs', 'cr', 'vt'], rank = { todo: 0, later: 1, done: 2 };
+  st.cr = played ? 'done' : 'later'; // facoltativa: non è mai «da fare»
   const sorted = order.slice().sort((a, c) => rank[st[a]] - rank[st[c]] || order.indexOf(a) - order.indexOf(c));
   // alla prima apertura di questa partita, apre da sola la prima sezione da fare
   if (!autoOpen.has(id)) { autoOpen.add(id); const f = sorted.find(k => st[k] === 'todo'); if (f) openG.add(f === 'cc' ? 'mc' : 's-' + f); }
@@ -457,50 +483,65 @@ async function manageMatch(id) {
 async function matchesView(admin) {
   // 1° giro (in parallelo): partite + dati che non dipendono dalle partite
   const [ms, players, mysR, myv, who] = await Promise.all([
-    q(sb.from('matches').select('*').order('played_on', { ascending: false })), q(sb.from('players').select('id,profile_id')),
-    sb.rpc('my_vote_status').then(r => r.error ? null : r.data || [], () => null), q(sb.from('votes').select('match_id')), adminContact()]);
+    q(sb.from('matches').select('*').order('played_on', { ascending: false })), q(sb.from('players').select('id,profile_id,name')),
+    sb.rpc('my_vote_status').then(r => r.error ? null : r.data || [], () => null), q(sb.from('votes').select('match_id,player_id,rank')), adminContact()]);
   // le bozze sono visibili a tutti; le partite di test solo agli admin (anche in Vista giocatore, con una nota)
   const vis = ms.filter(m => prof.is_admin || !m.is_test);
   const my = players.find(p => p.profile_id === me.id);
+  const pName = pid => (players.find(p => p.id === pid) || {}).name || '—';
   const openIds = ms.filter(m => m.status === 'open').map(m => m.id), draftIds = ms.filter(m => m.status === 'draft').map(m => m.id);
+  const closedIds = vis.filter(m => m.status === 'closed').map(m => m.id);
   const convIds = openIds.concat(draftIds);
-  // 2° giro (in parallelo): solo ciò che dipende dalle partite aperte o in bozza
-  const [conv, xv, prog] = await Promise.all([
+  // 2° giro (in parallelo): solo ciò che dipende dalle partite aperte, in bozza o chiuse
+  const [conv, xv, prog, mvps] = await Promise.all([
     convIds.length ? q(sb.from('match_players').select('match_id,player_id').in('match_id', convIds)) : [],
-    openIds.length ? q(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', openIds)) : [],
-    openIds.length ? q(sb.from('voting_progress').select('*').in('match_id', openIds)) : []]);
+    convIds.length ? q(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', convIds)) : [],
+    openIds.length ? q(sb.from('voting_progress').select('*').in('match_id', openIds)) : [],
+    closedIds.length ? sb.from('match_results').select('match_id,name,position').in('match_id', closedIds).eq('position', 1).then(r => r.data || [], () => []) : []]);
+  // il mio voto in una partita: "🥇 Rossi, 🥈 Bianchi e 🥉 Verdi"
+  const myPicks = mid => listIt(myv.filter(x => x.match_id === mid).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).map((x, k) => MED[k][0] + ' ' + esc(pName(x.player_id))));
+  const enabled = m => canVote(m, conv.filter(c => c.match_id === m.id).map(c => c.player_id), my, xv.some(x => x.match_id === m.id));
   let info = {};
   ms.filter(m => m.status === 'open').forEach(m => {
-    const ok = canVote(m, conv.filter(c => c.match_id === m.id).map(c => c.player_id), my, xv.some(x => x.match_id === m.id));
-    const pr = prog.find(x => x.match_id === m.id), voted = myv.some(x => x.match_id === m.id);
+    const ok = enabled(m), pr = prog.find(x => x.match_id === m.id), picks = myPicks(m.id);
     const lost = m.outcome === 'sconfitta' && !m.force_vote;
+    const when = m.voting_deadline ? `🕘 Si chiude ${dlTxt(m.voting_deadline)}` : '🕘 Nessuna scadenza: la chiude l’admin';
     info[m.id] = `<div class="li">${lost ? 'Partita persa: l’MVP non si vota.'
-      : ok ? `<b>✓ Sei abilitato al voto</b> · ${voted ? 'hai votato' : '<b>non hai ancora votato</b>'}`
-      : notEnabled(who)}${pr && !lost ? `<br>${quorumTxt(pr.voted, pr.eligible, m.min_pct)}` : ''}</div>`;
+      : ok ? (picks ? `<b>✓ Hai votato</b><span class="vn">${picks}</span><span class="mut">Puoi cambiarlo finché la votazione è aperta.</span>` : '<b>✓ Sei abilitato al voto</b> · <b>non hai ancora votato</b><br>Tocca qui per votare.')
+      : notEnabled(who)}${lost ? '' : `<br>${when}`}${pr && !lost ? `<br>${quorumTxt(pr.voted, pr.eligible, m.min_pct)}` : ''}</div>`;
   });
   const mys = mysR; // stato personale salvato alla chiusura (funzione my_vote_status su Supabase)
-  ms.filter(m => m.status === 'closed' && m.eligible_final != null).forEach(m => {
-    const lost = m.outcome === 'sconfitta' && !m.force_vote, s = mys && mys.find(x => x.match_id === m.id);
-    const mine = lost || !mys ? '' : !s || (!s.eligible && !s.did_vote) ? 'Non eri abilitato al voto'
-      : s.eligible && s.did_vote ? '✓ Eri abilitato e hai votato' : s.eligible ? 'Eri abilitato ma non hai votato' : '✓ Hai votato';
-    info[m.id] = `<div class="li">${mine ? mine + '<br>' : ''}${lost ? 'Partita persa: nessun MVP' : `Hanno votato ${m.voted_final} su ${m.eligible_final}`}</div>`;
+  ms.filter(m => m.status === 'closed').forEach(m => {
+    const lost = m.outcome === 'sconfitta' && !m.force_vote, s = mys && mys.find(x => x.match_id === m.id), picks = myPicks(m.id);
+    const top = mvps.filter(r => r.match_id === m.id);
+    const mvp = lost ? 'Partita persa: nessun MVP' : m.quorum_met === false ? 'Nessun MVP: votanti insufficienti'
+      : top.length ? `<span class="mvpl">🏆 MVP: ${top.map(r => esc(r.name)).join(' & ')}</span>` : '';
+    const mine = lost || !mys || m.eligible_final == null ? '' : !s || (!s.eligible && !s.did_vote) ? 'Non eri abilitato al voto'
+      : s.did_vote ? `✓ ${s.eligible ? 'Eri abilitato e hai votato' : 'Hai votato'}${picks ? `<span class="vn">${picks}</span>` : ''}` : 'Eri abilitato ma non hai votato';
+    info[m.id] = `<div class="li">${[mvp, mine, !lost && m.eligible_final != null ? `Hanno votato ${m.voted_final} su ${m.eligible_final}` : ''].filter(Boolean).map(x => `<div>${x}</div>`).join('')}</div>`;
   });
-  // bozze: sei convocato? convocazioni fatte?
+  // bozze: sei convocato? potrai votare?
   ms.filter(m => m.status === 'draft').forEach(m => {
-    const c = conv.filter(x => x.match_id === m.id);
-    const st = !c.length ? '<span class="cvs wait">⏳ Convocazioni non ancora effettuate</span>'
-      : my ? (c.some(x => x.player_id === my.id) ? '<span class="cvs yes">✓ Sei convocato</span>' : '<span class="cvs no">Non sei convocato</span>')
+    const c = conv.filter(x => x.match_id === m.id), lost = m.outcome === 'sconfitta' && !m.force_vote;
+    if (!c.length) { info[m.id] = '<div class="li"><span class="cvs wait">⏳ Convocazioni non ancora effettuate</span></div>'; return; }
+    const st = my ? (c.some(x => x.player_id === my.id) ? `<span class="cvs yes">✓ Sei convocato</span>` : '<span class="cvs no">Non sei convocato</span>') + ` <span class="mut">· ${c.length} convocati</span>`
       : `<span class="cvs">${c.length} convocati</span>`;
-    info[m.id] = `<div class="li">${st}</div>`; // l'orario è già nella riga della data
+    const vt = lost ? 'Partita persa: l’MVP non si vota.' : enabled(m) ? '🗳️ Sei abilitato a votare l’MVP quando si apre la votazione.' : notEnabled(who);
+    info[m.id] = `<div class="li">${st}<br>${vt}</div>`; // l'orario è già nella riga della data
   });
 
   // girone scelto (come in MVP e Marcatori): di default quello della partita aperta o della prossima in programma
-  if (!lPh) { const ref = vis.find(m => m.status === 'open') || vis.filter(m => m.status === 'draft').sort((a, b) => a.played_on.localeCompare(b.played_on))[0] || vis[0];
+  const today = new Date().toISOString().slice(0, 10), cut = new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10);
+  if (!lPh) { const ref = vis.find(m => m.status === 'open') || vis.filter(m => m.status === 'draft' && m.played_on >= today).sort((a, b) => a.played_on.localeCompare(b.played_on))[0] || vis[0];
     lPh = (ref && ref.phase) || 'andata'; }
   const inPh = vis.filter(m => lPh === 'tot' || (m.phase || 'andata') === lPh);
   const open = inPh.filter(m => m.status === 'open');
-  const next = inPh.filter(m => m.status === 'draft').sort((a, b) => a.played_on.localeCompare(b.played_on));
-  const done = inPh.filter(m => m.status === 'closed');
+  // solo la prossima partita in programma; le altre future le vede l'admin (a parte, chiuse in un menù)
+  const next = inPh.filter(m => m.status === 'draft' && m.played_on >= today).sort((a, b) => a.played_on.localeCompare(b.played_on))[0];
+  const rest = inPh.filter(m => m.status !== 'open' && m !== next);
+  const later = rest.filter(m => m.played_on > today).sort((a, b) => a.played_on.localeCompare(b.played_on));
+  const recent = rest.filter(m => m.played_on <= today && m.played_on >= cut);  // giocate negli ultimi 3 giorni
+  const old = rest.filter(m => m.played_on < cut);                               // più vecchie: nel menù
   const card = m => `<div class="card mc${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="go('p','${m.id}')" style="cursor:pointer">
     <div class="mcd">${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${dayShort(m.played_on)}${m.kickoff ? ' · ' + hd(m.kickoff) : ''}</div>${miniTitle(m)}
     ${m.status === 'open' ? `<div class="li lv"><b>🗳️ Votazione aperta</b>${m.voting_deadline ? ` · <span class="cd" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</span>` : ''}</div>` : ''}${info[m.id] || ''}${m.is_test && asPlayer ? '<div class="li" style="font-style:italic">🧪 I compagni non vedono questa partita: la vedi solo tu per provare la Vista giocatore.</div>' : ''}</div>`;
@@ -509,10 +550,14 @@ async function matchesView(admin) {
   ${!isApp && isPhone && !lsGet('hideInstall') ? `<div class="pv"><span>📲 <b>Usa il sito come un’app</b>: aggiungilo alla schermata Home del telefono.</span><span style="display:flex;gap:6px">${installEvt ? '<button class="s" onclick="installNow()">Installa</button>' : '<button class="s" onclick="go(\'i\')">Come fare</button>'}<button class="g s" onclick="lsSet('hideInstall','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
   <h2>Partite</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div>
   ${open.map(card).join('')}
-  ${next.length ? `<h3>In programma</h3>${next.map(card).join('')}` : ''}
-  ${!open.length && !next.length ? '<p class="mut">Nessuna partita in programma in questo girone.</p>' : ''}
-  ${done.length ? grp('pdone', 'Partite giocate', done.length, done.map(card).join('')) : ''}`;
+  ${next ? `<h3>Prossima partita</h3>${card(next)}` : ''}
+  ${!open.length && !next ? '<p class="mut">Nessuna partita in programma in questo girone.</p>' : ''}
+  ${recent.length ? `<h3>Giocate di recente</h3>${recent.map(card).join('')}` : ''}
+  ${old.length ? grp('pdone', 'Partite meno recenti', old.length, old.map(card).join('')) : ''}
+  ${admin && later.length ? grp('plater', 'Altre in programma (solo admin)', later.length, later.map(card).join(''), 'I compagni e il mister vedono solo la prossima partita. Tutte le partite sono anche in «Gestione».') : ''}`;
 }
+// "lunedì 12 ottobre alle 21.00"
+const dlTxt = d => { const x = new Date(d); return x.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }) + ' alle ' + x.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }).replace(':', '.'); };
 function newMatch() {
   if (!v('op')) return alert('Scrivi l\'avversario');
   const gf = v('gf'), ga = v('ga');
@@ -522,7 +567,7 @@ function newMatch() {
 }
 
 // Tipi di gol: [icona, etichetta]. Assist possibile solo per azione, punizione e calcio d'angolo.
-const GK = { azione: ['⚽', 'Su azione'], rigore: ['🎯', 'Rigore'], punizione: ['🧱', 'Punizione'], angolo: ['🚩', 'Calcio d’angolo'], autogol: ['🔁', 'Autogol avversario'] };
+const GK = { azione: ['⚽', 'Su azione'], rigore: ['🎯', 'Rigore'], punizione: ['☄️', 'Punizione'], angolo: ['🚩', 'Calcio d’angolo'], autogol: ['🔁', 'Autogol avversario'] };
 const ASSISTABLE = ['azione', 'punizione', 'angolo'];
 const hasScore = m => m.goals_for != null && m.goals_against != null;
 const scoreTxt = m => hasScore(m) ? `${m.goals_for}–${m.goals_against}` : '';
@@ -543,8 +588,114 @@ const miniTitle = m => { const [, , ga, gb] = sides(m), [na, nb] = sideNames(m);
   return `<div class="mt mini"><span class="mta">${na}</span>${hasScore(m) ? `<span class="spill">${ga}–${gb}</span>` : '<span class="mvs">vs</span>'}<span class="mtb">${nb}</span></div>`; };
 const dayShort = d => new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
 const outFrom = (gf, ga) => gf > ga ? 'vittoria' : gf === ga ? 'pareggio' : 'sconfitta';
-// Riga di un gol: icona, marcatore, assist
-const goalLine = (g, nameOf) => `${GK[g.kind][0]} ${g.kind === 'autogol' ? '<i>Autogol avversario</i>' : `<b>${esc(nameOf(g.scorer_id) || 'Giocatore eliminato')}</b>`}${g.kind !== 'autogol' && g.kind !== 'azione' ? ` <span class="mut">(${GK[g.kind][1].toLowerCase()})</span>` : ''}${g.assist_id ? ` <span class="mut">· 👟 assist ${esc(nameOf(g.assist_id) || '—')}</span>` : ''}`;
+// Riga di un gol: icona, marcatore, assist (e minuto, se c'è)
+const goalLine = (g, nameOf) => `${GK[g.kind][0]} ${g.kind === 'autogol' ? '<i>Autogol avversario</i>' : `<b>${esc(nameOf(g.scorer_id) || 'Giocatore eliminato')}</b>`}${g.kind !== 'autogol' && g.kind !== 'azione' ? ` <span class="mut">(${GK[g.kind][1].toLowerCase()})</span>` : ''}${g.assist_id ? ` <span class="mut">· 👟 assist ${esc(nameOf(g.assist_id) || '—')}</span>` : ''}${tmTxt(g) ? ` <span class="mut">· ${tmTxt(g)}</span>` : ''}`;
+
+// ---------- CRONACA DELLA PARTITA ----------
+// I gol stanno nella tabella goals (una sola fonte per marcatori e cronaca); tutto il resto in match_events.
+// Eventi: chiave -> [icona, etichetta, gruppo]. Solo azioni individuali.
+const EV = {
+  rig_procurato: ['⚡', 'Rigore procurato', 'Attacco'],
+  esp_procurata: ['🃏', 'Espulsione procurata', 'Attacco'],
+  giocata: ['✨', 'Giocata spettacolare', 'Attacco'],
+  palo: ['🪵', 'Palo o traversa', 'Attacco'],
+  gol_sbagliato: ['😱', 'Gol sbagliato', 'Attacco'],
+  rig_sbagliato: ['❌', 'Rigore sbagliato', 'Attacco'],
+  parata: ['🧤', 'Parata decisiva', 'Portiere'],
+  rig_parato: ['🖐️', 'Rigore parato', 'Portiere'],
+  salvataggio: ['🛡️', 'Gol salvato', 'Difesa'],
+  recupero: ['💪', 'Recupero decisivo', 'Difesa'],
+  rig_causato: ['⚠️', 'Rigore causato', 'Difesa'],
+  autogol: ['🙈', 'Autogol', 'Difesa'],
+  giallo: ['🟨', 'Ammonizione', 'Disciplina'],
+  doppio_giallo: ['🟨🟥', 'Doppia ammonizione', 'Disciplina'],
+  rosso: ['🟥', 'Espulsione diretta', 'Disciplina'],
+  sost: ['🔄', 'Sostituzione', 'Altro'],
+  infortunio: ['🚑', 'Infortunio', 'Altro'],
+  nota: ['📝', 'Nota libera', 'Altro']
+};
+const EV_GROUPS = ['Attacco', 'Portiere', 'Difesa', 'Disciplina', 'Altro'];
+const EV_NEG = ['gol_sbagliato', 'rig_sbagliato', 'rig_causato', 'autogol', 'giallo', 'doppio_giallo', 'rosso'];
+const EV_NOBADGE = ['sost', 'infortunio', 'nota']; // non compaiono accanto ai nomi nel voto
+// "23’", "1° tempo", "23’ · 1° t." ...
+const tmTxt = x => { const mi = x.minute != null ? x.minute + '’' : '', ha = x.half ? x.half + '° t.' : ''; return [mi, ha].filter(Boolean).join(' · '); };
+let chronOK = null; // false = tabella match_events non ancora creata su Supabase
+// Carica gol ed eventi di una partita in un'unica lista ordinata. fix = (solo admin) assegna l'ordine a chi non ce l'ha ancora.
+async function loadChron(id, fix = false) {
+  const [goals, evs] = await Promise.all([
+    sb.from('goals').select('*').eq('match_id', id).order('created_at').then(r => r.data || [], () => []),
+    sb.from('match_events').select('*').eq('match_id', id).order('created_at').then(r => r.error ? null : r.data || [], () => null)]);
+  chronOK = evs !== null;
+  const all = goals.map(g => ({ ...g, t: 'g' })).concat((evs || []).map(e => ({ ...e, t: 'e' })));
+  all.sort((a, b) => (a.pos ?? Infinity) - (b.pos ?? Infinity) || String(a.created_at).localeCompare(String(b.created_at)));
+  if (fix && chronOK && all.some(x => x.pos == null)) {
+    let p = Math.max(0, ...all.filter(x => x.pos != null).map(x => x.pos));
+    for (const x of all) if (x.pos == null) { x.pos = ++p; await q(sb.from(x.t === 'g' ? 'goals' : 'match_events').update({ pos: x.pos }).eq('id', x.id)); }
+  }
+  return { goals, evs: evs || [], all };
+}
+// Chiave cronologica per inserire da solo un evento al posto giusto: tempo e minuto (null = nessuna indicazione)
+const tKey = x => { const h = x.half || (x.minute != null ? (x.minute > 45 ? 2 : 1) : null); return h ? h * 1000 + (x.minute ?? 999) : null; };
+// Posizioni libere per n elementi nuovi: dopo l'ultimo evento con orario non successivo, altrimenti in fondo
+function slotPos(all, it, n = 1) {
+  const L = all.filter(x => x.pos != null), k = tKey(it);
+  let i = L.length;
+  if (k != null) { const keyed = L.map((x, j) => [tKey(x), j]).filter(([kk]) => kk != null);
+    if (keyed.length) { const before = keyed.filter(([kk]) => kk <= k); i = before.length ? before[before.length - 1][1] + 1 : keyed[0][1]; } }
+  const lo = i ? L[i - 1].pos : (L.length ? L[0].pos - 1 : 0), hi = i < L.length ? L[i].pos : lo + 1 + n;
+  return Array.from({ length: n }, (_, j) => lo + (hi - lo) * (j + 1) / (n + 1));
+}
+// Simboli di ogni giocatore nella partita: { player_id: '⚽⚽ 👟 🟨' }
+function badgesOf(all) {
+  const b = {}, add = (pid, ic) => { if (pid) (b[pid] = b[pid] || []).push(ic); };
+  const gl = all.filter(x => x.t === 'g');
+  gl.forEach(g => { if (g.kind !== 'autogol') add(g.scorer_id, '⚽'); }); // prima i gol, poi gli assist, poi gli eventi
+  gl.forEach(g => add(g.assist_id, '👟'));
+  all.filter(x => x.t === 'e' && EV[x.kind] && !EV_NOBADGE.includes(x.kind)).forEach(e => add(e.player_id, EV[e.kind][0]));
+  Object.keys(b).forEach(k => { b[k] = b[k].join(' '); });
+  return b;
+}
+// Legenda: solo i simboli presenti in questa partita
+function legendHtml(all) {
+  const seen = [];
+  const put = (ic, lb) => { if (!seen.some(x => x[0] === ic)) seen.push([ic, lb]); };
+  all.filter(x => x.t === 'g').forEach(g => { if (g.kind !== 'autogol') put('⚽', 'Gol'); if (g.kind !== 'azione') put(GK[g.kind][0], GK[g.kind][1]); if (g.assist_id) put('👟', 'Assist'); });
+  Object.keys(EV).forEach(k => { if (all.some(x => x.t === 'e' && x.kind === k)) put(EV[k][0], EV[k][1]); });
+  return seen.length ? `<div class="lgd">${seen.map(([ic, lb]) => `<div><span>${ic}</span>${esc(lb)}</div>`).join('')}</div>` : '';
+}
+// Testo di una riga della cronaca
+function chronTx(x, nameOf) {
+  const nm = id => `<b>${esc(nameOf(id) || 'Giocatore eliminato')}</b>`;
+  if (x.t === 'g') return x.kind === 'autogol' ? `<b>Gol!</b> Autogol avversario` : `<b>Gol!</b> ${nm(x.scorer_id)}${x.kind !== 'azione' ? ` <span class="mut">(${GK[x.kind][1].toLowerCase()})</span>` : ''}${x.assist_id ? `<small>👟 assist di ${esc(nameOf(x.assist_id) || '—')}</small>` : ''}`;
+  const e = EV[x.kind] || ['•', x.kind];
+  const who = x.kind === 'sost' ? `${x.player_id ? `esce ${nm(x.player_id)}` : ''}${x.player_id && x.player2_id ? ', ' : ''}${x.player2_id ? `entra ${nm(x.player2_id)}` : ''}` : x.player_id ? nm(x.player_id) : '';
+  return `${x.kind === 'nota' ? '' : esc(e[1]) + (who ? ': ' : '')}${who}${x.note ? (x.kind === 'nota' ? esc(x.note) : `<small>${esc(x.note)}</small>`) : ''}`;
+}
+const chronIc = x => x.t === 'g' ? (x.kind === 'azione' ? '⚽' : GK[x.kind][0]) : (EV[x.kind] || ['•'])[0];
+// Cronaca in sola lettura (pagina della partita), con le intestazioni dei tempi
+function chronHtml(all, nameOf, rowFn) {
+  let lastH = null;
+  return `<div class="tl">${all.map((x, i) => {
+    const hd0 = x.half && x.half !== lastH ? `<div class="tlh">${x.half}° tempo</div>` : ''; if (x.half) lastH = x.half;
+    return hd0 + (rowFn ? rowFn(x, i) : `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>`);
+  }).join('')}</div>`;
+}
+// Marcatori divisi per squadra: i nostri gol (e gli autogol avversari) da una parte, i nostri autogol dall'altra
+function scorersSplit(m, all, nameOf) {
+  const ours = all.filter(x => x.t === 'g'), og = all.filter(x => x.t === 'e' && x.kind === 'autogol');
+  const tm = x => x.minute != null ? ` <span class="mut">${x.minute}’</span>` : '';
+  const colUs = ours.map(g => `<div class="gr">${g.kind === 'azione' ? '⚽' : GK[g.kind][0]} ${g.kind === 'autogol' ? '<i>Autogol avversario</i>' : `<b>${esc(nameOf(g.scorer_id) || '—')}</b>`}${tm(g)}${g.assist_id ? `<small>👟 ${esc(nameOf(g.assist_id) || '—')}</small>` : ''}</div>`).join('')
+    + (isAdmin() && hasScore(m) && m.goals_for > ours.length ? `<div class="gr mut">${m.goals_for - ours.length} da inserire</div>` : '');
+  const rest = hasScore(m) ? m.goals_against - og.length : 0;
+  const colThem = og.map(e => `<div class="gr">🙈 <b>${esc(nameOf(e.player_id) || '—')}</b>${tm(e)}<small>autogol</small></div>`).join('')
+    + (rest > 0 ? `<div class="gr mut" style="text-align:center">${rest} ${og.length ? 'altri ' : ''}gol</div>` : '');
+  const sc = n => hasScore(m) ? ` <span class="spill">${n}</span>` : '';
+  const none = '<div class="gr mut" style="text-align:center">—</div>';
+  const us = [`<div class="sh">${esc(TEAM)}${sc(m.goals_for)}</div>`, `<div>${colUs || none}</div>`];
+  const them = [`<div class="sh">${esc(m.opponent)}${sc(m.goals_against)}</div>`, `<div>${colThem || none}</div>`];
+  const [l, r] = isHome(m) ? [us, them] : [them, us];
+  return `<div class="sco">${l[0]}${r[0]}${l[1]}${r[1]}</div>`; // intestazioni sulla stessa riga, anche se un nome va a capo
+}
 
 function saveScore(id) {
   const gf = v('gf'), ga = v('ga');
@@ -569,9 +720,122 @@ function addGoal(id) {
   const k = v('gk'), sc = v('gs'), as = ASSISTABLE.includes(k) ? v('gas') : '';
   if (k !== 'autogol' && !sc) return alert('Scegli chi ha segnato.');
   if (as && as === sc) return alert('Chi segna non può fare anche l’assist.');
-  act(() => q(sb.from('goals').insert({ match_id: id, kind: k, scorer_id: k === 'autogol' ? null : sc, assist_id: as || null })), true, 'Gol aggiunto ✓');
+  act(() => q(sb.from('goals').insert({ match_id: id, kind: k, scorer_id: k === 'autogol' ? null : sc, assist_id: as || null, ...(chronOK ? { pos: slotPos(curChron, {})[0] } : {}) })), true, 'Gol aggiunto ✓');
 }
 const delGoal = id => confirm('Eliminare questo gol?') && act(() => q(sb.from('goals').delete().eq('id', id)), true, 'Gol eliminato ✓');
+
+// ---------- CRONACA: gestione (solo admin) ----------
+let curChron = [], evEdit = null;
+// Esiti proposti per i rigori: aggiungono da soli l'evento collegato (autocompletamento)
+const OUTC = {
+  rig_procurato: [['', 'Com’è finito il rigore? (facoltativo)'], ['gol', '⚽ Trasformato: aggiungi anche il gol'], ['sbagliato', '❌ Sbagliato: aggiungi anche l’errore']],
+  rig_causato: [['', 'Com’è finito il rigore? (facoltativo)'], ['gol', 'Gol degli avversari'], ['parato', '🖐️ Parato: aggiungi anche la parata'], ['fuori', 'Sbagliato dagli avversari']]
+};
+function chronAdmin(m, all, plist, nameOf) {
+  const id = m.id, opts = plist.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const nG = all.filter(x => x.t === 'g').length, og = all.filter(x => x.t === 'e' && x.kind === 'autogol').length;
+  if (chronOK === false) return '<div class="warn">Per usare la cronaca esegui prima su Supabase lo script <b>cronaca.sql</b> (SQL Editor → incolla → Run), poi ricarica la pagina.</div>';
+  const chk = !hasScore(m) ? '<p class="mut">Inserisci il risultato per controllare che i gol tornino.</p>'
+    : `<div class="${nG === m.goals_for ? 'mut' : 'warn'}" style="margin:4px 0">${nG === m.goals_for ? '✓' : '⚠'} Gol nostri nella cronaca: <b>${nG}</b> su ${m.goals_for}${nG < m.goals_for ? ` · ne mancano ${m.goals_for - nG}` : ''}</div>`
+      + (og ? `<div class="${og <= m.goals_against ? 'mut' : 'warn'}" style="margin:4px 0">${og <= m.goals_against ? '✓' : '⚠'} Autogol nostri: <b>${og}</b> · gol subiti: ${m.goals_against}</div>` : '');
+  const btn = (lb, fn, cls = 'g', dis = false) => `<button class="${cls} s" ${dis ? 'disabled style="opacity:.35"' : ''} onclick="${fn}">${lb}</button>`;
+  const row = (x, i) => {
+    if (evEdit === x.id) return `<div class="cred"><div class="tli" style="padding:0"><span class="tm"></span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>
+      <div class="row"><select id="yh" style="flex:1"><option value="">Tempo: non indicato</option>${[1, 2].map(h => `<option value="${h}" ${x.half === h ? 'selected' : ''}>${h}° tempo</option>`).join('')}</select><input id="ym" type="number" min="0" max="130" inputmode="numeric" placeholder="Minuto" value="${x.minute ?? ''}" style="width:100px"></div>
+      ${x.t === 'e' ? `<input id="yn" placeholder="${x.kind === 'nota' ? 'Testo della nota' : 'Nota (facoltativa)'}" value="${esc(x.note || '')}">` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:4px">${btn('Annulla', 'evEdit=null;render(true)')}${btn('💾 Salva', `saveChronEdit(${i})`, '')}</div></div>`;
+    return `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}
+      <span class="ab" style="margin-top:4px">${btn('▲', `moveChron(${i},-1)`, 'g', !i)}${btn('▼', `moveChron(${i},1)`, 'g', i === all.length - 1)}${btn('✏️', `evEdit='${x.id}';render(true)`)}${btn('✕', x.t === 'g' ? `delGoal('${x.id}')` : `delEv('${x.id}')`, 'r')}</span></span></div>`;
+  };
+  const kindOpts = `<option value="goal">⚽ Gol</option>${EV_GROUPS.map(g => `<optgroup label="${g}">${Object.entries(EV).filter(([, e]) => e[2] === g).map(([k, e]) => `<option value="${k}">${e[0]} ${e[1]}</option>`).join('')}</optgroup>`).join('')}`;
+  const form = `<div class="card" style="margin:10px 0 0"><p class="ak">➕ Aggiungi alla cronaca</p>
+    <select id="xk" onchange="onEvKind()">${kindOpts}</select>
+    <div id="xg"><select id="xgk" onchange="onEvKind()">${Object.entries(GK).map(([k, [ic, lb]]) => `<option value="${k}">${ic} ${lb}</option>`).join('')}</select>
+      <select id="xgs"><option value="">Chi ha segnato?</option>${opts}</select>
+      <select id="xga"><option value="">👟 Assist: nessuno</option>${opts}</select>
+      <select id="xgp"><option value="">⚡ Rigore procurato da: non indicato</option>${opts}</select></div>
+    <div id="xe"><select id="xp"><option value="">Chi?</option>${opts}</select>
+      <select id="xp2"><option value="">🔺 Entra…</option>${opts}</select>
+      <select id="xo" onchange="onEvKind()"></select>
+      <select id="xo2"><option value="">Chi?</option>${opts}</select></div>
+    <div class="row"><select id="xh" style="flex:1"><option value="">Tempo: non indicato</option><option value="1">1° tempo</option><option value="2">2° tempo</option></select><input id="xm" type="number" min="0" max="130" inputmode="numeric" placeholder="Minuto" style="width:100px"></div>
+    <input id="xn" placeholder="Nota (facoltativa)">
+    <button onclick="addChron('${id}')">Aggiungi</button>
+    <p class="mut" style="font-size:13px;margin-bottom:0">Con tempo o minuto l’evento si mette da solo al posto giusto; senza, va in fondo e lo sposti con ▲▼. Tempo e minuto sono facoltativi e li puoi aggiungere dopo con ✏️.</p></div>`;
+  return `${chk}${all.length ? chronHtml(all, nameOf, row) : '<p class="mut">Nessun evento ancora.</p>'}${plist.length ? form : '<p class="mut">Per compilare la cronaca seleziona prima i convocati.</p>'}`;
+}
+function onEvKind() {
+  const k = v('xk'), show = (i, on) => { const e = $(i); if (e) e.style.display = on ? '' : 'none'; };
+  show('xg', k === 'goal'); show('xe', k !== 'goal'); show('xn', k !== 'goal');
+  if (k === 'goal') { const gk = v('xgk'); show('xgs', gk !== 'autogol'); show('xga', ASSISTABLE.includes(gk)); show('xgp', gk === 'rigore'); return; }
+  show('xp', k !== 'nota'); show('xp2', k === 'sost');
+  $('xp').options[0].text = k === 'sost' ? '🔻 Esce…' : 'Chi?';
+  const oc = OUTC[k], xo = $('xo');
+  show('xo', !!oc);
+  if (oc && xo.dataset.k !== k) { xo.innerHTML = oc.map(([val, lb]) => `<option value="${val}">${lb}</option>`).join(''); xo.dataset.k = k; }
+  const o = oc ? xo.value : '';
+  show('xo2', !!((k === 'rig_procurato' && o) || (k === 'rig_causato' && o === 'parato')));
+  $('xo2').options[0].text = k === 'rig_procurato' ? 'Chi l’ha tirato?' : 'Quale portiere?';
+  $('xn').placeholder = k === 'nota' ? 'Scrivi la nota' : 'Nota (facoltativa)';
+}
+function addChron(id) {
+  const m = curMatch, all = curChron, k = v('xk');
+  const half = v('xh') ? +v('xh') : null, mRaw = v('xm'), minute = mRaw === '' ? null : Math.round(+mRaw);
+  if (minute != null && (isNaN(minute) || minute < 0 || minute > 130)) return alert('Il minuto deve essere tra 0 e 130.');
+  const tm = { half, minute }, note = k === 'goal' ? null : v('xn') || null;
+  const nG = all.filter(x => x.t === 'g').length;
+  const goalRoom = n => { if (!hasScore(m)) { alert('Inserisci prima il risultato (sezione «Risultato e marcatori»): serve a controllare che i gol tornino.'); return false; }
+    if (nG + n > m.goals_for) { alert(`Il risultato dice ${m.goals_for} gol nostri e nella cronaca ce ne sono già ${nG}. Se manca un gol, correggi prima il risultato.`); return false; } return true; };
+  const rows = []; // [tabella, dati]
+  if (k === 'goal') {
+    const gk = v('xgk'), sc = v('xgs'), as = ASSISTABLE.includes(gk) ? v('xga') : '', pr = gk === 'rigore' ? v('xgp') : '';
+    if (gk !== 'autogol' && !sc) return alert('Scegli chi ha segnato.');
+    if (as && as === sc) return alert('Chi segna non può fare anche l’assist.');
+    if (!goalRoom(1)) return;
+    if (pr) rows.push(['match_events', { kind: 'rig_procurato', player_id: pr }]);
+    rows.push(['goals', { kind: gk, scorer_id: gk === 'autogol' ? null : sc, assist_id: as || null }]);
+  } else {
+    const pl = k === 'nota' ? '' : v('xp'), p2 = k === 'sost' ? v('xp2') : '';
+    if (k === 'nota' && !note) return alert('Scrivi il testo della nota.');
+    if (k === 'sost' ? !pl && !p2 : k !== 'nota' && !pl) return alert(k === 'sost' ? 'Indica chi esce e/o chi entra.' : 'Scegli il giocatore.');
+    if (k === 'sost' && pl && pl === p2) return alert('Chi esce e chi entra devono essere diversi.');
+    if (k === 'autogol' && hasScore(m) && all.filter(x => x.t === 'e' && x.kind === 'autogol').length >= m.goals_against)
+      return alert(`Il risultato dice ${m.goals_against} ${m.goals_against === 1 ? 'gol subito' : 'gol subiti'}: gli autogol nostri non possono essere di più.`);
+    const o = OUTC[k] ? v('xo') : '', who = v('xo2');
+    let nt = note;
+    if (k === 'rig_procurato' && o) { if (!who) return alert('Scegli chi ha tirato il rigore.'); if (o === 'gol' && !goalRoom(1)) return; }
+    if (k === 'rig_causato' && o === 'parato' && !who) return alert('Scegli il portiere che ha parato.');
+    if (k === 'rig_causato' && (o === 'gol' || o === 'fuori') && !nt) nt = o === 'gol' ? 'Trasformato dagli avversari' : 'Sbagliato dagli avversari';
+    rows.push(['match_events', { kind: k, player_id: pl || null, player2_id: p2 || null, note: nt }]);
+    if (k === 'rig_procurato' && o === 'gol') rows.push(['goals', { kind: 'rigore', scorer_id: who, assist_id: null }]);
+    if (k === 'rig_procurato' && o === 'sbagliato') rows.push(['match_events', { kind: 'rig_sbagliato', player_id: who }]);
+    if (k === 'rig_causato' && o === 'parato') rows.push(['match_events', { kind: 'rig_parato', player_id: who }]);
+  }
+  const ps = slotPos(all, tm, rows.length);
+  act(async () => { for (let i = 0; i < rows.length; i++) await q(sb.from(rows[i][0]).insert({ match_id: id, ...rows[i][1], ...tm, pos: ps[i] })); },
+    true, rows.length > 1 ? `Aggiunti ${rows.length} eventi ✓` : 'Aggiunto alla cronaca ✓');
+}
+const chronTb = x => x.t === 'g' ? 'goals' : 'match_events';
+function moveChron(i, d) {
+  const a = curChron[i], b = curChron[i + d];
+  if (!a || !b) return;
+  act(async () => {
+    const pa = a.pos, pb = b.pos === a.pos ? a.pos + d * 0.5 : b.pos;
+    await q(sb.from(chronTb(a)).update({ pos: pb }).eq('id', a.id));
+    await q(sb.from(chronTb(b)).update({ pos: pa }).eq('id', b.id));
+  }, true, '');
+}
+function saveChronEdit(i) {
+  const x = curChron[i]; if (!x) return;
+  const half = v('yh') ? +v('yh') : null, mRaw = v('ym'), minute = mRaw === '' ? null : Math.round(+mRaw);
+  if (minute != null && (isNaN(minute) || minute < 0 || minute > 130)) return alert('Il minuto deve essere tra 0 e 130.');
+  const up = { half, minute };
+  if (x.t === 'e') { up.note = $('yn') ? v('yn') || null : x.note; if (x.kind === 'nota' && !up.note) return alert('La nota non può essere vuota.'); }
+  // se cambia il momento, l'evento si sposta da solo al posto giusto
+  if ((half !== (x.half ?? null) || minute !== (x.minute ?? null)) && tKey(up) != null) up.pos = slotPos(curChron.filter(y => y !== x), up)[0];
+  act(async () => { await q(sb.from(chronTb(x)).update(up).eq('id', x.id)); evEdit = null; }, true, 'Modificato ✓');
+}
+const delEv = id => confirm('Eliminare questo evento dalla cronaca?') && act(() => q(sb.from('match_events').delete().eq('id', id)), true, 'Evento eliminato ✓');
 
 // ---------- Convocazioni (mister e admin) ----------
 const hm = t => t ? String(t).slice(0, 5) : '';
@@ -608,7 +872,7 @@ const placeVals = () => ({ kickoff: v('ko') || null, venue_name: v('vn').trim() 
 const meetVals = () => ({ meet1_time: v('m1t') || null, meet1_place: v('m1p').trim() || null, meet2_time: v('m2t') || null, meet2_place: v('m2p').trim() || null });
 const callupVals = () => ({ ...placeVals(), ...meetVals() });
 // Campi e spunte non salvati: restano se la stessa schermata si ridisegna, si perdono se si esce
-const FORM_IDS = ['ko', 'vn', 'va', 'vm', 'm1t', 'm1p', 'm2t', 'm2p'];
+const FORM_IDS = ['ko', 'vn', 'va', 'vm', 'm1t', 'm1p', 'm2t', 'm2p', 'xh'];
 const formSnap = () => ({ route: routeOf(), vals: Object.fromEntries(FORM_IDS.filter(k => $(k)).map(k => [k, $(k).value])),
   conv: document.querySelector('.cvx') ? [...document.querySelectorAll('.cvx:checked')].map(x => x.dataset.pid) : null });
 function formRestore(sn) {
@@ -1190,7 +1454,7 @@ async function matchView(id) {
   const [m, conv, players, mine, extras, goalsAll, elig] = await Promise.all([
     q(sb.from('matches').select('*').eq('id', id).single()), q(sb.from('match_players').select('player_id').eq('match_id', id)),
     q(sb.from('players').select('*').order('name')), q(sb.from('votes').select('*').eq('match_id', id).order('rank')), q(sb.from('match_voters').select('profile_id').eq('match_id', id)),
-    sb.from('goals').select('*').eq('match_id', id).order('created_at').then(r => r.data || [], () => []),
+    loadChron(id),
     sb.rpc('eligible_voters', { p_match: id }).then(r => r.data || [], () => [])]);
   curMatch = m; curProg = null;
   const cids = conv.map(c => c.player_id), my = players.find(p => p.profile_id === me.id), admin = isAdmin();
@@ -1198,9 +1462,13 @@ async function matchView(id) {
   const eligible = prof.can_vote && (m.voters === 'tutti' || prof.is_coach || (my && cids.includes(my.id)) || (m.voters === 'extra' && extras.some(e => e.profile_id === me.id)));
   let h = `<button class="g s" onclick="go('p')">← Partite</button>${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 8px;text-transform:capitalize">${dayTxt(m.played_on)}</div><span class="tag ${m.status === 'open' ? 'o' : ''}">${stLabel(m.status)}</span>
   <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
-  if (hasScore(m) && m.goals_for > 0) {
-    const gl = goalsAll;
-    if (gl.length) { const pn = pid => (players.find(p => p.id === pid) || {}).name; h += `<div class="card"><b>Marcatori</b>${gl.map(g => `<div style="padding:3px 0">${goalLine(g, pn)}</div>`).join('')}</div>`; }
+  // Risultato con i marcatori, cronaca e legenda: tre menù a scomparsa
+  const chAll = goalsAll.all, pn = pid => (players.find(p => p.id === pid) || {}).name, bdg = badgesOf(chAll);
+  const withB = p => esc(p.name) + (bdg[p.id] ? ' ' + bdg[p.id] : '');
+  if (hasScore(m) || chAll.length) {
+    h += grp('v-rs', '⚽ Risultato e marcatori', hasScore(m) ? scoreTxt(m) : '—', scorersSplit(m, chAll, pn));
+    if (chAll.length) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn))
+      + grp('v-lg', '🔎 Legenda dei simboli', 'aiuto', `<p class="mut" style="margin-top:0">I simboli compaiono anche accanto ai nomi, quando voti.</p>${legendHtml(chAll)}`);
   }
   if (m.status === 'draft') h += callupInfo(m);
   if (m.is_test) h += '<div class="pv"><span>🧪 <b>Partita di test.</b> La vedono solo gli admin e non conta nell’albo MVP.' + (asPlayer ? ' Sei in Vista giocatore: qui provi l’esperienza di un compagno, ma i compagni veri non la vedono.' : ' Eliminala quando hai finito.') + '</span></div>';
@@ -1212,7 +1480,7 @@ async function matchView(id) {
     curResults = rs;
     const top = rs.filter(r => r.position === 1);
     h += rs.length ? `<div class="mvp"><div class="big">MVP</div><b>${top.map(r => esc(r.name)).join(' & ')}</b><div>${top[0].points} punti · 🥇 ${top[0].first_places ?? 0}${top.length > 1 ? ' · ex aequo' : ''}</div></div>
-    <div class="card">${rs.map(r => `<div class="row" style="padding:6px 0"><div class="rk">${r.position}</div><div class="f"><b>${esc(r.name)}</b></div><b>${r.points} pt</b><span class="mut" style="min-width:44px;text-align:right">🥇 ${r.first_places ?? 0}</span></div>`).join('')}</div>
+    <div class="card">${rs.map(r => `<div class="row" style="padding:6px 0"><div class="rk">${r.position}</div><div class="f"><b>${esc(r.name)}</b>${bdg[r.player_id] ? ` <span class="bdg">${bdg[r.player_id]}</span>` : ''}</div><b>${r.points} pt</b><span class="mut" style="min-width:44px;text-align:right">🥇 ${r.first_places ?? 0}</span></div>`).join('')}</div>
     <p class="mut">🥇 = quante volte è stato scelto come oro. A pari punti vince chi ha più ori; a pari ori, MVP per entrambi.</p>` : '<div class="card">Nessun voto ricevuto.</div>';
     if (m.eligible_final != null) h += `<p class="mut">Hanno votato ${m.voted_final} su ${m.eligible_final}.</p>`;
     if (m.quorum_forced) h += '<p class="mut">MVP proclamato dall’admin: la soglia minima di votanti non era stata raggiunta.</p>';
@@ -1233,7 +1501,7 @@ async function matchView(id) {
         return `<div class="slot ${val ? 'on' : ''}"><div class="md">${ic}<small>${pt} pt</small></div>
         <select ${locked ? 'disabled' : ''} onchange="setSlot(${i}, this.value)" aria-label="${lb} (${pt} punti)">
           <option value="">${locked ? 'Scegli prima ' + MED[i - 1][1] : i ? 'Facoltativo…' : 'Scegli il tuo MVP…'}</option>
-          ${opts.map(p => `<option value="${p.id}" ${p.id === val ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+          ${opts.map(p => `<option value="${p.id}" ${p.id === val ? 'selected' : ''}>${withB(p)}</option>`).join('')}
         </select></div>`;
       }).join('');
       const done = MED.slice(0, pick.length), left = MED.slice(pick.length, max);
@@ -1247,7 +1515,7 @@ async function matchView(id) {
         : `<button onclick="saveVote('${id}', ${max})" ${pick.length ? '' : 'disabled style="opacity:.5"'}>${mine.length ? 'Aggiorna il voto' : 'Conferma il voto'}</button>
           ${mine.length && pick.length ? '<div class="mut">⚠ Hai cambiato il voto ma non l’hai ancora inviato: premi «Aggiorna il voto».</div>' : ''}`;
       h += `${coachBox}<h3>Il tuo voto</h3>${cand.length ? steps : ''}<div class="card">${cand.length ? slots : '<span class="mut">Nessun compagno da votare in questa partita.</span>'}
-      <p class="mut" style="margin:10px 0 0">Non puoi votare te stesso.</p></div>
+      <p class="mut" style="margin:10px 0 0">Non puoi votare te stesso.${Object.keys(bdg).length ? ' Accanto ai nomi trovi i simboli della partita: il significato è nel menù «Legenda» qui sopra.' : ''}</p></div>
       ${action}`;
     }
   } else {
@@ -1426,7 +1694,7 @@ async function scorersView() {
   const title = rkPh === 'tot' ? 'Marcatori di stagione' : `Marcatori del girone di ${PH[rkPh].toLowerCase()}`;
   return `<h2>${title}</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div>
   <div class="stats"><div><b>${tot}</b><span>Gol segnati</span></div><div><b>${against}</b><span>Gol subiti</span></div><div><b>${diff > 0 ? '+' + diff : diff}</b><span>Differenza reti</span></div></div>
-  <p class="mut" style="font-size:13px">${played} ${played === 1 ? 'partita' : 'partite'} con risultato${og ? ` · ${og} autogol avversari` : ''}${assigned < tot ? ` · marcatori da inserire: ${tot - assigned}` : ''}<br>Legenda: 🎯 rigore · 🧱 punizione · 🚩 calcio d’angolo</p>
+  <p class="mut" style="font-size:13px">${played} ${played === 1 ? 'partita' : 'partite'} con risultato${og ? ` · ${og} autogol avversari` : ''}${assigned < tot ? ` · marcatori da inserire: ${tot - assigned}` : ''}<br>Legenda: 🎯 rigore · ☄️ punizione · 🚩 calcio d’angolo</p>
   <div class="card">${sc.length ? rows(sc, '⚽') : '<span class="mut">Nessun marcatore ancora.</span>'}</div>
   ${grp('assist', '👟 Classifica assist', gl.filter(g => g.assist_id).length, as.length ? rows(as, '👟') : '<p class="mut">Nessun assist ancora.</p>', 'Classifica secondaria: chi ha servito l’ultimo passaggio prima del gol.')}`;
 }
