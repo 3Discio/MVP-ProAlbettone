@@ -130,12 +130,10 @@ select:disabled{opacity:.45}
 .tli.ad{grid-template-columns:38px 30px 1fr auto}.tli .ab{display:flex;gap:4px}.tli .ab button{padding:4px 8px;font-size:13px}
 .tli.ng .tx b{color:var(--mut)}
 .cred{border:2px solid #fff;border-radius:12px;padding:8px 10px;margin:4px 0 8px}
-/* marcatori divisi per squadra */
-.sco{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sco>div{min-width:0}.sco{row-gap:4px}.sco .sh{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;font:500 14px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--hl);border-bottom:1px dashed var(--line);padding-bottom:6px;text-align:center}
-.sco .gr{padding:3px 0;overflow-wrap:anywhere}.sco .gr small{display:block;color:var(--mut);font-size:12px}
-/* simboli accanto ai nomi e legenda */
+/* simboli accanto ai nomi, marcatori e legenda */
 .bdg{font-size:15px;letter-spacing:1px;white-space:normal}
-.lgd{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 12px}.lgd div{display:flex;gap:8px;align-items:center;font-size:14px}.lgd span{min-width:28px;text-align:center;font-size:17px}
+.scl{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;padding:4px 0}.scl span{letter-spacing:2px;white-space:nowrap}
+.lgl{color:var(--mut);font-size:13px;margin:8px 0 0;padding-top:6px;border-top:1px dashed var(--line);line-height:1.6}
 .li .vn{display:block;color:#fff;margin-top:2px}.li .mvpl{display:inline-block;background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 10px;font-weight:700;margin-bottom:3px}
 .warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 .mts{background:#fff;color:var(--team);border-radius:14px;padding:4px 14px;font-size:clamp(26px,8vw,36px);font-weight:700;line-height:1.1;white-space:nowrap}.mts i{font-style:normal;margin:0 .15em;opacity:.6}
@@ -655,13 +653,12 @@ function badgesOf(all) {
   Object.keys(b).forEach(k => { b[k] = b[k].join(' '); });
   return b;
 }
-// Legenda: solo i simboli presenti in questa partita
-function legendHtml(all) {
+// Legenda in una riga: solo i simboli meno ovvi presenti in questa partita (il pallone si spiega da solo)
+function legendLine(all) {
   const seen = [];
-  const put = (ic, lb) => { if (!seen.some(x => x[0] === ic)) seen.push([ic, lb]); };
-  all.filter(x => x.t === 'g').forEach(g => { if (g.kind !== 'autogol') put('⚽', 'Gol'); if (g.kind !== 'azione') put(GK[g.kind][0], GK[g.kind][1]); if (g.assist_id) put('👟', 'Assist'); });
-  Object.keys(EV).forEach(k => { if (all.some(x => x.t === 'e' && x.kind === k)) put(EV[k][0], EV[k][1]); });
-  return seen.length ? `<div class="lgd">${seen.map(([ic, lb]) => `<div><span>${ic}</span>${esc(lb)}</div>`).join('')}</div>` : '';
+  if (all.some(x => x.t === 'g' && x.assist_id)) seen.push(['👟', 'assist']);
+  Object.keys(EV).forEach(k => { if (all.some(x => x.t === 'e' && x.kind === k)) seen.push([EV[k][0], EV[k][1].toLowerCase()]); });
+  return seen.length ? `<p class="lgl">${seen.map(([ic, lb]) => `${ic} ${esc(lb)}`).join(' · ')}</p>` : '';
 }
 // Testo di una riga della cronaca
 function chronTx(x, nameOf) {
@@ -671,7 +668,7 @@ function chronTx(x, nameOf) {
   const who = x.kind === 'sost' ? `${x.player_id ? `esce ${nm(x.player_id)}` : ''}${x.player_id && x.player2_id ? ', ' : ''}${x.player2_id ? `entra ${nm(x.player2_id)}` : ''}` : x.player_id ? nm(x.player_id) : '';
   return `${x.kind === 'nota' ? '' : esc(e[1]) + (who ? ': ' : '')}${who}${x.note ? (x.kind === 'nota' ? esc(x.note) : `<small>${esc(x.note)}</small>`) : ''}`;
 }
-const chronIc = x => x.t === 'g' ? (x.kind === 'azione' ? '⚽' : GK[x.kind][0]) : (EV[x.kind] || ['•'])[0];
+const chronIc = x => x.t === 'g' ? '⚽' : (EV[x.kind] || ['•'])[0]; // il tipo di gol è già scritto tra parentesi
 // Cronaca in sola lettura (pagina della partita), con le intestazioni dei tempi
 function chronHtml(all, nameOf, rowFn) {
   let lastH = null;
@@ -680,21 +677,23 @@ function chronHtml(all, nameOf, rowFn) {
     return hd0 + (rowFn ? rowFn(x, i) : `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>`);
   }).join('')}</div>`;
 }
-// Marcatori divisi per squadra: i nostri gol (e gli autogol avversari) da una parte, i nostri autogol dall'altra
-function scorersSplit(m, all, nameOf) {
-  const ours = all.filter(x => x.t === 'g'), og = all.filter(x => x.t === 'e' && x.kind === 'autogol');
-  const tm = x => x.minute != null ? ` <span class="mut">${x.minute}’</span>` : '';
-  const colUs = ours.map(g => `<div class="gr">${g.kind === 'azione' ? '⚽' : GK[g.kind][0]} ${g.kind === 'autogol' ? '<i>Autogol avversario</i>' : `<b>${esc(nameOf(g.scorer_id) || '—')}</b>`}${tm(g)}${g.assist_id ? `<small>👟 ${esc(nameOf(g.assist_id) || '—')}</small>` : ''}</div>`).join('')
-    + (isAdmin() && hasScore(m) && m.goals_for > ours.length ? `<div class="gr mut">${m.goals_for - ours.length} da inserire</div>` : '');
-  const rest = hasScore(m) ? m.goals_against - og.length : 0;
-  const colThem = og.map(e => `<div class="gr">🙈 <b>${esc(nameOf(e.player_id) || '—')}</b>${tm(e)}<small>autogol</small></div>`).join('')
-    + (rest > 0 ? `<div class="gr mut" style="text-align:center">${rest} ${og.length ? 'altri ' : ''}gol</div>` : '');
-  const sc = n => hasScore(m) ? ` <span class="spill">${n}</span>` : '';
-  const none = '<div class="gr mut" style="text-align:center">—</div>';
-  const us = [`<div class="sh">${esc(TEAM)}${sc(m.goals_for)}</div>`, `<div>${colUs || none}</div>`];
-  const them = [`<div class="sh">${esc(m.opponent)}${sc(m.goals_against)}</div>`, `<div>${colThem || none}</div>`];
-  const [l, r] = isHome(m) ? [us, them] : [them, us];
-  return `<div class="sco">${l[0]}${r[0]}${l[1]}${r[1]}</div>`; // intestazioni sulla stessa riga, anche se un nome va a capo
+// Marcatori: una riga per giocatore, chi ha segnato di più in alto; assist e autogol in piccolo in fondo
+function scorersList(m, all, nameOf) {
+  const gl = all.filter(x => x.t === 'g'), nm = id => esc(nameOf(id) || 'Giocatore eliminato');
+  const tally = key => { const c = {}; gl.forEach(g => { const id = g[key]; if (id && !(key === 'scorer_id' && g.kind === 'autogol')) c[id] = (c[id] || 0) + 1; });
+    return Object.entries(c).sort((a, b) => b[1] - a[1] || String(nameOf(a[0])).localeCompare(String(nameOf(b[0])))); };
+  const balls = n => n > 3 ? `⚽ ×${n}` : '⚽'.repeat(n);
+  const sc = tally('scorer_id'), as = tally('assist_id');
+  const ogOpp = gl.filter(g => g.kind === 'autogol').length, ogUs = all.filter(x => x.t === 'e' && x.kind === 'autogol');
+  const miss = isAdmin() && hasScore(m) ? m.goals_for - gl.length : 0;
+  const rows = sc.map(([id, n]) => `<div class="scl"><span>${balls(n)}</span><b>${nm(id)}</b></div>`).join('');
+  const small = [
+    as.length ? `👟 Assist: ${as.map(([id, n]) => nm(id) + (n > 1 ? ` ×${n}` : '')).join(', ')}` : '',
+    ogOpp ? `🔁 ${ogOpp} ${ogOpp === 1 ? 'autogol avversario' : 'autogol avversari'}` : '',
+    ogUs.length ? `🙈 ${ogUs.length === 1 ? 'Nostro autogol' : 'Nostri autogol'}: ${ogUs.map(e => nm(e.player_id)).join(', ')}` : '',
+    miss > 0 ? `⚠ ${miss === 1 ? 'Manca 1 marcatore' : `Mancano ${miss} marcatori`} da inserire (lo vedi solo tu)` : ''].filter(Boolean);
+  const empty = !gl.length ? `<p class="mut" style="margin:0">${hasScore(m) && m.goals_for === 0 ? 'Nessun gol segnato.' : 'Marcatori non ancora inseriti.'}</p>` : '';
+  return `${empty}${rows}${small.length ? `<p class="lgl">${small.join('<br>')}</p>` : ''}`;
 }
 
 function saveScore(id) {
@@ -1466,9 +1465,9 @@ async function matchView(id) {
   const chAll = goalsAll.all, pn = pid => (players.find(p => p.id === pid) || {}).name, bdg = badgesOf(chAll);
   const withB = p => esc(p.name) + (bdg[p.id] ? ' ' + bdg[p.id] : '');
   if (hasScore(m) || chAll.length) {
-    h += grp('v-rs', '⚽ Risultato e marcatori', hasScore(m) ? scoreTxt(m) : '—', scorersSplit(m, chAll, pn));
-    if (chAll.length) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn))
-      + grp('v-lg', '🔎 Legenda dei simboli', 'aiuto', `<p class="mut" style="margin-top:0">I simboli compaiono anche accanto ai nomi, quando voti.</p>${legendHtml(chAll)}`);
+    h += grp('v-rs', '⚽ Risultato e marcatori', hasScore(m) ? scoreTxt(m) : '—', scorersList(m, chAll, pn));
+    // la cronaca compare solo se aggiunge qualcosa ai marcatori: un evento o almeno un minuto/tempo
+    if (chAll.some(x => x.t === 'e' || x.minute != null || x.half)) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn) + legendLine(chAll));
   }
   if (m.status === 'draft') h += callupInfo(m);
   if (m.is_test) h += '<div class="pv"><span>🧪 <b>Partita di test.</b> La vedono solo gli admin e non conta nell’albo MVP.' + (asPlayer ? ' Sei in Vista giocatore: qui provi l’esperienza di un compagno, ma i compagni veri non la vedono.' : ' Eliminala quando hai finito.') + '</span></div>';
@@ -1515,7 +1514,7 @@ async function matchView(id) {
         : `<button onclick="saveVote('${id}', ${max})" ${pick.length ? '' : 'disabled style="opacity:.5"'}>${mine.length ? 'Aggiorna il voto' : 'Conferma il voto'}</button>
           ${mine.length && pick.length ? '<div class="mut">⚠ Hai cambiato il voto ma non l’hai ancora inviato: premi «Aggiorna il voto».</div>' : ''}`;
       h += `${coachBox}<h3>Il tuo voto</h3>${cand.length ? steps : ''}<div class="card">${cand.length ? slots : '<span class="mut">Nessun compagno da votare in questa partita.</span>'}
-      <p class="mut" style="margin:10px 0 0">Non puoi votare te stesso.${Object.keys(bdg).length ? ' Accanto ai nomi trovi i simboli della partita: il significato è nel menù «Legenda» qui sopra.' : ''}</p></div>
+      <p class="mut" style="margin:10px 0 0">Non puoi votare te stesso.</p>${legendLine(chAll)}</div>
       ${action}`;
     }
   } else {
