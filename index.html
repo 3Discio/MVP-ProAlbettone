@@ -33,7 +33,7 @@ button.s{width:auto;padding:6px 10px;font-size:13px;margin:0}
 .p.on{border-color:var(--acc);background:#3a4a10}.rk{background:var(--acc);color:var(--ink);border-radius:8px;min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-family:Oswald,Impact,sans-serif}
 .mvp{text-align:center;background:linear-gradient(160deg,#ffd60a,#f59e0b);color:var(--ink);border-radius:18px;padding:20px 10px;margin:12px 0}.mvp .big{font-size:56px;line-height:1}.mvp b{font-family:Oswald,Impact,sans-serif;font-size:28px;text-transform:uppercase}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#072a19;border-top:2px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0)}
-nav button{flex:1;background:none;color:var(--mut);border-radius:0;margin:0;padding:14px 2px;font-size:14px;letter-spacing:.02em}nav button.on{color:var(--acc);box-shadow:inset 0 3px var(--acc)}
+nav button{flex:1 1 0;min-width:0;background:none;color:var(--mut);border-radius:0;margin:0;padding:10px 2px;font-size:15px;line-height:1.15;letter-spacing:.03em;white-space:nowrap;text-transform:uppercase}nav button.wide{flex-grow:1.35}nav .nl small{font-size:.8em;letter-spacing:.02em}nav button{position:relative}nav.n5 button{font-size:13.5px;letter-spacing:.01em;padding:15px 1px 8px}nav.n5 button.wide{flex-grow:1.3}nav.n5 .nl{position:static}nav.n5 .nl small{font-size:.92em}nav.n5 .nl .nb,nav.n5 button:last-child .nl .nb{top:2px;right:3px;min-width:16px;height:16px;line-height:16px;font-size:9.5px;padding:0 4px}nav button.on{color:var(--acc);box-shadow:inset 0 3px var(--acc)}
 .err{background:#5a1a16;border-radius:10px;padding:10px;margin:8px 0}
 /* ===== TEMA SQUADRA: cambia solo --team per ricolorare tutto il sito ===== */
 :root{--team:#d7142c;
@@ -144,7 +144,7 @@ select:disabled{opacity:.45}
 .lgl{color:var(--mut);font-size:13px;margin:8px 0 0;padding-top:6px;border-top:1px dashed var(--line);line-height:1.6}
 .li .vn{display:block;color:#fff;margin-top:2px}.li .mvpl{display:inline-block;background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 10px;font-weight:700;margin-bottom:3px}
 .nb{display:inline-block;min-width:19px;height:19px;padding:0 5px;margin-left:5px;border-radius:10px;background:#f5c518;color:#1a1200;font:700 11px/19px system-ui,sans-serif;text-align:center;letter-spacing:0;vertical-align:2px;box-shadow:0 0 0 2px color-mix(in srgb,var(--team) 12%,#000)}
-.nl{position:relative;display:inline-block}.nl .nb{position:absolute;top:-11px;right:-12px;margin:0}nav button:last-child .nl .nb{right:-6px}
+.nl{position:relative;display:inline-block}.nl .nb{position:absolute;top:-9px;right:-19px;margin:0;min-width:17px;height:17px;line-height:17px;font-size:10px;padding:0 4px;font-family:system-ui,sans-serif}nav button:last-child .nl .nb{right:-12px}
 .mc{position:relative}.cnb{position:absolute;top:-8px;right:-6px;margin:0;min-width:24px;height:24px;font-size:13px;line-height:24px;border-radius:12px}
 .crow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line)}.crow:last-child{border-bottom:0}
 .crow.me{background:color-mix(in srgb,var(--team) 18%,transparent);border-radius:10px;padding:9px 8px;margin:0 -8px}
@@ -153,6 +153,31 @@ select:disabled{opacity:.45}
 .cnum{text-align:center;min-width:46px}.cnum b{display:block;font:500 26px Oswald,Impact,sans-serif;color:#f5c518;line-height:1}.cnum span{font-size:11px;color:var(--mut);text-transform:uppercase}
 .cdet{margin-top:4px;font-size:13px}.cdet summary{color:var(--mut);cursor:pointer}.cdet div{padding:1px 0}
 .tl .ntm{color:#f5c518!important}.tl a{color:var(--hl)}
+.crow.csq{background:color-mix(in srgb,#ff5a5a 16%,transparent);border-radius:10px;padding:9px 8px;margin:0 -8px 4px;border:1px solid #ff5a5a}
+.crow.cdf{background:repeating-linear-gradient(135deg,color-mix(in srgb,#ff3b30 34%,#000) 0 14px,color-mix(in srgb,#ff3b30 22%,#000) 14px 28px);border-radius:10px;padding:9px 8px;margin:0 -8px 4px;border:2px solid #ff3b30;animation:cpulse 1.6s ease-in-out infinite}
+.crow.catt{background:color-mix(in srgb,#f5c518 12%,transparent);border-radius:10px;padding:9px 8px;margin:0 -8px 4px;border:1px dashed #f5c518}
+@keyframes cpulse{50%{box-shadow:0 0 14px #ff3b30}}@media (prefers-reduced-motion:reduce){.crow.cdf{animation:none}}
+.cst.csq{background:#ff5a5a;color:#fff}.cst.cdf{background:#f5c518;color:#1a1200}.cst.catt{background:#fff;color:#1a1200}
+.ctg{display:inline-block;border-radius:8px;padding:1px 7px;font-size:12px;font-weight:700;white-space:nowrap}.ctg.csq{background:#ff5a5a;color:#fff}.ctg.cdf{background:#f5c518;color:#1a1200}.ctg.catt{background:#fff;color:#1a1200}
+/* card cartellini (verticale, da screenshot) */
+.ckw{position:relative;width:min(88vw,calc((100vh - 150px) * 9 / 16),480px);width:min(88vw,calc((100dvh - 150px) * 9 / 16),480px);aspect-ratio:9/16;flex:none}
+.ck{position:absolute;inset:0;container-type:inline-size;--f:1;overflow:hidden;background:radial-gradient(circle at 50% 0,color-mix(in srgb,var(--team) 85%,#000),color-mix(in srgb,var(--team) 25%,#000) 80%);color:#fff}
+.cki{position:absolute;inset:0;padding:6cqw 5cqw 4cqw;display:flex;flex-direction:column;gap:calc(var(--f) * 2.4cqw)}
+.ckh{text-align:center}.ckh b{display:block;white-space:nowrap;font:700 calc(min(var(--f),1) * 7cqw)/1.1 Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.02em}.ckh span{display:block;margin-top:.6cqw;font-size:calc(min(var(--f),1) * 2.7cqw);opacity:.8}
+.ckl{display:grid;gap:calc(var(--f) * 1.3cqw) 2cqw;align-content:start}
+.kr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n t" "c t";align-items:center;column-gap:2cqw;padding:calc(var(--f) * 1.3cqw) 2.4cqw;border-radius:2.4cqw;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)}
+.kn{grid-area:n;font-weight:700;font-size:calc(var(--f) * 3.5cqw);line-height:1.15;overflow-wrap:break-word}
+.ckl.dense .kr{grid-template-areas:"n n" "c t";row-gap:.6cqw}.ckl.dense .kc{gap:1.4cqw;white-space:nowrap}.ckl.dense .kc span{white-space:nowrap}.kt .ks{display:none}.ckl.dense .kt .kl{display:none}.ckl.dense .kt .ks{display:inline}.kc{grid-area:c;display:flex;gap:2.4cqw;font-size:calc(var(--f) * 3cqw);font-weight:700;line-height:1.3}
+.kt{grid-area:t;font-style:normal;font-weight:700;font-size:calc(var(--f) * 2.9cqw);white-space:nowrap;padding:.6cqw 1.8cqw;border-radius:2cqw;background:rgba(255,255,255,.15)}
+.kr.ksq{background:#111;border:2px solid #ff5a5a}.kt.ksq{background:#ff5a5a;color:#fff}
+.kr.kdf{background:repeating-linear-gradient(135deg,#d6111f 0 3cqw,#a70c18 3cqw 6cqw);border:2px solid #ffd60a}.kt.kdf{background:#ffd60a;color:#1a1200}
+.kr.katt{border:1px dashed #f5c518}.kt.katt{background:#fff;color:#1a1200}
+.ckf{margin-top:auto;padding-right:14cqw;font-size:calc(var(--f) * 2.7cqw);line-height:1.45;opacity:.85}.cksig{position:absolute;right:4cqw;bottom:3.5cqw;height:11cqw;width:auto;opacity:.9}
+.calm{font:500 14px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--hl);margin:12px 0 4px;padding-bottom:3px;border-bottom:1px dashed var(--line)}.calm:first-child{margin-top:0}
+.calr{display:flex;gap:12px;align-items:flex-start;padding:8px 0}.calr.oggi{background:color-mix(in srgb,var(--team) 20%,transparent);border-radius:10px;padding:8px;margin:0 -8px}
+.cald{min-width:46px;text-align:center;border-radius:10px;background:#fff;color:var(--team);padding:4px 0;line-height:1}.cald span{display:block;font-size:11px;text-transform:uppercase;font-weight:700}.cald b{font:700 22px Oswald,Impact,sans-serif}
+.calr a,.card p a{color:var(--hl)}.calb{display:flex;flex-direction:column;gap:8px}
+a.btn{display:block;text-align:center;text-decoration:none;background:var(--acc,#d7142c);color:#fff;border-radius:12px;padding:12px 10px;font-weight:600}a.btn.g{background:none;border:2px solid var(--line);color:inherit}
 .sugc{border-color:#f5c518;margin:0 0 10px}.warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 .mts{background:#fff;color:var(--team);border-radius:14px;padding:4px 14px;font-size:clamp(26px,8vw,36px);font-weight:700;line-height:1.1;white-space:nowrap}.mts i{font-style:normal;margin:0 .15em;opacity:.6}
 .ist{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.ist:last-child{border-bottom:0}.ist .rk{flex:none}.ist b{display:block;margin-bottom:2px}
@@ -277,10 +302,13 @@ const quiet = async (fn, el, msg = 'Salvato ✓') => { try { await fn(); if (msg
 function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
 
 // ---------- INDIRIZZO DI OGNI SEZIONE ----------
-// Il sito resta un unico file, ma l'indirizzo cambia con la sezione (es. …/#mvp, …/#gestione/<id>):
+// Il sito resta un unico file, ma l'indirizzo cambia con la sezione, con gli stessi nomi del menù
+// (es. …/#lista-partite, …/#albo-mvp, …/#gestione-partite/<id>, …/#partita/<id>):
 // così il tasto «Indietro» torna alla schermata precedente, ricaricando si resta dove si era
 // e si può condividere il link di una sezione. I vecchi link …?match=<id> continuano a funzionare.
-const ROUTES = { p: 'partite', c: 'mvp', g: 'marcatori', t: 'cartellini', k: 'convocazioni', i: 'app', n: 'gestione', a: 'admin', o: 'online' };
+const ROUTES = { p: 'lista-partite', c: 'albo-mvp', g: 'marcatori', t: 'cartellini', l: 'calendario', k: 'gestione-convocazioni', i: 'installa-app', n: 'gestione-partite', a: 'menu-admin', o: 'online' };
+// vecchi indirizzi, ancora validi (link salvati o condivisi prima del cambio di nome)
+const OLD_ROUTES = { partite: 'p', mvp: 'c', convocazioni: 'k', app: 'i', gestione: 'n', admin: 'a' };
 const routeOf = () => cur ? 'partita/' + cur
   : ROUTES[tab] + (tab === 'n' && mg ? '/' + (mg === 'new' ? 'nuova' : mg) : tab === 'k' && ck ? '/' + ck : '');
 function readRoute() {
@@ -289,7 +317,7 @@ function readRoute() {
   if (!h || h.includes('=')) return; // indirizzo vuoto o dati del login (es. conferma email): si parte dalle partite
   const [a, b] = h.split('/');
   if (a === 'partita' && b) { cur = b; return; }
-  const t = Object.keys(ROUTES).find(k => ROUTES[k] === a);
+  const t = Object.keys(ROUTES).find(k => ROUTES[k] === a) || OLD_ROUTES[a];
   if (!t) return;
   tab = t;
   if (t === 'n' && b) mg = b === 'nuova' ? 'new' : b;
@@ -353,7 +381,7 @@ async function render(keep) {
   // contatori per i badge del menù in basso e dell'icona dell'app (in parallelo alla pagina)
   const cntP = navCounts(admin).catch(() => ({}));
   let body;
-  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 't' ? await cardsView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
+  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 't' ? await cardsView() : tab === 'l' ? await calView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   try { prof = await profP; } catch (e) {}
   const cnt = await cntP; navCnt = cnt;
@@ -362,8 +390,7 @@ async function render(keep) {
   ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
-  <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')"><span class="nl">Partite${nb(cnt.vote, 'votazioni in cui non hai ancora votato')}</span></button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${(tab === 'g' || tab === 't') && !cur ? 'on' : ''}" onclick="go('${cnt.card ? 't' : 'g'}')"><span class="nl">Marcatori${nb(cnt.card, 'avviso cartellini per te')}</span></button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')"><span class="nl">Convocazioni${nb(cnt.conv, 'prossima partita da completare')}</span></button>` : ''}
-  ${admin ? `<button class="${tab === 'n' && !cur ? 'on' : ''}" onclick="mg=null;go('n')"><span class="nl">Gestione${nb(cnt.gest, 'cose da sistemare nelle partite')}</span></button><button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')"><span class="nl">Admin${nb(cnt.nuovi, 'nuovi iscritti da sistemare')}</span></button>` : ''}</nav>`;
+  ${navHtml(admin, cnt)}`;
   setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0) + (cnt.card || 0));
   formRestore(snap);
   if ($('xk')) onEvKind();
@@ -377,10 +404,11 @@ const nb = (n, lb = '') => n ? `<span class="nb" title="${n} ${lb}" aria-label="
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const expired = m => !!m.voting_deadline && new Date(m.voting_deadline) <= Date.now() + clockOffset;
 // Cose da sistemare in una partita (admin): [chiave, quante, testo]
-function matchTodo(m, nGoals, nSug) {
+function matchTodo(m, nGoals, nSug, nBan = 0) {
   const out = [];
   if (nSug) out.push(['sug', nSug, `✍️ ${nSug} ${nSug === 1 ? 'suggerimento' : 'suggerimenti'} per la cronaca da approvare`]);
   if (m.is_test) return out; // le partite di test non fanno scattare altri avvisi
+  if (nBan) out.push(['ban', nBan, `⚖️ ${nBan === 1 ? 'Rosso diretto: giornate di squalifica da inserire' : `${nBan} rossi diretti: giornate di squalifica da inserire`}`]);
   if (m.status === 'open' && expired(m)) out.push(['exp', 1, '⏰ Votazione scaduta: da chiudere']);
   if (m.played_on < todayStr() && !hasScore(m)) out.push(['res', 1, '📝 Partita giocata: manca il risultato']);
   else if (hasScore(m) && m.goals_for > nGoals) { const k = m.goals_for - nGoals; out.push(['sco', k, `⚽ ${k === 1 ? 'Manca 1 marcatore' : `Mancano ${k} marcatori`}`]); }
@@ -393,7 +421,7 @@ function matchTodo(m, nGoals, nSug) {
 async function navCounts(admin) {
   const safe = p => p.then(r => r.data || [], () => []), now = todayStr();
   const [ms, pl, cev, rules] = await Promise.all([safe(sb.from('matches').select('*')), safe(sb.from('players').select('id,profile_id')),
-    safe(sb.from('match_events').select('match_id,kind,player_id').in('kind', CARD_KINDS)), cardRules()]);
+    safe(sb.from('match_events').select('*').in('kind', CARD_KINDS)), cardRules()]);
   const vis = ms.filter(m => prof.is_admin || !m.is_test);
   const open = vis.filter(m => m.status === 'open' && !expired(m) && !(m.outcome === 'sconfitta' && !m.force_vote));
   const my = pl.find(p => p.profile_id === me.id);
@@ -415,11 +443,12 @@ async function navCounts(admin) {
     const linked = new Set(pl.map(p => p.profile_id).filter(Boolean));
     // «nuovo» = iscritto non ancora collegato a un giocatore né messo fra staff o spettatori (come in Admin)
     nuovi = pf.filter(u => !linked.has(u.id) && !u.is_staff && !u.is_out).length;
-    gest = ms.reduce((t, m) => t + matchTodo(m, gl.filter(g => g.match_id === m.id).length, sg.filter(x => x.match_id === m.id).length).reduce((a, x) => a + x[1], 0), 0);
+    const nBan = mid => cev.filter(e => e.match_id === mid && e.kind === 'rosso' && e.ban_games == null).length;
+    gest = ms.reduce((t, m) => t + matchTodo(m, gl.filter(g => g.match_id === m.id).length, sg.filter(x => x.match_id === m.id).length, nBan(m.id)).reduce((a, x) => a + x[1], 0), 0);
   }
   // avviso cartellini per me: diffidato o squalificato
   const mine = my ? cardStats(ms, cev, rules, curCardPh(ms, rules)).find(x => x.pid === my.id) : null;
-  const card = mine && (mine.st === 'sq' || mine.st === 'df') ? 1 : 0;
+  const card = mine && mine.st ? 1 : 0;
   return { vote, conv: convTodo, gest, nuovi, card };
 }
 // Numerino sull'icona dell'app installata (dove il telefono lo permette; su iPhone servono le notifiche attive)
@@ -428,6 +457,22 @@ function setAppBadge(n) {
 }
 const canAskBadge = () => isApp && isIOS && 'setAppBadge' in navigator && 'Notification' in window && Notification.permission === 'default' && !lsGet('hideBadgeAsk');
 const askBadge = () => { try { Notification.requestPermission().then(() => render(true)); } catch (e) {} };
+// Menù in basso, diverso per ruolo:
+//   giocatori: Lista partite | Albo MVP | Marcatori e cartellini | Calendario Pro Albettone
+//   mister:    Lista partite | Albo MVP | Marcatori e cartellini | Gestione convocazioni
+//   admin:     Lista partite | Albo MVP | Marcatori e cartellini | Gestione partite | Impostazioni admin
+// (mister e admin aprono il calendario dal pulsante in Lista partite)
+function navHtml(admin, cnt) {
+  const b = (on, fn, l1, l2, badge = '', cls = '') => `<button class="${cls} ${on && !cur ? 'on' : ''}" onclick="${fn}"><span class="nl">${l1}<br><small>${l2}</small>${badge}</span></button>`;
+  const items = [b(tab === 'p', "go('p')", 'Lista', 'partite', nb(cnt.vote, 'votazioni in cui non hai ancora votato')),
+    b(tab === 'c', "go('c')", 'Albo', 'MVP'),
+    b(tab === 'g' || tab === 't', `go('${cnt.card ? 't' : 'g'}')`, 'Marcatori', 'e cartellini', nb(cnt.card, 'avviso cartellini per te'), 'wide')];
+  if (admin) items.push(b(tab === 'n', "mg=null;go('n')", 'Gestione', 'partite', nb(cnt.gest, 'cose da sistemare nelle partite')),
+    b(tab === 'a', "go('a')", 'Menu', 'admin', nb(cnt.nuovi, 'nuovi iscritti da sistemare')));
+  else if (prof.is_coach) items.push(b(tab === 'k', "ck=null;go('k')", 'Gestione', 'convocazioni', nb(cnt.conv, 'prossima partita da completare'), 'wide'));
+  else items.push(b(tab === 'l', "go('l')", 'Calendario', 'Pro Albettone', '', 'wide'));
+  return `<nav class="n${items.length}">${items.join('')}</nav>`;
+}
 const OUT = { vittoria: 'Vittoria', pareggio: 'Pareggio', sconfitta: 'Sconfitta' };
 const PH = { andata: 'Andata', ritorno: 'Ritorno' };
 let clockOffset = 0, clockOk = false;
@@ -470,16 +515,17 @@ async function manageView() {
   if (mg) return back + await manageMatch(mg);
   ms.sort((a, b) => (b.status === 'open') - (a.status === 'open'));
   // cose da sistemare per ogni partita: suggerimenti, votazioni scadute, risultati e marcatori mancanti
-  const [sg, gl] = await Promise.all([
+  const [sg, gl, rd] = await Promise.all([
     sb.from('chron_suggestions').select('match_id').eq('status', 'pending').then(r => r.data || [], () => []),
-    sb.from('goals').select('match_id').then(r => r.data || [], () => [])]);
-  const todo = {}; ms.forEach(m => { todo[m.id] = matchTodo(m, gl.filter(g => g.match_id === m.id).length, sg.filter(x => x.match_id === m.id).length); });
+    sb.from('goals').select('match_id').then(r => r.data || [], () => []),
+    sb.from('match_events').select('*').eq('kind', 'rosso').then(r => r.data || [], () => [])]);
+  const todo = {}; ms.forEach(m => { todo[m.id] = matchTodo(m, gl.filter(g => g.match_id === m.id).length, sg.filter(x => x.match_id === m.id).length, rd.filter(e => e.match_id === m.id && e.ban_games == null).length); });
   const nT = mid => todo[mid].reduce((a, x) => a + x[1], 0);
   ms.sort((a, b) => (b.status === 'open') - (a.status === 'open') || (nT(b.id) > 0) - (nT(a.id) > 0)); // prima le aperte, poi quelle con cose da fare
   // riepilogo in alto, per tipo
   const tot = k => ms.reduce((t, m) => t + todo[m.id].filter(x => x[0] === k).reduce((a, x) => a + x[1], 0), 0);
   const sum = [['sug', n => `✍️ ${n} ${n === 1 ? 'suggerimento' : 'suggerimenti'} per la cronaca`], ['exp', n => `⏰ ${n} ${n === 1 ? 'votazione scaduta da chiudere' : 'votazioni scadute da chiudere'}`],
-    ['res', n => `📝 ${n} ${n === 1 ? 'risultato mancante' : 'risultati mancanti'}`], ['sco', n => `⚽ ${n} ${n === 1 ? 'marcatore mancante' : 'marcatori mancanti'}`]]
+    ['res', n => `📝 ${n} ${n === 1 ? 'risultato mancante' : 'risultati mancanti'}`], ['sco', n => `⚽ ${n} ${n === 1 ? 'marcatore mancante' : 'marcatori mancanti'}`], ['ban', n => `⚖️ ${n} ${n === 1 ? 'squalifica per rosso diretto da definire' : 'squalifiche per rosso diretto da definire'} (in Cartellini)`]]
     .map(([k, f]) => tot(k) ? f(tot(k)) : '').filter(Boolean);
   return `<h2>Gestione partite</h2><button onclick="mg='new';render()">➕ Nuova partita</button>
   ${sum.length ? `<div class="warn"><b>Da sistemare:</b><br>${sum.join('<br>')}</div>` : ''}
@@ -500,7 +546,8 @@ async function manageMatch(id) {
   const cids = conv.map(c => c.player_id);
   let h = `${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 4px"><span style="text-transform:capitalize">${dayTxt(m.played_on)}</span>${m.phase ? ' · ' + PH[m.phase] : ''}${m.is_test ? ' · 🧪 test' : ''}</div><div class="row" style="margin:6px 0"><span class="tag ${m.status === 'open' ? 'o' : ''}">${ST[m.status]}</span>${m.status !== 'draft' ? `<button class="g s" onclick="go('p','${id}')">Vai alla votazione</button>` : ''}</div>`;
   // Risultato e marcatori
-  const ch = await loadChron(id, true), goals = ch.goals;
+  const [ch, cd] = await Promise.all([loadChron(id, true), cardData()]), goals = ch.goals;
+  const cm = cardMapAt(cd, m.played_on);
   curChron = ch.all;
   curSugs = await sb.from('chron_suggestions').select('*').eq('match_id', id).eq('status', 'pending').order('created_at').then(r => r.data || [], () => []);
   if (curSugs.length && !autoOpen.has('sug' + id)) { autoOpen.add('sug' + id); openG.add('s-cr'); } // apri la Cronaca se ci sono suggerimenti nuovi
@@ -555,7 +602,7 @@ async function manageMatch(id) {
   const cls = k => st[k] === 'todo' ? 'c-todo' : '';
   const sec = {
     cv: grp('s-cv', 'Orari e luoghi', badge('cv', m.kickoff ? 'ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<button onclick="saveCallupTimes('${id}')">💾 Salva orari e luoghi</button>${posterTiles(id)}`, '', cls('cv')),
-    cc: grp('mc', 'Convocati', convBadge(nConv, nConvocabili, m.status === 'draft'), `${meetFields(m, "adminSaveMeet('" + id + "')")}${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} data-pid="${p.id}" onchange="countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${convBar(cids, "adminSaveConv('" + id + "')")}${shareTiles(id, 'Usano ritrovi e convocati qui sopra, più orario e luogo della sezione «Orari e luoghi» (salvali prima di condividere).')}`, CONV_HINT, cls('cc')),
+    cc: grp('mc', 'Convocati', convBadge(nConv, nConvocabili, m.status === 'draft'), `${meetFields(m, "adminSaveMeet('" + id + "')")}${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} data-pid="${p.id}"${cm[p.id] && cm[p.id].st === 'sq' ? ' data-ban="1"' : ''} onchange="banChk(this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${cardTag(cm[p.id])}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${cardLegend(cm, players.map(p => p.id))}${convBar(cids, "adminSaveConv('" + id + "')")}${shareTiles(id, 'Usano ritrovi e convocati qui sopra, più orario e luogo della sezione «Orari e luoghi» (salvali prima di condividere).')}`, CONV_HINT, cls('cc')),
     vt: grp('s-vt', 'Votazione', badge('vt', ST[m.status]), `${durBlock}${quorumBlock}
   <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
   <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi link</button><button class="g" onclick="copyLink('${id}')">Copia link</button></div>
@@ -586,11 +633,15 @@ async function matchesView(admin) {
   const closedIds = vis.filter(m => m.status === 'closed').map(m => m.id);
   const convIds = openIds.concat(draftIds);
   // 2° giro (in parallelo): solo ciò che dipende dalle partite aperte, in bozza o chiuse
-  const [conv, xv, prog, mvps] = await Promise.all([
+  const [conv, xv, prog, mvps, cdM] = await Promise.all([
     convIds.length ? q(sb.from('match_players').select('match_id,player_id').in('match_id', convIds)) : [],
     convIds.length ? q(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', convIds)) : [],
     openIds.length ? q(sb.from('voting_progress').select('*').in('match_id', openIds)) : [],
-    closedIds.length ? sb.from('match_results').select('match_id,name,position').in('match_id', closedIds).eq('position', 1).then(r => r.data || [], () => []) : []]);
+    closedIds.length ? sb.from('match_results').select('match_id,name,position').in('match_id', closedIds).eq('position', 1).then(r => r.data || [], () => []) : [],
+    my ? cardData() : null]);
+  // la mia situazione cartellini alla data di una partita in programma
+  const myCard = m => cdM && my && m.played_on >= todayStr() ? (cardMapAt(cdM, m.played_on)[my.id] || null) : null;
+  const myCardLine = m => { const x = myCard(m); return !x || !x.st ? '' : `<br><span class="ctg c${x.st}">${x.st === 'sq' ? '🟥 Sei squalificato per questa partita' + (x.pend ? ' ⚖️' : '') : x.st === 'att' ? '⚖️ Rosso diretto: in attesa del comunicato' : '🟨 Sei diffidato: con un altro giallo salti la partita dopo'}</span>`; };
   // il mio voto in una partita: "🥇 Rossi, 🥈 Bianchi e 🥉 Verdi"
   const myPicks = mid => listIt(myv.filter(x => x.match_id === mid).sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)).map((x, k) => MED[k][0] + ' ' + esc(pName(x.player_id))));
   const enabled = m => canVote(m, conv.filter(c => c.match_id === m.id).map(c => c.player_id), my, xv.some(x => x.match_id === m.id));
@@ -616,11 +667,11 @@ async function matchesView(admin) {
   // bozze: sei convocato? potrai votare?
   ms.filter(m => m.status === 'draft').forEach(m => {
     const c = conv.filter(x => x.match_id === m.id), lost = m.outcome === 'sconfitta' && !m.force_vote;
-    if (!c.length) { info[m.id] = '<div class="li"><span class="cvs wait">⏳ Convocazioni non ancora effettuate</span></div>'; return; }
+    if (!c.length) { info[m.id] = `<div class="li"><span class="cvs wait">⏳ Convocazioni non ancora effettuate</span>${myCardLine(m)}</div>`; return; }
     const st = my ? (c.some(x => x.player_id === my.id) ? `<span class="cvs yes">✓ Sei convocato</span>` : '<span class="cvs no">Non sei convocato</span>') + ` <span class="mut">· ${c.length} convocati</span>`
       : `<span class="cvs">${c.length} convocati</span>`;
     const vt = lost ? 'Partita persa: l’MVP non si vota.' : enabled(m) ? '🗳️ Sei abilitato a votare l’MVP quando si apre la votazione.' : notEnabled(who);
-    info[m.id] = `<div class="li">${st}<br>${vt}</div>`; // l'orario è già nella riga della data
+    info[m.id] = `<div class="li">${st}<br>${vt}${myCardLine(m)}</div>`; // l'orario è già nella riga della data
   });
 
   // girone scelto (come in MVP e Marcatori): di default quello della partita aperta o della prossima in programma
@@ -642,7 +693,8 @@ async function matchesView(admin) {
   return `
   ${!isApp && isPhone && !lsGet('hideInstall') ? `<div class="pv"><span>📲 <b>Usa il sito come un’app</b>: aggiungilo alla schermata Home del telefono.</span><span style="display:flex;gap:6px">${installEvt ? '<button class="s" onclick="installNow()">Installa</button>' : '<button class="s" onclick="go(\'i\')">Come fare</button>'}<button class="g s" onclick="lsSet('hideInstall','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
   ${canAskBadge() ? `<div class="pv"><span>🔴 <b>Numerino sull’icona</b>: attiva le notifiche per vedere sull’icona dell’app quante cose ti aspettano (es. un voto da dare).</span><span style="display:flex;gap:6px"><button class="s" onclick="askBadge()">Attiva</button><button class="g s" onclick="lsSet('hideBadgeAsk','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
-  <h2>Partite</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div>
+  <div class="row" style="align-items:center"><h2 class="f" style="margin:0">Partite</h2>${admin || prof.is_coach ? `<button class="g s" onclick="go('l')">📅 Calendario</button>` : ''}</div>
+  <div class="row" style="justify-content:flex-start;margin:8px 0 6px">${tabs}</div>
   ${open.map(card).join('')}
   ${next ? `<h3>Prossima partita</h3>${card(next)}` : ''}
   ${!open.length && !next ? '<p class="mut">Nessuna partita in programma in questo girone.</p>' : ''}
@@ -763,7 +815,9 @@ function chronTx(x, nameOf) {
   if (x.t === 'g') return x.kind === 'autogol' ? `<b>Gol!</b> Autogol avversario` : `<b>Gol!</b> ${nm(x.scorer_id)}${x.kind !== 'azione' ? ` <span class="mut">(${GK[x.kind][1].toLowerCase()})</span>` : ''}${x.assist_id ? `<small>👟 assist di ${esc(nameOf(x.assist_id) || '—')}</small>` : ''}`;
   const e = EV[x.kind] || ['•', x.kind];
   const who = x.kind === 'sost' ? `${x.player_id ? `esce ${nm(x.player_id)}` : ''}${x.player_id && x.player2_id ? ', ' : ''}${x.player2_id ? `entra ${nm(x.player2_id)}` : ''}` : x.player_id ? nm(x.player_id) : '';
-  return `${x.kind === 'nota' ? '' : esc(e[1]) + (who ? ': ' : '')}${who}${x.note ? (x.kind === 'nota' ? esc(x.note) : `<small>${esc(x.note)}</small>`) : ''}`;
+  const ban = x.kind === 'rosso' ? `<small>⚖️ ${x.ban_games == null ? 'Squalifica: in attesa del comunicato' : 'Squalifica: ' + gg(x.ban_games)}</small>`
+    : x.kind === 'doppio_giallo' && x.ban_games != null && x.ban_games !== 1 ? `<small>⚖️ Squalifica: ${gg(x.ban_games)}</small>` : '';
+  return `${x.kind === 'nota' ? '' : esc(e[1]) + (who ? ': ' : '')}${who}${x.note ? (x.kind === 'nota' ? esc(x.note) : `<small>${esc(x.note)}</small>`) : ''}${ban}`;
 }
 const chronIc = x => x.t === 'g' ? '⚽' : (EV[x.kind] || ['•'])[0]; // il tipo di gol è già scritto tra parentesi
 // Cronaca in sola lettura (pagina della partita), con le intestazioni dei tempi
@@ -850,6 +904,7 @@ function chronAdmin(m, all, plist, nameOf) {
     if (evEdit === x.id) return `<div class="cred"><div class="tli" style="padding:0"><span class="tm"></span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>
       <div class="row"><select id="yh" style="flex:1"><option value="">Tempo: non indicato</option>${[1, 2].map(h => `<option value="${h}" ${x.half === h ? 'selected' : ''}>${h}° tempo</option>`).join('')}</select><input id="ym" type="number" min="0" max="130" inputmode="numeric" placeholder="Minuto" value="${x.minute ?? ''}" style="width:100px"></div>
       ${x.t === 'e' ? `<input id="yn" placeholder="${x.kind === 'nota' ? 'Testo della nota' : 'Nota (facoltativa)'}" value="${esc(x.note || '')}">` : ''}
+      ${x.t === 'e' && (x.kind === 'rosso' || x.kind === 'doppio_giallo') ? `<div class="row"><span class="f">⚖️ Giornate di squalifica${x.kind === 'rosso' ? ' (vuoto = in attesa del comunicato)' : ''}</span><input id="yb" type="number" min="0" max="99" inputmode="numeric" placeholder="${x.kind === 'rosso' ? '?' : '1'}" value="${x.ban_games ?? ''}" style="width:80px"></div>` : ''}
       <div class="row" style="justify-content:flex-end;margin-top:4px">${btn('Annulla', 'evEdit=null;render(true)')}${btn('💾 Salva', `saveChronEdit(${i})`, '')}</div></div>`;
     return `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}${!x.half && all.some(y => y.half) ? '<small class="ntm">⏱️ senza tempo</small>' : ''}
       <span class="ab" style="margin-top:4px">${btn('▲', `moveChron(${i},-1)`, 'g', !i)}${btn('▼', `moveChron(${i},1)`, 'g', i === all.length - 1)}${btn('✏️', `evEdit='${x.id}';render(true)`)}${btn('✕', x.t === 'g' ? `delGoal('${x.id}')` : `delEv('${x.id}')`, 'r')}</span></span></div>`;
@@ -867,13 +922,16 @@ function chronAdmin(m, all, plist, nameOf) {
       <select id="xo2"><option value="">Chi?</option>${opts}</select></div>
     <div class="row"><select id="xh" style="flex:1"><option value="">Tempo: non indicato</option><option value="1">1° tempo</option><option value="2">2° tempo</option></select><input id="xm" type="number" min="0" max="130" inputmode="numeric" placeholder="Minuto" style="width:100px"></div>
     <input id="xn" placeholder="Nota (facoltativa)">
+    <div id="xbw" class="row"><span class="f">⚖️ Giornate di squalifica</span><input id="xbg" type="number" min="0" max="99" inputmode="numeric" placeholder="?" style="width:80px"></div>
+    <p id="xbh" class="mut" style="font-size:13px;margin:0 0 6px">Rosso diretto: se non conosci ancora le giornate lascia vuoto, resta «in attesa del comunicato» e lo completi dopo (qui con ✏️ o in Cartellini).</p>
     <button onclick="addChron('${id}')">Aggiungi</button>
     <p class="mut" style="font-size:13px;margin-bottom:0">Con tempo o minuto l’evento si mette da solo al posto giusto; senza, va in fondo e lo sposti con ▲▼. Tempo e minuto sono facoltativi e li puoi aggiungere dopo con ✏️. Gli eventi «⏱️ senza tempo» nella pagina della partita finiscono in fondo, in «Tempo non indicato», e i compagni possono suggerirti quando sono successi.</p></div>`;
   return `${chk}${all.length ? chronHtml(all, nameOf, row) : '<p class="mut">Nessun evento ancora.</p>'}${plist.length ? form : '<p class="mut">Per compilare la cronaca seleziona prima i convocati.</p>'}`;
 }
 function onEvKind() {
   const k = v('xk'), show = (i, on) => { const e = $(i); if (e) e.style.display = on ? '' : 'none'; };
-  show('xg', k === 'goal'); show('xe', k !== 'goal'); show('xn', k !== 'goal');
+  show('xg', k === 'goal'); show('xe', k !== 'goal'); show('xn', k !== 'goal'); show('xbw', k === 'rosso' || k === 'doppio_giallo'); show('xbh', k === 'rosso');
+  if ($('xbg')) $('xbg').placeholder = k === 'doppio_giallo' ? '1' : '?';
   if (k === 'goal') { const gk = v('xgk'); show('xgs', gk !== 'autogol'); show('xga', ASSISTABLE.includes(gk)); show('xgp', gk === 'rigore'); return; }
   show('xp', k !== 'nota'); show('xp2', k === 'sost');
   $('xp').options[0].text = k === 'sost' ? '🔻 Esce…' : 'Chi?';
@@ -913,7 +971,9 @@ function addChron(id) {
     if (k === 'rig_procurato' && o) { if (!who) return alert('Scegli chi ha tirato il rigore.'); if (o === 'gol' && !goalRoom(1)) return; }
     if (k === 'rig_causato' && o === 'parato' && !who) return alert('Scegli il portiere che ha parato.');
     if (k === 'rig_causato' && (o === 'gol' || o === 'fuori') && !nt) nt = o === 'gol' ? 'Trasformato dagli avversari' : 'Sbagliato dagli avversari';
-    rows.push(['match_events', { kind: k, player_id: pl || null, player2_id: p2 || null, note: nt }]);
+    const bRaw = (k === 'rosso' || k === 'doppio_giallo') ? v('xbg') : '', bg = bRaw === '' ? null : Math.round(+bRaw);
+    if (bg != null && (isNaN(bg) || bg < 0 || bg > 99)) return alert('Le giornate di squalifica devono essere tra 0 e 99.');
+    rows.push(['match_events', { kind: k, player_id: pl || null, player2_id: p2 || null, note: nt, ...(bg != null ? { ban_games: bg } : {}) }]);
     if (k === 'rig_procurato' && o === 'gol') rows.push(['goals', { kind: 'rigore', scorer_id: who, assist_id: null }]);
     if (k === 'rig_procurato' && o === 'sbagliato') rows.push(['match_events', { kind: 'rig_sbagliato', player_id: who }]);
     if (k === 'rig_causato' && o === 'parato') rows.push(['match_events', { kind: 'rig_parato', player_id: who }]);
@@ -938,6 +998,8 @@ function saveChronEdit(i) {
   if (minute != null && (isNaN(minute) || minute < 0 || minute > 130)) return alert('Il minuto deve essere tra 0 e 130.');
   const up = { half, minute };
   if (x.t === 'e') { up.note = $('yn') ? v('yn') || null : x.note; if (x.kind === 'nota' && !up.note) return alert('La nota non può essere vuota.'); }
+  if ($('yb')) { const b = v('yb'), bg = b === '' ? null : Math.round(+b); if (bg != null && (isNaN(bg) || bg < 0 || bg > 99)) return alert('Le giornate di squalifica devono essere tra 0 e 99.');
+    if (bg !== (x.ban_games ?? null)) up.ban_games = bg; }
   // se cambia il momento, l'evento si sposta da solo al posto giusto
   if ((half !== (x.half ?? null) || minute !== (x.minute ?? null)) && tKey(up) != null) up.pos = slotPos(curChron.filter(y => y !== x), up)[0];
   act(async () => { await q(sb.from(chronTb(x)).update(up).eq('id', x.id)); evEdit = null; }, true, 'Modificato ✓');
@@ -1134,7 +1196,8 @@ async function callupView() {
     return `<div class="card row" onclick="ck='${m.id}';render()" style="cursor:pointer"><div>${scoreLine(m)}<div class="mut">${dayTxt(m.played_on)}${m.kickoff ? ' · ore ' + hm(m.kickoff) : ''}</div></div><span class="tag ${todo ? 'o' : ''}">${n ? n + ' convocati' : 'Da fare'}${todo && n ? ' · da fare' : ''}</span></div>`; }).join('') || '<div class="card mut">Nessuna partita in programma.</div>'}`;
 }
 async function callupEdit(m) {
-  const [roster, conv] = await Promise.all([q(sb.rpc('coach_roster')), q(sb.from('match_players').select('player_id').eq('match_id', m.id))]);
+  const [roster, conv, cd] = await Promise.all([q(sb.rpc('coach_roster')), q(sb.from('match_players').select('player_id').eq('match_id', m.id)), cardData()]);
+  const cm = cardMapAt(cd, m.played_on);
   const id = m.id, cids = conv.map(c => c.player_id), n = cids.length;
   // «saved» / «savedIds» = quello che c'è già su Supabase: ogni «Salva» del mister rimanda il resto così com'è
   callupMeta[id] = { opp: m.opponent, date: m.played_on, home: isHome(m), phase: m.phase, savedIds: cids,
@@ -1144,7 +1207,7 @@ async function callupEdit(m) {
   const cls = k => st[k] === 'todo' ? 'c-todo' : '';
   const sec = {
     cv: grp('s-cv', 'Orari e luoghi', (st.cv === 'todo' ? 'da fare' : '✓') + (m.kickoff ? ' · ore ' + hd(m.kickoff) : ''), `${callupFields(m)}<button onclick="coachSaveTimes('${id}')">💾 Salva orari e luoghi</button>${posterTiles(id)}`, '', cls('cv')),
-    cc: grp('mc', 'Convocati', convBadge(n, roster.length, true), `${meetFields(m, "coachSaveMeet('" + id + "')")}${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" data-pid="${p.id}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="countConv()"> ${esc(p.name)}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}${convBar(cids, "coachSaveConv('" + id + "')")}${shareTiles(id, 'Usano ritrovi e convocati qui sopra, più orario e luogo della sezione «Orari e luoghi» (salvali prima di condividere).')}`, CONV_HINT, cls('cc')) };
+    cc: grp('mc', 'Convocati', convBadge(n, roster.length, true), `${meetFields(m, "coachSaveMeet('" + id + "')")}${roster.map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" data-pid="${p.id}"${cm[p.id] && cm[p.id].st === 'sq' ? ' data-ban="1"' : ''} style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} onchange="banChk(this);countConv()"> ${esc(p.name)}${cardTag(cm[p.id])}</label>`).join('') || '<span class="mut">Nessun giocatore in rosa.</span>'}${cardLegend(cm, roster.map(p => p.id))}${convBar(cids, "coachSaveConv('" + id + "')")}${shareTiles(id, 'Usano ritrovi e convocati qui sopra, più orario e luogo della sezione «Orari e luoghi» (salvali prima di condividere).')}`, CONV_HINT, cls('cc')) };
   const sorted = ['cv', 'cc'].sort((x, y) => (st[x] === 'todo' ? 0 : 1) - (st[y] === 'todo' ? 0 : 1));
   if (!autoOpen.has(id)) { autoOpen.add(id); const f = sorted.find(k => st[k] === 'todo'); if (f) openG.add(f === 'cc' ? 'mc' : 's-cv'); }
   return `<button class="g s" onclick="ck=null;render()">← Tutte le partite</button>${matchTitle(m)}<div class="mut" style="text-align:center;margin:-4px 0 4px;text-transform:capitalize">${dayTxt(m.played_on)}</div>${sorted.map(k => sec[k]).join('')}`;
@@ -1890,91 +1953,280 @@ function updOnline() {
 }
 
 // Classifica marcatori (e assist, secondaria). Contano tutte le partite tranne quelle di test.
-// ---------- CARTELLINI ----------
-// Si contano dalla cronaca delle partite (eventi 🟨 ammonizione, 🟨🟥 doppia ammonizione, 🟥 espulsione diretta).
+// ---------- CALENDARIO PRO ALBETTONE ----------
+// Il calendario pubblico di iCloud non si può leggere direttamente dal browser (Apple lo blocca),
+// quindi passa da una piccola funzione su Supabase («calendario», Edge Function) che lo scarica e lo gira al sito.
+const CAL_WEBCAL = 'webcal://p137-caldav.icloud.com/published/2/MTczOTA5MTEwMjE3MzkwOWfa44lMcBSebyKKjAn9BHa1H8hcqLFb2PgBvfgLHt7IzA0na2nEzKASzJDCVRMg6eOBxnkJf2P-u6YCmbCTjuI';
+const CAL_TZ = 'Europe/Rome', CAL_DAYS = 60, CAL_MAX = 150; // eventi ripetuti (es. allenamenti): solo i prossimi 2 mesi; al massimo 150 righe
+let calCache = null;
+// Legge il testo .ics: { events: [{ d:'2026-10-10', t:'15:00' | '', end:'17:00', title, loc, desc, allDay }] }
+function parseIcs(txt) {
+  const lines = txt.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
+  const un = v => String(v || '').replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1').trim();
+  const evs = []; let e = null;
+  for (const ln of lines) {
+    if (ln === 'BEGIN:VEVENT') { e = { ex: [] }; continue; }
+    if (ln === 'END:VEVENT') { if (e) evs.push(e); e = null; continue; }
+    if (!e) continue;
+    const c = ln.indexOf(':'); if (c < 0) continue;
+    const head = ln.slice(0, c), val = ln.slice(c + 1), [name, ...ps] = head.split(';');
+    const prm = Object.fromEntries(ps.map(p => p.split('=')).map(([k, x]) => [k.toUpperCase(), (x || '').replace(/"/g, '')]));
+    const key = name.toUpperCase();
+    if (key === 'DTSTART' || key === 'DTEND' || key === 'RECURRENCE-ID') e[key] = { v: val, p: prm };
+    else if (key === 'EXDATE') val.split(',').forEach(x => e.ex.push(x));
+    else if (key === 'SUMMARY') e.title = un(val); else if (key === 'LOCATION') e.loc = un(val);
+    else if (key === 'DESCRIPTION') e.desc = un(val); else if (key === 'RRULE') e.rrule = val;
+    else if (key === 'STATUS') e.status = val; else if (key === 'UID') e.uid = val;
+  }
+  return evs;
+}
+// data/ora .ics -> orario di Roma { d:'YYYY-MM-DD', t:'HH:MM' } (t vuoto = tutto il giorno)
+function icsTime(x) {
+  if (!x) return null;
+  const v = x.v, m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(v); if (!m) return null;
+  if (!m[4] || x.p.VALUE === 'DATE') return { d: `${m[1]}-${m[2]}-${m[3]}`, t: '' };
+  if (m[7]) { // UTC -> Roma
+    const dt = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+    const f = new Intl.DateTimeFormat('en-CA', { timeZone: CAL_TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(dt);
+    const g = k => f.find(p => p.type === k).value; return { d: `${g('year')}-${g('month')}-${g('day')}`, t: `${g('hour')}:${g('minute')}` };
+  }
+  return { d: `${m[1]}-${m[2]}-${m[3]}`, t: `${m[4]}:${m[5]}` }; // ora locale (TZID): il calendario è già in ora italiana
+}
+const dAdd = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+const dMonthAdd = (d, n) => { const [y, mo, da] = d.split('-').map(Number), x = new Date(Date.UTC(y, mo - 1 + n, 1)); const last = new Date(Date.UTC(x.getUTCFullYear(), x.getUTCMonth() + 1, 0)).getUTCDate();
+  return da > last ? null : `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, '0')}-${String(da).padStart(2, '0')}`; };
+// Espande gli eventi ripetuti (giornalieri, settimanali, mensili, annuali) fino a CAL_DAYS giorni da oggi
+function calEvents(raw) {
+  const today = todayStr(), horizon = dAdd(today, CAL_DAYS), out = [];
+  const over = {}; raw.filter(e => e['RECURRENCE-ID']).forEach(e => { const r = icsTime(e['RECURRENCE-ID']); if (r) over[e.uid + '|' + r.d] = e; });
+  const push = (e, s, en) => { if (e.status === 'CANCELLED') return;
+    const endD = en ? en.d : s.d; if ((en && !en.t && endD > s.d ? dAdd(endD, -1) : endD) < today) return; // già finito
+    out.push({ d: s.d, t: s.t, end: en && en.t && en.d === s.d ? en.t : '', endD: (() => { if (!en || en.d === s.d) return ''; const x = en.t ? en.d : dAdd(en.d, -1); return x > s.d ? x : ''; })(), title: e.title || '(senza titolo)', loc: e.loc || '', desc: e.desc || '', allDay: !s.t }); };
+  raw.filter(e => !e['RECURRENCE-ID']).forEach(e => {
+    const s = icsTime(e.DTSTART), en = icsTime(e.DTEND); if (!s) return;
+    if (!e.rrule) return push(e, s, en);
+    const R = Object.fromEntries(e.rrule.split(';').map(p => p.split('=')));
+    const iv = Math.max(1, +R.INTERVAL || 1), count = +R.COUNT || Infinity, until = R.UNTIL ? icsTime({ v: R.UNTIL, p: {} }).d : '9999';
+    const ex = new Set(e.ex.map(x => (icsTime({ v: x, p: {} }) || {}).d));
+    const len = en ? Math.round((new Date(en.d) - new Date(s.d)) / 864e5) : 0;
+    const days = R.BYDAY ? R.BYDAY.split(',').map(x => ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'].indexOf(x.slice(-2))) : null;
+    let n = 0, guard = 0;
+    const emit = d => { if (d > until || n >= count) return false; n++;
+      if (!ex.has(d)) { const o = over[e.uid + '|' + d];
+        if (o) push(o, icsTime(o.DTSTART), icsTime(o.DTEND)); else push(e, { d, t: s.t }, en ? { d: dAdd(d, len), t: en.t } : null); }
+      return true; };
+    if (R.FREQ === 'WEEKLY' && days) { // settimane a intervalli, con i giorni indicati
+      let wk = dAdd(s.d, -new Date(s.d + 'T12:00:00Z').getUTCDay());
+      while (wk <= horizon && guard++ < 2000) {
+        for (let k = 0; k < 7; k++) { const d = dAdd(wk, k); if (!days.includes(k) || d < s.d) continue; if (d > horizon || !emit(d)) { wk = '9999'; break; } }
+        if (wk === '9999') break; wk = dAdd(wk, 7 * iv); }
+    } else {
+      let d = s.d, k = 0;
+      while (d && d <= horizon && guard++ < 2000) {
+        if (!emit(d)) break; k++;
+        d = R.FREQ === 'DAILY' ? dAdd(s.d, k * iv) : R.FREQ === 'WEEKLY' ? dAdd(s.d, 7 * k * iv) : R.FREQ === 'MONTHLY' ? dMonthAdd(s.d, k * iv) : R.FREQ === 'YEARLY' ? dMonthAdd(s.d, 12 * k * iv) : null;
+        while (d === null && guard++ < 2000) { k++; d = R.FREQ === 'MONTHLY' ? dMonthAdd(s.d, k * iv) : R.FREQ === 'YEARLY' ? dMonthAdd(s.d, 12 * k * iv) : undefined; } // salta i mesi senza quel giorno (es. 31)
+      }
+    }
+  });
+  return out.sort((a, b) => a.d.localeCompare(b.d) || (a.t || '00:00').localeCompare(b.t || '00:00')).slice(0, CAL_MAX);
+}
+async function loadCal(force) {
+  if (calCache && !force && Date.now() - calCache.at < 5 * 60e3) return calCache;
+  // richiesta semplice, senza intestazioni extra: niente controlli preliminari del browser (CORS)
+  // (la funzione «calendario» va pubblicata su Supabase con «Verify JWT» spento)
+  const url = SB_URL.replace(/\/+$/, '') + '/functions/v1/calendario';
+  let res;
+  try { res = await fetch(url); } catch (e) { throw new Error(`nessuna risposta da ${url}. La funzione «calendario» è pubblicata con quel nome? (dettaglio: ${e.message || e})`); }
+  const txt = await res.text();
+  if (res.status === 401) throw new Error('la funzione chiede l’accesso (401): su Supabase spegni «Verify JWT with legacy secret» e salva');
+  if (res.status === 404) throw new Error('funzione non trovata (404): il nome deve essere esattamente «calendario»');
+  if (!res.ok) throw new Error(`errore ${res.status}: ${txt.slice(0, 160)}`);
+  if (!/BEGIN:VCALENDAR/.test(txt)) throw new Error('la risposta non è un calendario: ' + txt.slice(0, 120));
+  calCache = { at: Date.now(), evs: calEvents(parseIcs(txt)) };
+  return calCache;
+}
+const calHttps = () => CAL_WEBCAL.replace(/^webcal:/, 'https:');
+const calGoogle = () => 'https://calendar.google.com/calendar/render?cid=' + encodeURIComponent(CAL_WEBCAL);
+function copyCal() { const u = calHttps(); (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Link del calendario copiato ✓'), () => prompt('Copia il link del calendario:', u)); }
+async function calView() {
+  let data = null, err = '';
+  try { data = await loadCal(); } catch (e) { err = e.message || String(e); }
+  const ios = `<a class="btn${isIOS || !isAndroid ? '' : ' g'}" href="${CAL_WEBCAL}">🍎 Aggiungi al calendario iPhone</a>`;
+  const and = `<a class="btn${isAndroid ? '' : ' g'}" href="${calGoogle()}" target="_blank" rel="noopener">🤖 Aggiungi a Google Calendar (Android)</a>`;
+  const add = grp('caladd', '📲 Aggiungilo al tuo telefono', isIOS ? 'iPhone' : isAndroid ? 'Android' : 'facoltativo', `<div class="calb">${isAndroid ? and + ios : ios + and}</div>
+    <p class="mut" style="font-size:13px;margin:8px 0 0">Ti iscrivi al calendario della squadra: gli eventi compaiono nel tuo calendario e si aggiornano da soli. iPhone: conferma con «Iscriviti». Android: si apre Google Calendar, conferma con «Aggiungi» (Google lo aggiorna con qualche ora di ritardo). Altro calendario? <a href="#" onclick="copyCal();return false">Copia il link</a>.</p>`);
+  const evs = data ? data.evs : [];
+  const today = todayStr();
+  let lastM = '';
+  const list = evs.map(e => {
+    const dt = new Date(e.d + 'T12:00:00'), mk = e.d.slice(0, 7);
+    const head = mk !== lastM ? `<div class="calm">${dt.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}</div>` : ''; lastM = mk;
+    const when = e.allDay ? (e.endD ? `fino a ${dayShort(e.endD)}` : 'Tutto il giorno') : `ore ${e.t}${e.end ? '–' + e.end : ''}${e.endD ? ` · fino a ${dayShort(e.endD)}` : ''}`;
+    return `${head}<div class="calr${e.d === today ? ' oggi' : ''}"><div class="cald"><span>${dt.toLocaleDateString('it-IT', { weekday: 'short' })}</span><b>${dt.getDate()}</b></div>
+      <div class="f"><b>${esc(e.title)}</b><div class="mut">${e.d === today ? '<span class="tag o">Oggi</span> ' : ''}${esc(when)}</div></div></div>`;
+  }).join('');
+  return `<h2>📅 Calendario Pro Albettone</h2>${add}
+    ${err ? `<div class="warn">Non riesco a leggere il calendario adesso.${isAdmin() ? `<br><span style="font-size:13px">Risposta: ${esc(err)}. Controlla che su Supabase ci sia la Edge Function «calendario».</span>` : ' Riprova tra poco.'}</div>`
+      : evs.length ? `<div class="card">${list}</div><p class="mut" style="font-size:13px">Gli eventi che si ripetono (es. allenamenti) sono mostrati per i prossimi ${Math.round(CAL_DAYS / 30)} mesi.</p>` : '<div class="card mut">Nessun evento in programma.</div>'}`;
+}
+
+// ---------- CARTELLINI E SQUALIFICHE ----------
+// Si contano dalla cronaca (eventi 🟨 ammonizione, 🟨🟥 doppia ammonizione, 🟥 espulsione diretta).
 // Regole impostabili dall'admin (app_settings, chiave "cards"):
-//   first = squalifica al N° giallo (predefinito 4), every = poi una ogni N gialli (predefinito 3: 7°, 10°…),
-//   reset = 'stagione' (conteggio unico) o 'girone' (si riparte da zero al ritorno).
-// Doppia ammonizione o rosso: salta la prossima partita e i gialli di quella partita non si sommano.
+//   first = squalifica al N° giallo (4), every = poi una ogni N gialli (3: 7°, 10°…),
+//   reset = 'stagione' o 'girone', red = rosso diretto senza giornate inserite:
+//     'uno'  = fermo almeno per la prossima partita, in attesa del comunicato
+//     'zero' = non risulta squalificato finché l'admin non inserisce le giornate
+// Le giornate di ogni squalifica stanno nel campo ban_games dell'evento che l'ha fatta scattare
+// (il giallo della soglia, la doppia ammonizione, il rosso). Vuoto = 1 giornata (rosso: vedi «red»).
+// Una squalifica si sconta con le partite della squadra giocate dopo quella del cartellino, in ordine di data.
 const CARD_KINDS = ['giallo', 'doppio_giallo', 'rosso'];
-const CARD_DEF = { first: 4, every: 3, reset: 'stagione' };
-let navCnt = {};
+const CARD_DEF = { first: 4, every: 3, reset: 'stagione', red: 'uno' };
+let navCnt = {}, curCards = null;
 async function cardRules(force) {
   const o = await pdfOverrides('cards', force), n = (x, d) => Number.isInteger(+x) && +x >= 1 && +x <= 20 ? +x : d;
-  return { first: n(o.first, CARD_DEF.first), every: n(o.every, CARD_DEF.every), reset: o.reset === 'girone' ? 'girone' : 'stagione' };
+  return { first: n(o.first, CARD_DEF.first), every: n(o.every, CARD_DEF.every), reset: o.reset === 'girone' ? 'girone' : 'stagione', red: o.red === 'zero' ? 'zero' : 'uno' };
 }
-// girone che si sta giocando: quello dell'ultima partita giocata
 const curCardPh = (ms, R) => { if (R.reset !== 'girone') return null;
   const last = ms.filter(m => !m.is_test && m.played_on <= todayStr()).sort((a, b) => b.played_on.localeCompare(a.played_on))[0];
   return (last && last.phase) || 'andata'; };
 const nextStop = (y, R) => y < R.first ? R.first : R.first + R.every * (Math.floor((y - R.first) / R.every) + 1);
 const isStop = (y, R) => y === R.first || (y > R.first && (y - R.first) % R.every === 0);
-// Situazione cartellini di ogni giocatore che ne ha presi: [{ pid, y, reds, st, why, hist, left }]
-//   st: 'sq' = squalificato per la prossima partita, 'df' = diffidato, '' = nessun avviso
-function cardStats(ms, evs, R, ph) {
-  const real = ms.filter(m => !m.is_test), byId = Object.fromEntries(real.filter(m => !ph || (m.phase || 'andata') === ph).map(m => [m.id, m]));
+const gg = n => n === 1 ? '1 giornata' : n + ' giornate';
+// Situazione di ogni giocatore con almeno un cartellino, vista alla data D (esclusa: le partite di quel giorno non sono ancora scontate).
+// [{ pid, y, reds, hist, left, next, bans, rem, pend, st }]
+//   st: 'sq' squalificato (rem giornate ancora da saltare), 'att' rosso in attesa del comunicato (non fermo), 'df' diffidato, '' niente
+function cardStats(ms, evs, R, ph, D = todayStr()) {
+  const real = ms.filter(m => !m.is_test).sort((a, b) => a.played_on.localeCompare(b.played_on));
+  const byId = Object.fromEntries(real.filter(m => !ph || (m.phase || 'andata') === ph).map(m => [m.id, m]));
   const P = {};
   evs.forEach(e => { if (!byId[e.match_id] || !e.player_id || !CARD_KINDS.includes(e.kind)) return;
-    const c = ((P[e.player_id] ??= {})[e.match_id] ??= { y: 0, dy: 0, r: 0 });
-    if (e.kind === 'giallo') c.y++; else if (e.kind === 'doppio_giallo') c.dy++; else c.r++; });
-  const today = todayStr();
+    ((P[e.player_id] ??= {})[e.match_id] ??= []).push(e); });
   return Object.entries(P).map(([pid, mm]) => {
-    const list = Object.entries(mm).map(([mid, c]) => ({ m: byId[mid], ...c })).sort((a, b) => a.m.played_on.localeCompare(b.m.played_on));
-    let y = 0, reds = 0, stop = null; const hist = [];
-    list.forEach(it => {
-      const dbl = it.dy > 0 || it.y >= 2;                // due gialli nella stessa partita = doppia ammonizione
-      const yc = !dbl && it.y === 1 ? 1 : 0;              // i gialli di una partita con espulsione per doppia ammonizione non si sommano
-      if (yc) { y++; if (isStop(y, R)) stop = { m: it.m, why: `${y}° cartellino giallo` }; }
-      if (dbl || it.r) { reds++; stop = { m: it.m, why: it.r ? 'espulsione diretta' : 'doppia ammonizione' }; }
-      hist.push({ m: it.m, ic: it.r ? '🟥' : dbl ? '🟨🟥' : '🟨' });
+    const list = Object.entries(mm).map(([mid, es]) => ({ m: byId[mid], es })).sort((a, b) => a.m.played_on.localeCompare(b.m.played_on));
+    let y = 0, reds = 0; const hist = [], bans = [];
+    list.forEach(({ m, es }) => {
+      const ys = es.filter(e => e.kind === 'giallo'), dy = es.find(e => e.kind === 'doppio_giallo'), r = es.find(e => e.kind === 'rosso');
+      const dbl = !!dy || ys.length >= 2;              // due gialli nella stessa partita = doppia ammonizione
+      if (!dbl && ys.length === 1) { y++; if (isStop(y, R)) bans.push({ m, why: `${y}° giallo`, ev: ys[0], games: ys[0].ban_games ?? 1, pending: false }); }
+      if (dbl) { const ev = dy || ys[ys.length - 1]; bans.push({ m, why: 'doppia ammonizione', ev, games: ev.ban_games ?? 1, pending: false }); }
+      if (r) { const pend = r.ban_games == null; bans.push({ m, why: 'espulsione diretta', ev: r, games: pend ? (R.red === 'uno' ? 1 : 0) : r.ban_games, pending: pend }); }
+      if (dbl || r) reds++;
+      hist.push({ m, ic: r ? '🟥' : dbl ? '🟨🟥' : '🟨' });
     });
-    // la squalifica è da scontare se dopo quella partita non se n'è ancora giocata un'altra
-    const served = stop && real.some(m => m.played_on > stop.m.played_on && m.played_on <= today);
+    // sconto delle giornate: ogni partita giocata dopo il cartellino (e prima di D) sconta una giornata, in ordine
+    const qb = bans.map(b => ({ ...b, left: b.games }));
+    real.filter(m => m.played_on < D).forEach(m => { const b = qb.find(b => b.left > 0 && b.m.played_on < m.played_on); if (b) b.left--; });
+    const rem = qb.reduce((t, b) => t + b.left, 0), pend = qb.some(b => b.pending);
     const left = nextStop(y, R) - y;
-    const st = stop && !served ? 'sq' : left === 1 ? 'df' : '';
-    return { pid, y, reds, st, why: stop && !served ? stop.why : '', hist, left, next: nextStop(y, R) };
-  }).filter(x => x.y || x.reds);
+    const st = rem > 0 ? 'sq' : pend ? 'att' : left === 1 ? 'df' : '';
+    return { pid, y, reds, hist, left, next: nextStop(y, R), bans: qb, rem, pend, st };
+  });
 }
+// ordine: squalificati, rossi in attesa, poi chi è più vicino alla prossima squalifica; a parità, per nome
+const cardSort = (rows, nm) => { const rk = { sq: 0, att: 1, df: 2, '': 3 };
+  return rows.sort((a, b) => rk[a.st] - rk[b.st] || (a.st === 'sq' ? b.rem - a.rem : 0) || a.left - b.left || nm(a.pid).localeCompare(nm(b.pid))); };
+// testo della situazione di un giocatore
+const cardMsg = (x, forMatch = false) => x.st === 'sq'
+  ? `🚫 Squalificato: ${forMatch ? (x.rem === 1 ? 'salta questa partita' : `salta questa e altre ${x.rem - 1}`) : (x.rem === 1 ? 'salta la prossima partita' : `salta le prossime ${x.rem} partite`)}${x.pend ? ' · ⚖️ in attesa del comunicato' : ''}`
+  : x.st === 'att' ? '⚖️ Rosso diretto: in attesa del comunicato' : x.st === 'df' ? '⚠️ Diffidato: al prossimo giallo salta una partita' : '';
+// etichetta accanto al nome nei convocati (situazione alla data della partita)
+const cardTag = x => !x || !x.st ? '' : x.st === 'sq' ? ` <span class="ctg csq">🟥 squalificato${x.rem > 1 ? ' · ' + x.rem + ' gg' : ''}${x.pend ? ' ⚖️' : ''}</span>`
+  : x.st === 'att' ? ' <span class="ctg catt">⚖️ rosso, in attesa</span>' : ' <span class="ctg cdf">🟨 diffidato</span>';
+const cardLegend = (cm, ids) => { const xs = ids.map(i => cm[i]).filter(x => x && x.st); if (!xs.length) return '';
+  return `<p class="mut" style="font-size:13px;margin:6px 0">${xs.some(x => x.st === 'sq') ? '🟥 <b>Squalificato</b>: deve saltare questa partita (somma di gialli, doppia ammonizione o rosso). ' : ''}${xs.some(x => x.st === 'df') ? '🟨 <b>Diffidato</b>: con un altro giallo salta la partita successiva. ' : ''}${xs.some(x => x.st === 'att') ? '⚖️ Rosso diretto in attesa del comunicato. ' : ''}I dettagli sono in Marcatori → Cartellini.</p>`; };
+const banChk = el => { if (el.checked && el.dataset.ban && !confirm(`${el.dataset.name} risulta squalificato per questa partita. Convocarlo comunque?`)) el.checked = false; };
+const banWhy = x => x.bans.filter(b => b.left > 0 || b.pending).map(b => `${b.why} vs ${b.m.opponent}`).join(', ');
+// Dati di tutti i cartellini (riusati da pagina, convocazioni e partite)
+async function cardData() {
+  const [ms, evs, R] = await Promise.all([
+    sb.from('matches').select('*').then(r => r.data || [], () => []),
+    sb.from('match_events').select('*').in('kind', CARD_KINDS).then(r => r.error ? null : r.data || [], () => null), cardRules()]);
+  return { ms, evs, R };
+}
+// situazione alla data di una partita: { player_id: riga }
+const cardMapAt = (cd, D) => cd.evs ? Object.fromEntries(cardStats(cd.ms, cd.evs, cd.R, curCardPh(cd.ms, cd.R), D).map(x => [x.pid, x])) : {};
 // selettore Marcatori / Cartellini (stessa voce del menù in basso)
 const statSwitch = () => `<div class="row" style="justify-content:flex-start;margin-bottom:4px"><button class="s ${tab === 'g' ? '' : 'g'}" onclick="go('g')">⚽ Marcatori</button><button class="s ${tab === 't' ? '' : 'g'}" onclick="go('t')"><span class="nl">🟨 Cartellini${nb(navCnt.card, 'avviso cartellini per te')}</span></button></div>`;
 async function cardsView() {
   const [ms, pl, evs, R] = await Promise.all([
     q(sb.from('matches').select('*').order('played_on', { ascending: false })), q(sb.from('players').select('id,name,profile_id')),
-    sb.from('match_events').select('match_id,kind,player_id').in('kind', CARD_KINDS).then(r => r.error ? null : r.data || [], () => null), cardRules(true)]);
+    sb.from('match_events').select('*').in('kind', CARD_KINDS).then(r => r.error ? null : r.data || [], () => null), cardRules(true)]);
   const admin = isAdmin();
   if (R.reset === 'girone' && (!rkPh || rkPh === 'tot')) rkPh = curCardPh(ms, R);
   const ph = R.reset === 'girone' ? rkPh : null;
   const nm = id => (pl.find(p => p.id === id) || {}).name || 'Giocatore eliminato', my = pl.find(p => p.profile_id === me.id);
-  const rk = { sq: 0, df: 1, '': 2 };
-  const rows = evs ? cardStats(ms, evs, R, ph).sort((a, b) => rk[a.st] - rk[b.st] || b.y - a.y || b.reds - a.reds || nm(a.pid).localeCompare(nm(b.pid))) : [];
+  const rows = evs ? cardSort(cardStats(ms, evs, R, ph), nm) : [];
+  const last = ms.filter(m => !m.is_test && m.played_on <= todayStr())[0];
+  curCards = { rows: rows.map(x => ({ ...x, name: nm(x.pid) })), R, last };
   const mine = my && rows.find(x => x.pid === my.id);
   const yl = n => n > 6 ? `🟨×${n}` : '🟨'.repeat(n);
-  const stTxt = x => x.st === 'sq' ? `<span class="cst csq">🚫 Squalificato: salta la prossima partita</span><small>per ${esc(x.why)}</small>`
-    : x.st === 'df' ? `<span class="cst cdf">⚠️ Diffidato: al prossimo giallo salta una partita</span>`
+  const stTxt = x => x.st ? `<span class="cst c${x.st}">${cardMsg(x)}</span>${x.st !== 'df' ? `<small>per ${esc(banWhy(x))}</small>` : ''}`
     : `<small>${x.left} ${x.left === 1 ? 'giallo' : 'gialli'} alla prossima squalifica (al ${x.next}°)</small>`;
-  const row = x => `<div class="crow${my && x.pid === my.id ? ' me' : ''}"><div class="f"><b>${esc(nm(x.pid))}</b>${my && x.pid === my.id ? ' <span class="mut">(tu)</span>' : ''}
+  const row = x => `<div class="crow c${x.st || 'ok'}${my && x.pid === my.id ? ' me' : ''}"><div class="f"><b>${esc(nm(x.pid))}</b>${my && x.pid === my.id ? ' <span class="mut">(tu)</span>' : ''}
       <div class="ccards">${x.y ? `<span title="${x.y} gialli">${yl(x.y)}</span>` : ''}${x.reds ? `<span title="${x.reds} espulsioni">${x.reds > 1 ? `🟥×${x.reds}` : '🟥'}</span>` : ''}</div>${stTxt(x)}
       <details class="cdet"><summary>Dettaglio</summary>${x.hist.map(h => `<div>${h.ic} vs ${esc(h.m.opponent)} <span class="mut">· ${dayShort(h.m.played_on)}</span></div>`).join('')}</details></div>
       <div class="cnum"><b>${x.y}</b><span>gialli</span></div></div>`;
   const banner = !mine || !mine.st ? '' : mine.st === 'sq'
-    ? `<div class="warn" style="border-color:#ff5a5a;background:color-mix(in srgb,#ff5a5a 22%,#000)">🚫 <b>Sei squalificato</b> per ${esc(mine.why)}: salti la prossima partita.</div>`
+    ? `<div class="warn" style="border-color:#ff5a5a;background:color-mix(in srgb,#ff5a5a 22%,#000)">🚫 <b>Sei squalificato</b> per ${esc(banWhy(mine))}: ${mine.rem === 1 ? 'salti la prossima partita' : `salti le prossime ${mine.rem} partite`}.${mine.pend ? ' ⚖️ Il numero di giornate è in attesa del comunicato.' : ''}</div>`
+    : mine.st === 'att' ? `<div class="warn">⚖️ <b>Rosso diretto</b>: la squalifica è in attesa del comunicato.</div>`
     : `<div class="warn">⚠️ <b>Sei diffidato</b>: hai ${mine.y} ${mine.y === 1 ? 'giallo' : 'gialli'}. Al prossimo salti una partita, gioca tranquillo 😉</div>`;
   const tabs = R.reset === 'girone' ? `<div class="row" style="justify-content:flex-start;margin-bottom:6px">${[['andata', 'Andata'], ['ritorno', 'Ritorno']].map(([k, l]) => `<button class="s ${rkPh === k ? '' : 'g'}" onclick="rkPh='${k}';render(true)">${l}</button>`).join('')}</div>` : '';
-  const rulesTxt = `Squalifica al <b>${R.first}°</b> giallo, poi una ogni <b>${R.every}</b> (${[0, 1, 2].map(i => R.first + i * R.every + '°').join(', ')}…). Diffida quando manca un solo giallo. Con doppia ammonizione o rosso si salta la partita successiva e i gialli di quella partita non si sommano. ${R.reset === 'girone' ? 'Il conteggio riparte da zero nel girone di ritorno.' : 'Il conteggio vale per tutta la stagione.'}`;
+  const rulesTxt = `Squalifica al <b>${R.first}°</b> giallo, poi una ogni <b>${R.every}</b> (${[0, 1, 2].map(i => R.first + i * R.every + '°').join(', ')}…). Diffida quando manca un solo giallo. Doppia ammonizione: 1 giornata e i gialli di quella partita non si sommano. Rosso diretto: ${R.red === 'uno' ? 'fermo almeno per la prossima partita, poi le giornate del comunicato' : 'squalificato solo quando si inseriscono le giornate del comunicato'}. ${R.reset === 'girone' ? 'Il conteggio dei gialli riparte da zero nel girone di ritorno.' : 'Il conteggio dei gialli vale per tutta la stagione.'} Una squalifica si sconta con le partite giocate dopo.`;
+  // gestione delle squalifiche (admin): giornate di ogni squalifica, rossi in attesa in evidenza
+  const allBans = rows.flatMap(x => x.bans.map(b => ({ ...b, pid: x.pid }))).sort((a, b) => (b.pending - a.pending) || b.m.played_on.localeCompare(a.m.played_on));
+  const banList = admin ? grp('cardban', '⚖️ Squalifiche (solo admin)', allBans.filter(b => b.pending).length ? `${allBans.filter(b => b.pending).length} da definire` : allBans.length,
+    allBans.length ? allBans.map(b => `<div class="crow${b.pending ? ' catt' : ''}"><div class="f"><b>${esc(nm(b.pid))}</b><small>${esc(b.why)} · vs ${esc(b.m.opponent)} · ${dayShort(b.m.played_on)}</small>
+      <small>${b.pending ? '⚖️ <b>In attesa del comunicato</b>' : b.left > 0 ? `Da scontare: ${gg(b.left)} su ${b.games}` : '✓ Scontata'}</small></div>
+      <div style="display:flex;gap:6px;align-items:center"><input id="bg_${b.ev.id}" type="number" min="0" max="99" inputmode="numeric" value="${b.pending ? '' : b.games}" placeholder="?" style="width:62px;margin:0"><button class="s" onclick="saveBan('${b.ev.id}')">💾</button></div></div>`).join('')
+      : '<p class="mut">Nessuna squalifica.</p>',
+    'Giornate di squalifica di ogni provvedimento. Quelle per somma di gialli e doppia ammonizione partono da 1; per il rosso diretto inserisci il numero del comunicato. Puoi correggerle tutte se il giudice sportivo decide diversamente.') : '';
   const setForm = admin ? grp('cardset', '⚙️ Regole dei cartellini (solo admin)', `${R.first} · ${R.every}`, `
     <div class="row"><span class="f">Prima squalifica al giallo n°</span><input id="cr1" type="number" min="1" max="20" inputmode="numeric" value="${R.first}" style="width:80px"></div>
     <div class="row"><span class="f">Poi una squalifica ogni … gialli</span><input id="cr2" type="number" min="1" max="20" inputmode="numeric" value="${R.every}" style="width:80px"></div>
-    <select id="cr3"><option value="stagione" ${R.reset === 'stagione' ? 'selected' : ''}>Conteggio unico per tutta la stagione</option><option value="girone" ${R.reset === 'girone' ? 'selected' : ''}>Si riparte da zero a ogni girone</option></select>
+    <select id="cr3"><option value="stagione" ${R.reset === 'stagione' ? 'selected' : ''}>Gialli: conteggio unico per tutta la stagione</option><option value="girone" ${R.reset === 'girone' ? 'selected' : ''}>Gialli: si riparte da zero a ogni girone</option></select>
+    <p class="mut" style="margin:6px 0 2px">Rosso diretto, finché non inserisci le giornate del comunicato:</p>
+    <select id="cr4"><option value="uno" ${R.red === 'uno' ? 'selected' : ''}>Fermo almeno per la prossima partita</option><option value="zero" ${R.red === 'zero' ? 'selected' : ''}>Non squalificato finché non inserisco le giornate</option></select>
     <button onclick="saveCardRules()">💾 Salva le regole</button>`, 'Valgono per tutti. Controlla il regolamento del campionato e adatta i numeri se servono.') : '';
   return `${statSwitch()}<h2>Cartellini</h2>${tabs}${banner}
     ${evs === null ? '<div class="card mut">La cronaca non è ancora attiva: i cartellini si contano dagli eventi della cronaca delle partite.</div>'
-      : rows.length ? `<div class="card">${rows.map(row).join('')}</div>` : '<div class="card mut">Nessun cartellino finora 😇</div>'}
-    <p class="mut" style="font-size:13px">Qui compare solo chi ha preso almeno un cartellino. I cartellini si contano dalla cronaca delle partite.<br>${rulesTxt}</p>${setForm}`;
+      : rows.length ? `<button class="g" onclick="showCardsCard()">📸 Card da condividere</button><div class="card">${rows.map(row).join('')}</div>` : '<div class="card mut">Nessun cartellino finora 😇</div>'}
+    <p class="mut" style="font-size:13px">Qui compare solo chi ha preso almeno un cartellino, dalla cronaca delle partite.<br>${rulesTxt}</p>${banList}${setForm}`;
 }
 function saveCardRules() {
   const a = +v('cr1'), b = +v('cr2');
   if (!Number.isInteger(a) || a < 1 || a > 20 || !Number.isInteger(b) || b < 1 || b > 20) return alert('Inserisci numeri interi tra 1 e 20.');
-  act(async () => { await q(sb.from('app_settings').upsert({ key: 'cards', value: { first: a, every: b, reset: v('cr3') }, updated_at: new Date().toISOString() })); await cardRules(true); }, true, 'Regole salvate ✓ Valgono per tutti');
+  act(async () => { await q(sb.from('app_settings').upsert({ key: 'cards', value: { first: a, every: b, reset: v('cr3'), red: v('cr4') }, updated_at: new Date().toISOString() })); await cardRules(true); }, true, 'Regole salvate ✓ Valgono per tutti');
+}
+function saveBan(evId) {
+  const raw = v('bg_' + evId), n = raw === '' ? null : Math.round(+raw);
+  if (n != null && (isNaN(n) || n < 0 || n > 99)) return alert('Inserisci un numero di giornate tra 0 e 99 (vuoto = in attesa del comunicato).');
+  act(() => q(sb.from('match_events').update({ ban_games: n }).eq('id', evId)), true, n == null ? 'In attesa del comunicato ✓' : `Squalifica: ${gg(n)} ✓`);
+}
+// Card verticale da screenshot: si adatta da sola al numero di persone (1, 2 o 3 colonne e caratteri in scala)
+function showCardsCard() {
+  const c = curCards; if (!c || !c.rows.length) return;
+  const n = c.rows.length, cols = n <= 12 ? 1 : n <= 30 ? 2 : n <= 48 ? 3 : 4;
+  // etichetta a destra: testo intero, oppure solo il simbolo quando i nomi sono tanti (3-4 colonne)
+  const tg = (cls, long, short) => `<em class="kt ${cls}"><span class="kl">${long}</span><span class="ks">${short}</span></em>`;
+  const tag = x => x.st === 'sq' ? tg('ksq', `🚫 FUORI${x.rem > 1 ? ' · ' + x.rem + ' gg' : ''}`, `🚫${x.rem > 1 ? x.rem : ''}`) : x.st === 'att' ? tg('katt', '⚖️ in attesa', '⚖️')
+    : x.st === 'df' ? tg('kdf', '⚠️ DIFFIDATO', '⚠️') : `<em class="kt">−${x.left}</em>`;
+  const ov = document.createElement('div'); ov.id = 'ov'; ov.className = 'sqov';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div class="ckw"><div class="ck"><div class="cki">
+    <div class="ckh"><b>Situazione cartellini</b><span>aggiornata al ${new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+    <div class="ckl${cols >= 3 ? ' dense' : ''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${c.rows.map(x => `<div class="kr k${x.st || 'ok'}"><span class="kn">${esc(x.name)}</span><span class="kc"><span>🟨 ${x.y}</span><span>🟥 ${x.reds}</span></span>${tag(x)}</div>`).join('')}</div>
+    <div class="ckf"><div>🟨 gialli presi · 🟥 espulsioni</div><div>⚠️ DIFFIDATO: al prossimo giallo salta una partita</div><div>🚫 FUORI: squalificato per la prossima partita</div><div>−N: gialli che mancano alla squalifica</div><div>Squalifica al ${c.R.first}° giallo, poi ogni ${c.R.every}</div></div>
+    <img class="cksig" src="logo-bianco.png" alt="" onerror="this.remove()">
+  </div></div></div>
+  <p class="sqhint">Fai lo screenshot e ritaglia lungo la card. Tocca fuori dalla card per chiudere.</p>`;
+  document.body.appendChild(ov);
+  const back = () => ov.remove(); window.addEventListener('popstate', back, { once: true }); // anche il tasto «Indietro» la chiude
+  // riduce tutto in proporzione finché la lista non entra nella card (con tanti nomi: più colonne e caratteri più piccoli)
+  const ck = ov.querySelector('.ck'), inner = ov.querySelector('.cki');
+  const fit = () => { let f = cols === 1 ? 1.25 : 1; ck.style.setProperty('--f', f); while (inner.scrollHeight > ck.clientHeight && f > 0.3) { f -= 0.03; ck.style.setProperty('--f', f.toFixed(2)); } };
+  fit(); setTimeout(fit, 300); ov.querySelectorAll('img').forEach(im => im.addEventListener('load', fit));
 }
 async function scorersView() {
   const ms = (await q(sb.from('matches').select('*').order('played_on', { ascending: false }))).filter(m => !m.is_test);
