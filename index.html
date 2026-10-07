@@ -143,7 +143,10 @@ select:disabled{opacity:.45}
 .mt .bx.op{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.7);font-weight:400}
 .lgl{color:var(--mut);font-size:13px;margin:8px 0 0;padding-top:6px;border-top:1px dashed var(--line);line-height:1.6}
 .li .vn{display:block;color:#fff;margin-top:2px}.li .mvpl{display:inline-block;background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 10px;font-weight:700;margin-bottom:3px}
-.warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
+.nb{display:inline-block;min-width:19px;height:19px;padding:0 5px;margin-left:5px;border-radius:10px;background:#f5c518;color:#1a1200;font:700 11px/19px system-ui,sans-serif;text-align:center;letter-spacing:0;vertical-align:2px;box-shadow:0 0 0 2px color-mix(in srgb,var(--team) 12%,#000)}
+.nl{position:relative;display:inline-block}.nl .nb{position:absolute;top:-11px;right:-12px;margin:0}nav button:last-child .nl .nb{right:-6px}
+.mc{position:relative}.cnb{position:absolute;top:-8px;right:-6px;margin:0;min-width:24px;height:24px;font-size:13px;line-height:24px;border-radius:12px}
+.sugc{border-color:#f5c518;margin:0 0 10px}.warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 .mts{background:#fff;color:var(--team);border-radius:14px;padding:4px 14px;font-size:clamp(26px,8vw,36px);font-weight:700;line-height:1.1;white-space:nowrap}.mts i{font-style:normal;margin:0 .15em;opacity:.6}
 .ist{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.ist:last-child{border-bottom:0}.ist .rk{flex:none}.ist b{display:block;margin-bottom:2px}
 .cvs{font-weight:600}.cvs.yes{background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:1px 8px}.cvs.no{opacity:.75}.cvs.wait{font-style:italic;font-weight:400}
@@ -340,23 +343,80 @@ async function render(keep) {
   const admin = isAdmin();
   // sezioni riservate: chi non ha i permessi torna alle partite
   if (((tab === 'a' || tab === 'n' || tab === 'o') && !admin) || (tab === 'k' && !prof.is_coach)) tab = 'p';
+  // contatori per i badge del menù in basso e dell'icona dell'app (in parallelo alla pagina)
+  const cntP = navCounts(admin).catch(() => ({}));
   let body;
   try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   try { prof = await profP; } catch (e) {}
+  const cnt = await cntP;
   if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]) !== before) return render(keep);
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
   ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
-  <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')">Partite</button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')">Convocazioni</button>` : ''}
-  ${admin ? `<button class="${tab === 'n' && !cur ? 'on' : ''}" onclick="mg=null;go('n')">Gestione</button><button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')">Admin</button>` : ''}</nav>`;
+  <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')"><span class="nl">Partite${nb(cnt.vote, 'votazioni in cui non hai ancora votato')}</span></button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')"><span class="nl">Convocazioni${nb(cnt.conv, 'prossima partita da completare')}</span></button>` : ''}
+  ${admin ? `<button class="${tab === 'n' && !cur ? 'on' : ''}" onclick="mg=null;go('n')"><span class="nl">Gestione${nb(cnt.gest, 'cose da sistemare nelle partite')}</span></button><button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')"><span class="nl">Admin${nb(cnt.nuovi, 'nuovi iscritti da sistemare')}</span></button>` : ''}</nav>`;
+  setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0));
   formRestore(snap);
   if ($('xk')) onEvKind();
+  if ($('sk')) onSugKind();
   syncRoute();
   window.scrollTo(0, keep ? y : 0);
 }
 
+// badge numerico (nascosto se zero)
+const nb = (n, lb = '') => n ? `<span class="nb" title="${n} ${lb}" aria-label="${n} ${lb}">${n > 99 ? '99+' : n}</span>` : '';
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const expired = m => !!m.voting_deadline && new Date(m.voting_deadline) <= Date.now() + clockOffset;
+// Cose da sistemare in una partita (admin): [chiave, quante, testo]
+function matchTodo(m, nGoals, nSug) {
+  const out = [];
+  if (nSug) out.push(['sug', nSug, `✍️ ${nSug} ${nSug === 1 ? 'suggerimento' : 'suggerimenti'} per la cronaca da approvare`]);
+  if (m.is_test) return out; // le partite di test non fanno scattare altri avvisi
+  if (m.status === 'open' && expired(m)) out.push(['exp', 1, '⏰ Votazione scaduta: da chiudere']);
+  if (m.played_on < todayStr() && !hasScore(m)) out.push(['res', 1, '📝 Partita giocata: manca il risultato']);
+  else if (hasScore(m) && m.goals_for > nGoals) { const k = m.goals_for - nGoals; out.push(['sco', k, `⚽ ${k === 1 ? 'Manca 1 marcatore' : `Mancano ${k} marcatori`}`]); }
+  return out;
+}
+// Numeri dei badge nel menù in basso (e sull'icona dell'app)
+//   vote  = votazioni aperte in cui puoi votare e non l'hai ancora fatto (tutti)
+//   conv  = la prossima partita ha ancora orario, luogo o convocati da completare (mister)
+//   gest  = cose da sistemare nelle partite; nuovi = iscritti da sistemare (admin)
+async function navCounts(admin) {
+  const safe = p => p.then(r => r.data || [], () => []), now = todayStr();
+  const [ms, pl] = await Promise.all([safe(sb.from('matches').select('*')), safe(sb.from('players').select('id,profile_id'))]);
+  const vis = ms.filter(m => prof.is_admin || !m.is_test);
+  const open = vis.filter(m => m.status === 'open' && !expired(m) && !(m.outcome === 'sconfitta' && !m.force_vote));
+  const my = pl.find(p => p.profile_id === me.id);
+  const next = prof.is_coach && !admin ? vis.filter(m => m.status === 'draft' && m.played_on >= now).sort((a, b) => a.played_on.localeCompare(b.played_on))[0] : null;
+  const ids = open.map(m => m.id).concat(next ? [next.id] : []);
+  const [conv, xv, myv, sg, pf, gl] = await Promise.all([
+    ids.length ? safe(sb.from('match_players').select('match_id,player_id').in('match_id', ids)) : [],
+    open.length ? safe(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', open.map(m => m.id))) : [],
+    open.length ? safe(sb.from('votes').select('match_id').in('match_id', open.map(m => m.id))) : [], // solo i miei voti (regole di Supabase)
+    admin ? safe(sb.from('chron_suggestions').select('match_id').eq('status', 'pending')) : [],
+    admin ? safe(sb.from('profiles').select('id,is_staff,is_out')) : [],
+    admin ? safe(sb.from('goals').select('match_id')) : []]);
+  const vote = !prof.can_vote ? 0 : open.filter(m => !myv.some(x => x.match_id === m.id)
+    && canVote(m, conv.filter(c => c.match_id === m.id).map(c => c.player_id), my, xv.some(x => x.match_id === m.id))).length;
+  const nConv = next ? conv.filter(c => c.match_id === next.id).length : 0;
+  const convTodo = next && (!(next.kickoff && (next.venue_name || next.venue_address)) || nConv < CONV_MIN) ? 1 : 0;
+  let gest = 0, nuovi = 0;
+  if (admin) {
+    const linked = new Set(pl.map(p => p.profile_id).filter(Boolean));
+    // «nuovo» = iscritto non ancora collegato a un giocatore né messo fra staff o spettatori (come in Admin)
+    nuovi = pf.filter(u => !linked.has(u.id) && !u.is_staff && !u.is_out).length;
+    gest = ms.reduce((t, m) => t + matchTodo(m, gl.filter(g => g.match_id === m.id).length, sg.filter(x => x.match_id === m.id).length).reduce((a, x) => a + x[1], 0), 0);
+  }
+  return { vote, conv: convTodo, gest, nuovi };
+}
+// Numerino sull'icona dell'app installata (dove il telefono lo permette; su iPhone servono le notifiche attive)
+function setAppBadge(n) {
+  try { if (!('setAppBadge' in navigator)) return; n ? navigator.setAppBadge(n).catch(() => {}) : navigator.clearAppBadge().catch(() => {}); } catch (e) {}
+}
+const canAskBadge = () => isApp && isIOS && 'setAppBadge' in navigator && 'Notification' in window && Notification.permission === 'default' && !lsGet('hideBadgeAsk');
+const askBadge = () => { try { Notification.requestPermission().then(() => render(true)); } catch (e) {} };
 const OUT = { vittoria: 'Vittoria', pareggio: 'Pareggio', sconfitta: 'Sconfitta' };
 const PH = { andata: 'Andata', ritorno: 'Ritorno' };
 let clockOffset = 0, clockOk = false;
@@ -398,16 +458,29 @@ async function manageView() {
   if (mg === 'new') return `${back}<h2>Nuova partita</h2>${newMatchForm(ms)}`;
   if (mg) return back + await manageMatch(mg);
   ms.sort((a, b) => (b.status === 'open') - (a.status === 'open'));
+  // cose da sistemare per ogni partita: suggerimenti, votazioni scadute, risultati e marcatori mancanti
+  const [sg, gl] = await Promise.all([
+    sb.from('chron_suggestions').select('match_id').eq('status', 'pending').then(r => r.data || [], () => []),
+    sb.from('goals').select('match_id').then(r => r.data || [], () => [])]);
+  const todo = {}; ms.forEach(m => { todo[m.id] = matchTodo(m, gl.filter(g => g.match_id === m.id).length, sg.filter(x => x.match_id === m.id).length); });
+  const nT = mid => todo[mid].reduce((a, x) => a + x[1], 0);
+  ms.sort((a, b) => (b.status === 'open') - (a.status === 'open') || (nT(b.id) > 0) - (nT(a.id) > 0)); // prima le aperte, poi quelle con cose da fare
+  // riepilogo in alto, per tipo
+  const tot = k => ms.reduce((t, m) => t + todo[m.id].filter(x => x[0] === k).reduce((a, x) => a + x[1], 0), 0);
+  const sum = [['sug', n => `✍️ ${n} ${n === 1 ? 'suggerimento' : 'suggerimenti'} per la cronaca`], ['exp', n => `⏰ ${n} ${n === 1 ? 'votazione scaduta da chiudere' : 'votazioni scadute da chiudere'}`],
+    ['res', n => `📝 ${n} ${n === 1 ? 'risultato mancante' : 'risultati mancanti'}`], ['sco', n => `⚽ ${n} ${n === 1 ? 'marcatore mancante' : 'marcatori mancanti'}`]]
+    .map(([k, f]) => tot(k) ? f(tot(k)) : '').filter(Boolean);
   return `<h2>Gestione partite</h2><button onclick="mg='new';render()">➕ Nuova partita</button>
+  ${sum.length ? `<div class="warn"><b>Da sistemare:</b><br>${sum.join('<br>')}</div>` : ''}
   <p class="mut">Tocca una partita per gestirla: convocati, esito, apertura e chiusura del voto.</p>
-  ${ms.map(m => `<div class="card mc${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="mg='${m.id}';render()" style="cursor:pointer"><div class="mcd">${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${dayShort(m.played_on)}${m.phase ? ' · ' + PH[m.phase] : ''} · ${ST[m.status]}</div>${miniTitle(m)}</div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
+  ${ms.map(m => `<div class="card mc${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="mg='${m.id}';render()" style="cursor:pointer"><div class="mcd">${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${dayShort(m.played_on)}${m.phase ? ' · ' + PH[m.phase] : ''} · ${ST[m.status]}</div>${nT(m.id) ? `<span class="nb cnb">${nT(m.id)}</span>` : ''}${miniTitle(m)}${todo[m.id].length ? `<div class="li">${todo[m.id].map(x => `<b>${x[2]}</b>`).join('<br>')}</div>` : ''}</div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
 }
 async function manageMatch(id) {
   const admin = true;
   const [m, conv, players, extras] = await Promise.all([
     q(sb.from('matches').select('*').eq('id', id).single()), q(sb.from('match_players').select('player_id').eq('match_id', id)),
     q(sb.from('players').select('*').order('name')), q(sb.from('match_voters').select('profile_id').eq('match_id', id))]);
-  const pfs0 = await q(sb.from('profiles').select('id,is_out,is_coach'));
+  const pfs0 = await q(sb.from('profiles').select('id,is_out,is_coach,display_name'));
   const outIds = pfs0.filter(x => x.is_out).map(x => x.id), coachIds = pfs0.filter(x => x.is_coach).map(x => x.id);
   const isMs = p => p.profile_id && coachIds.includes(p.profile_id);
   const isOutP = p => p.profile_id && outIds.includes(p.profile_id);
@@ -418,6 +491,9 @@ async function manageMatch(id) {
   // Risultato e marcatori
   const ch = await loadChron(id, true), goals = ch.goals;
   curChron = ch.all;
+  curSugs = await sb.from('chron_suggestions').select('*').eq('match_id', id).eq('status', 'pending').order('created_at').then(r => r.data || [], () => []);
+  if (curSugs.length && !autoOpen.has('sug' + id)) { autoOpen.add('sug' + id); openG.add('s-cr'); } // apri la Cronaca se ci sono suggerimenti nuovi
+  const whoOf = uid => { const pl = players.find(p => p.profile_id === uid), pf = pfs0.find(u => u.id === uid); return (pl && pl.name) || (pf && pf.display_name) || 'un compagno'; };
   if (evEdit && !ch.all.some(x => x.id === evEdit)) evEdit = null;
   const pName = pid => (players.find(p => p.id === pid) || {}).name;
   const conv1 = players.filter(p => cids.includes(p.id)), other = players.filter(p => !cids.includes(p.id));
@@ -474,10 +550,10 @@ async function manageMatch(id) {
   <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi link</button><button class="g" onclick="copyLink('${id}')">Copia link</button></div>
   <p class="mut">Chi vota:</p><select onchange="setM('${id}',{voters:this.value})"><option value="convocati" ${m.voters === 'convocati' ? 'selected' : ''}>Solo i convocati</option><option value="extra" ${m.voters === 'extra' ? 'selected' : ''}>Convocati + extra scelti</option><option value="tutti" ${m.voters === 'tutti' ? 'selected' : ''}>Tutti quelli che possono votare</option></select>${extraList}`, '', cls('vt')),
     rs: grp('s-rs', 'Risultato e marcatori', badge('rs', hasScore(m) ? scoreTxt(m) : ''), `${scoreBlock}${forceBlock}<h3>Marcatori</h3>${goalsBlock}`, '', cls('rs')),
-    cr: grp('s-cr', '📋 Cronaca', chronOK === false ? 'da attivare' : ch.all.length ? ch.all.length + (ch.all.length === 1 ? ' evento' : ' eventi') : played ? 'facoltativa' : 'più avanti',
-      chronAdmin(m, ch.all, conv1.length ? conv1 : players.filter(p => !isOutP(p)), pName), 'Gol e azioni individuali in ordine di tempo. I compagni la vedono nella pagina della partita e i simboli compaiono accanto ai nomi nel voto.') };
+    cr: grp('s-cr', '📋 Cronaca', (curSugs.length ? `✍️ ${curSugs.length} da approvare · ` : '') + (chronOK === false ? 'da attivare' : ch.all.length ? ch.all.length + (ch.all.length === 1 ? ' evento' : ' eventi') : played ? 'facoltativa' : 'più avanti'),
+      sugAdmin(curSugs, pName, whoOf) + chronAdmin(m, ch.all, conv1.length ? conv1 : players.filter(p => !isOutP(p)), pName), 'Gol e azioni individuali in ordine di tempo. I compagni la vedono nella pagina della partita e i simboli compaiono accanto ai nomi nel voto.') };
   const order = ['cv', 'cc', 'rs', 'cr', 'vt'], rank = { todo: 0, later: 1, done: 2 };
-  st.cr = played ? 'done' : 'later'; // facoltativa: non è mai «da fare»
+  st.cr = curSugs.length ? 'todo' : played ? 'done' : 'later'; // facoltativa: «da fare» solo se ci sono suggerimenti da approvare
   const sorted = order.slice().sort((a, c) => rank[st[a]] - rank[st[c]] || order.indexOf(a) - order.indexOf(c));
   // alla prima apertura di questa partita, apre da sola la prima sezione da fare
   if (!autoOpen.has(id)) { autoOpen.add(id); const f = sorted.find(k => st[k] === 'todo'); if (f) openG.add(f === 'cc' ? 'mc' : 's-' + f); }
@@ -554,6 +630,7 @@ async function matchesView(admin) {
   const tabs = [['andata', 'Andata'], ['ritorno', 'Ritorno'], ['tot', 'Tutte']].map(([k, l]) => `<button class="s ${lPh === k ? '' : 'g'}" onclick="lPh='${k}';render(true)">${l}</button>`).join('');
   return `
   ${!isApp && isPhone && !lsGet('hideInstall') ? `<div class="pv"><span>📲 <b>Usa il sito come un’app</b>: aggiungilo alla schermata Home del telefono.</span><span style="display:flex;gap:6px">${installEvt ? '<button class="s" onclick="installNow()">Installa</button>' : '<button class="s" onclick="go(\'i\')">Come fare</button>'}<button class="g s" onclick="lsSet('hideInstall','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
+  ${canAskBadge() ? `<div class="pv"><span>🔴 <b>Numerino sull’icona</b>: attiva le notifiche per vedere sull’icona dell’app quante cose ti aspettano (es. un voto da dare).</span><span style="display:flex;gap:6px"><button class="s" onclick="askBadge()">Attiva</button><button class="g s" onclick="lsSet('hideBadgeAsk','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
   <h2>Partite</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div>
   ${open.map(card).join('')}
   ${next ? `<h3>Prossima partita</h3>${card(next)}` : ''}
@@ -848,6 +925,83 @@ function saveChronEdit(i) {
   act(async () => { await q(sb.from(chronTb(x)).update(up).eq('id', x.id)); evEdit = null; }, true, 'Modificato ✓');
 }
 const delEv = id => confirm('Eliminare questo evento dalla cronaca?') && act(() => q(sb.from('match_events').delete().eq('id', id)), true, 'Evento eliminato ✓');
+
+// ---------- SUGGERIMENTI DEI COMPAGNI PER LA CRONACA ----------
+// I compagni propongono un episodio dimenticato; l'admin lo approva (entra in cronaca) o lo scarta.
+let curSugs = [];
+// un suggerimento letto come una riga di cronaca (per riusare icone e testi)
+const sugItem = x => x.kind === 'goal' ? { t: 'g', kind: x.goal_kind || 'azione', scorer_id: x.player_id, assist_id: x.player2_id, half: x.half, minute: x.minute }
+  : { t: 'e', kind: x.kind, player_id: x.player_id, player2_id: x.player2_id, note: x.note, half: x.half, minute: x.minute };
+const SUG_ST = { pending: ['⏳', 'In attesa dell’admin'], approved: ['✓', 'Aggiunto alla cronaca'], rejected: ['✕', 'Non aggiunto'] };
+function sugForm(m, plist, mine, nameOf) {
+  const opts = plist.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const kindOpts = `<option value="goal">⚽ Gol</option>${EV_GROUPS.map(g => `<optgroup label="${g}">${Object.entries(EV).filter(([, e]) => e[2] === g).map(([k, e]) => `<option value="${k}">${e[0]} ${e[1]}</option>`).join('')}</optgroup>`).join('')}`;
+  const list = mine.length ? `<div class="tl" style="margin-bottom:8px">${mine.map(x => { const it = sugItem(x), st = SUG_ST[x.status] || SUG_ST.pending;
+    return `<div class="tli"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(it)}</span><span class="tx">${chronTx(it, nameOf)}<small>${st[0]} ${st[1]}${x.half ? ' · ' + x.half + '° tempo' : ''}</small>${x.status === 'pending' ? `<span class="ab" style="margin-top:4px"><button class="g s" onclick="withdrawSug('${x.id}')">Ritira</button></span>` : ''}</span></div>`; }).join('')}</div>` : '';
+  return `${list}<div class="card" style="margin:0">
+    <select id="sk" onchange="onSugKind()">${kindOpts}</select>
+    <div id="sg"><select id="sgk" onchange="onSugKind()">${Object.entries(GK).map(([k, [ic, lb]]) => `<option value="${k}">${ic} ${lb}</option>`).join('')}</select>
+      <select id="sgs"><option value="">Chi ha segnato?</option>${opts}</select>
+      <select id="sga"><option value="">👟 Assist: nessuno / non ricordo</option>${opts}</select></div>
+    <select id="sp"><option value="">Chi?</option>${opts}</select>
+    <select id="sp2"><option value="">🔺 Entra…</option>${opts}</select>
+    <div class="row"><select id="sh" style="flex:1"><option value="">Tempo: non ricordo</option><option value="1">1° tempo</option><option value="2">2° tempo</option></select><input id="sm" type="number" min="0" max="130" inputmode="numeric" placeholder="Minuto" style="width:100px"></div>
+    <input id="sn" placeholder="Note per l’admin (facoltative)">
+    <button onclick="sendSug('${m.id}')">Invia il suggerimento</button></div>`;
+}
+function onSugKind() {
+  const k = v('sk'), show = (i, on) => { const e = $(i); if (e) e.style.display = on ? '' : 'none'; };
+  show('sg', k === 'goal'); show('sp', k !== 'goal' && k !== 'nota'); show('sp2', k === 'sost');
+  if (k === 'goal') { const gk = v('sgk'); show('sgs', gk !== 'autogol'); show('sga', ASSISTABLE.includes(gk)); }
+  $('sp').options[0].text = k === 'sost' ? '🔻 Esce…' : 'Chi?';
+  $('sn').placeholder = k === 'nota' ? 'Scrivi cosa è successo' : 'Note per l’admin (facoltative)';
+}
+function sendSug(id) {
+  const k = v('sk'), half = v('sh') ? +v('sh') : null, mRaw = v('sm'), minute = mRaw === '' ? null : Math.round(+mRaw), note = v('sn') || null;
+  if (minute != null && (isNaN(minute) || minute < 0 || minute > 130)) return alert('Il minuto deve essere tra 0 e 130.');
+  let rec;
+  if (k === 'goal') {
+    const gk = v('sgk'), sc = gk === 'autogol' ? '' : v('sgs'), as = ASSISTABLE.includes(gk) ? v('sga') : '';
+    if (gk !== 'autogol' && !sc) return alert('Scegli chi ha segnato.');
+    if (as && as === sc) return alert('Chi segna non può fare anche l’assist.');
+    rec = { kind: 'goal', goal_kind: gk, player_id: sc || null, player2_id: as || null };
+  } else {
+    const pl = k === 'nota' ? '' : v('sp'), p2 = k === 'sost' ? v('sp2') : '';
+    if (k === 'nota' && !note) return alert('Scrivi cosa è successo.');
+    if (k === 'sost' ? !pl && !p2 : k !== 'nota' && !pl) return alert(k === 'sost' ? 'Indica chi esce e/o chi entra.' : 'Scegli il giocatore.');
+    rec = { kind: k, player_id: pl || null, player2_id: p2 || null };
+  }
+  act(() => q(sb.from('chron_suggestions').insert({ match_id: id, ...rec, half, minute, note, suggested_by: me.id, status: 'pending' })), true, 'Suggerimento inviato, grazie ✓');
+}
+const withdrawSug = sid => confirm('Ritirare questo suggerimento?') && act(() => q(sb.from('chron_suggestions').delete().eq('id', sid)), true, 'Suggerimento ritirato ✓');
+// lato admin
+function sugAdmin(sugs, nameOf, whoOf) {
+  if (!sugs.length) return '';
+  return `<div class="card sugc"><p class="ak">✍️ Suggerimenti dei compagni (${sugs.length})</p><div class="tl">${sugs.map(x => { const it = sugItem(x);
+    return `<div class="tli"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(it)}</span><span class="tx">${chronTx(it, nameOf)}<small>da ${esc(whoOf(x.suggested_by))}${x.half ? ' · ' + x.half + '° tempo' : ''}${x.kind === 'goal' && x.note ? ' · ' + esc(x.note) : ''}</small>
+      <span class="ab" style="margin-top:4px"><button class="s" onclick="approveSug('${x.id}')">✓ Approva</button><button class="r s" onclick="rejectSug('${x.id}')">✕ Scarta</button></span></span></div>`; }).join('')}</div>
+    <p class="mut" style="font-size:13px;margin:6px 0 0">Approvato, l’episodio entra in cronaca al posto giusto (se ha tempo o minuto); poi puoi correggerlo con ✏️.</p></div>`;
+}
+function approveSug(sid) {
+  const x = curSugs.find(y => y.id === sid), m = curMatch, all = curChron; if (!x) return;
+  const tm = { half: x.half, minute: x.minute };
+  let tb, rec;
+  if (x.kind === 'goal') {
+    if (!hasScore(m)) return alert('Inserisci prima il risultato (sezione «Risultato e marcatori»): serve a controllare che i gol tornino.');
+    const nG = all.filter(y => y.t === 'g').length;
+    if (nG >= m.goals_for) return alert(`Il risultato dice ${m.goals_for} gol nostri e sono già tutti nella cronaca. Se il suggerimento è giusto, correggi prima il risultato o il gol sbagliato; altrimenti scartalo.`);
+    tb = 'goals'; rec = { kind: x.goal_kind || 'azione', scorer_id: x.goal_kind === 'autogol' ? null : x.player_id, assist_id: x.player2_id || null };
+  } else {
+    if (x.kind === 'autogol' && hasScore(m) && all.filter(y => y.t === 'e' && y.kind === 'autogol').length >= m.goals_against)
+      return alert(`Il risultato dice ${m.goals_against} ${m.goals_against === 1 ? 'gol subito' : 'gol subiti'}: gli autogol nostri non possono essere di più.`);
+    tb = 'match_events'; rec = { kind: x.kind, player_id: x.player_id, player2_id: x.player2_id, note: x.note };
+  }
+  act(async () => {
+    await q(sb.from(tb).insert({ match_id: m.id, ...rec, ...tm, pos: slotPos(all, tm)[0] }));
+    await q(sb.from('chron_suggestions').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', sid));
+  }, true, 'Approvato: aggiunto alla cronaca ✓');
+}
+const rejectSug = sid => confirm('Scartare questo suggerimento? Chi l’ha inviato vedrà «Non aggiunto».') && act(() => q(sb.from('chron_suggestions').update({ status: 'rejected', reviewed_at: new Date().toISOString() }).eq('id', sid)), true, 'Suggerimento scartato ✓');
 
 // ---------- Convocazioni (mister e admin) ----------
 const hm = t => t ? String(t).slice(0, 5) : '';
@@ -1480,6 +1634,13 @@ async function matchView(id) {
   <span class="mut"> · votano: ${{ convocati: 'solo i convocati', tutti: 'tutti gli abilitati', extra: 'convocati + extra scelti' }[m.voters]}</span>`;
   // Cronaca (menù a scomparsa): compare solo se aggiunge qualcosa ai marcatori (un evento, un assist, un minuto o un tempo)
   if (chAll.some(x => x.t === 'e' || x.assist_id || x.minute != null || x.half)) h += grp('v-cr', '📋 Cronaca', chAll.length + (chAll.length === 1 ? ' evento' : ' eventi'), chronHtml(chAll, pn) + legendLine(chAll));
+  // i compagni possono suggerire un episodio dimenticato (partita giocata); l'admin lo approva da Gestione
+  if (!admin && (m.status !== 'draft' || m.played_on <= new Date().toISOString().slice(0, 10))) {
+    const ms0 = await sb.from('chron_suggestions').select('*').eq('match_id', id).eq('suggested_by', me.id).order('created_at').then(r => r.error ? null : r.data || [], () => null);
+    if (ms0) { const pend = ms0.filter(x => x.status === 'pending').length, plist = cids.length ? players.filter(p => cids.includes(p.id)) : players;
+      h += grp('v-sg', '✍️ Suggerisci un episodio', pend ? `${pend} in attesa` : 'manca qualcosa?', sugForm(m, plist, ms0, pn),
+        'Ti sei accorto che nella cronaca manca un gol, un assist, una parata o un altro episodio? Suggeriscilo qui: l’admin lo controlla e, se va bene, lo aggiunge.'); }
+  }
   if (m.status === 'draft') h += callupInfo(m);
   if (m.is_test) h += '<div class="pv"><span>🧪 <b>Partita di test.</b> La vedono solo gli admin e non conta nell’albo MVP.' + (asPlayer ? ' Sei in Vista giocatore: qui provi l’esperienza di un compagno, ma i compagni veri non la vedono.' : ' Eliminala quando hai finito.') + '</span></div>';
   if (m.status === 'open' && m.voting_deadline) h += `<div class="card"><b class="cd" data-live="1" data-d="${m.voting_deadline}">${cdText(m.voting_deadline).text}</b> <span class="mut">(${new Date(m.voting_deadline).toLocaleString('it-IT', { weekday: 'long', hour: '2-digit', minute: '2-digit' })})</span></div>`;
