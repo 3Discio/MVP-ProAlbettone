@@ -146,6 +146,12 @@ select:disabled{opacity:.45}
 .nb{display:inline-block;min-width:19px;height:19px;padding:0 5px;margin-left:5px;border-radius:10px;background:#f5c518;color:#1a1200;font:700 11px/19px system-ui,sans-serif;text-align:center;letter-spacing:0;vertical-align:2px;box-shadow:0 0 0 2px color-mix(in srgb,var(--team) 12%,#000)}
 .nl{position:relative;display:inline-block}.nl .nb{position:absolute;top:-11px;right:-12px;margin:0}nav button:last-child .nl .nb{right:-6px}
 .mc{position:relative}.cnb{position:absolute;top:-8px;right:-6px;margin:0;min-width:24px;height:24px;font-size:13px;line-height:24px;border-radius:12px}
+.crow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line)}.crow:last-child{border-bottom:0}
+.crow.me{background:color-mix(in srgb,var(--team) 18%,transparent);border-radius:10px;padding:9px 8px;margin:0 -8px}
+.crow small{display:block;color:var(--mut);font-size:13px}.ccards{font-size:17px;letter-spacing:2px;margin:2px 0}.ccards span{margin-right:8px}
+.cst{display:inline-block;border-radius:8px;padding:2px 8px;font-size:13px;font-weight:700;margin-top:2px}.cst.cdf{background:#f5c518;color:#1a1200}.cst.csq{background:#ff5a5a;color:#fff}
+.cnum{text-align:center;min-width:46px}.cnum b{display:block;font:500 26px Oswald,Impact,sans-serif;color:#f5c518;line-height:1}.cnum span{font-size:11px;color:var(--mut);text-transform:uppercase}
+.cdet{margin-top:4px;font-size:13px}.cdet summary{color:var(--mut);cursor:pointer}.cdet div{padding:1px 0}
 .sugc{border-color:#f5c518;margin:0 0 10px}.warn{color:#fff;background:color-mix(in srgb,#f5c518 25%,#000);border:1px solid #f5c518;border-radius:10px;padding:6px 10px;font-size:14px;margin:6px 0}
 .mts{background:#fff;color:var(--team);border-radius:14px;padding:4px 14px;font-size:clamp(26px,8vw,36px);font-weight:700;line-height:1.1;white-space:nowrap}.mts i{font-style:normal;margin:0 .15em;opacity:.6}
 .ist{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--line)}.ist:last-child{border-bottom:0}.ist .rk{flex:none}.ist b{display:block;margin-bottom:2px}
@@ -273,7 +279,7 @@ function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
 // Il sito resta un unico file, ma l'indirizzo cambia con la sezione (es. …/#mvp, …/#gestione/<id>):
 // così il tasto «Indietro» torna alla schermata precedente, ricaricando si resta dove si era
 // e si può condividere il link di una sezione. I vecchi link …?match=<id> continuano a funzionare.
-const ROUTES = { p: 'partite', c: 'mvp', g: 'marcatori', k: 'convocazioni', i: 'app', n: 'gestione', a: 'admin', o: 'online' };
+const ROUTES = { p: 'partite', c: 'mvp', g: 'marcatori', t: 'cartellini', k: 'convocazioni', i: 'app', n: 'gestione', a: 'admin', o: 'online' };
 const routeOf = () => cur ? 'partita/' + cur
   : ROUTES[tab] + (tab === 'n' && mg ? '/' + (mg === 'new' ? 'nuova' : mg) : tab === 'k' && ck ? '/' + ck : '');
 function readRoute() {
@@ -346,18 +352,18 @@ async function render(keep) {
   // contatori per i badge del menù in basso e dell'icona dell'app (in parallelo alla pagina)
   const cntP = navCounts(admin).catch(() => ({}));
   let body;
-  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
+  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 't' ? await cardsView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   try { prof = await profP; } catch (e) {}
-  const cnt = await cntP;
+  const cnt = await cntP; navCnt = cnt;
   if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]) !== before) return render(keep);
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
   ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
-  <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')"><span class="nl">Partite${nb(cnt.vote, 'votazioni in cui non hai ancora votato')}</span></button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${tab === 'g' && !cur ? 'on' : ''}" onclick="go('g')">Marcatori</button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')"><span class="nl">Convocazioni${nb(cnt.conv, 'prossima partita da completare')}</span></button>` : ''}
+  <nav><button class="${!cur && tab === 'p' ? 'on' : ''}" onclick="go('p')"><span class="nl">Partite${nb(cnt.vote, 'votazioni in cui non hai ancora votato')}</span></button><button class="${tab === 'c' && !cur ? 'on' : ''}" onclick="go('c')">MVP</button><button class="${(tab === 'g' || tab === 't') && !cur ? 'on' : ''}" onclick="go('${cnt.card ? 't' : 'g'}')"><span class="nl">Marcatori${nb(cnt.card, 'avviso cartellini per te')}</span></button>${prof.is_coach && !admin ? `<button class="${tab === 'k' && !cur ? 'on' : ''}" onclick="ck=null;go('k')"><span class="nl">Convocazioni${nb(cnt.conv, 'prossima partita da completare')}</span></button>` : ''}
   ${admin ? `<button class="${tab === 'n' && !cur ? 'on' : ''}" onclick="mg=null;go('n')"><span class="nl">Gestione${nb(cnt.gest, 'cose da sistemare nelle partite')}</span></button><button class="${tab === 'a' && !cur ? 'on' : ''}" onclick="go('a')"><span class="nl">Admin${nb(cnt.nuovi, 'nuovi iscritti da sistemare')}</span></button>` : ''}</nav>`;
-  setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0));
+  setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0) + (cnt.card || 0));
   formRestore(snap);
   if ($('xk')) onEvKind();
   if ($('sk')) onSugKind();
@@ -385,7 +391,8 @@ function matchTodo(m, nGoals, nSug) {
 //   gest  = cose da sistemare nelle partite; nuovi = iscritti da sistemare (admin)
 async function navCounts(admin) {
   const safe = p => p.then(r => r.data || [], () => []), now = todayStr();
-  const [ms, pl] = await Promise.all([safe(sb.from('matches').select('*')), safe(sb.from('players').select('id,profile_id'))]);
+  const [ms, pl, cev, rules] = await Promise.all([safe(sb.from('matches').select('*')), safe(sb.from('players').select('id,profile_id')),
+    safe(sb.from('match_events').select('match_id,kind,player_id').in('kind', CARD_KINDS)), cardRules()]);
   const vis = ms.filter(m => prof.is_admin || !m.is_test);
   const open = vis.filter(m => m.status === 'open' && !expired(m) && !(m.outcome === 'sconfitta' && !m.force_vote));
   const my = pl.find(p => p.profile_id === me.id);
@@ -409,7 +416,10 @@ async function navCounts(admin) {
     nuovi = pf.filter(u => !linked.has(u.id) && !u.is_staff && !u.is_out).length;
     gest = ms.reduce((t, m) => t + matchTodo(m, gl.filter(g => g.match_id === m.id).length, sg.filter(x => x.match_id === m.id).length).reduce((a, x) => a + x[1], 0), 0);
   }
-  return { vote, conv: convTodo, gest, nuovi };
+  // avviso cartellini per me: diffidato o squalificato
+  const mine = my ? cardStats(ms, cev, rules, curCardPh(ms, rules)).find(x => x.pid === my.id) : null;
+  const card = mine && (mine.st === 'sq' || mine.st === 'df') ? 1 : 0;
+  return { vote, conv: convTodo, gest, nuovi, card };
 }
 // Numerino sull'icona dell'app installata (dove il telefono lo permette; su iPhone servono le notifiche attive)
 function setAppBadge(n) {
@@ -1847,6 +1857,92 @@ function updOnline() {
 }
 
 // Classifica marcatori (e assist, secondaria). Contano tutte le partite tranne quelle di test.
+// ---------- CARTELLINI ----------
+// Si contano dalla cronaca delle partite (eventi 🟨 ammonizione, 🟨🟥 doppia ammonizione, 🟥 espulsione diretta).
+// Regole impostabili dall'admin (app_settings, chiave "cards"):
+//   first = squalifica al N° giallo (predefinito 4), every = poi una ogni N gialli (predefinito 3: 7°, 10°…),
+//   reset = 'stagione' (conteggio unico) o 'girone' (si riparte da zero al ritorno).
+// Doppia ammonizione o rosso: salta la prossima partita e i gialli di quella partita non si sommano.
+const CARD_KINDS = ['giallo', 'doppio_giallo', 'rosso'];
+const CARD_DEF = { first: 4, every: 3, reset: 'stagione' };
+let navCnt = {};
+async function cardRules(force) {
+  const o = await pdfOverrides('cards', force), n = (x, d) => Number.isInteger(+x) && +x >= 1 && +x <= 20 ? +x : d;
+  return { first: n(o.first, CARD_DEF.first), every: n(o.every, CARD_DEF.every), reset: o.reset === 'girone' ? 'girone' : 'stagione' };
+}
+// girone che si sta giocando: quello dell'ultima partita giocata
+const curCardPh = (ms, R) => { if (R.reset !== 'girone') return null;
+  const last = ms.filter(m => !m.is_test && m.played_on <= todayStr()).sort((a, b) => b.played_on.localeCompare(a.played_on))[0];
+  return (last && last.phase) || 'andata'; };
+const nextStop = (y, R) => y < R.first ? R.first : R.first + R.every * (Math.floor((y - R.first) / R.every) + 1);
+const isStop = (y, R) => y === R.first || (y > R.first && (y - R.first) % R.every === 0);
+// Situazione cartellini di ogni giocatore che ne ha presi: [{ pid, y, reds, st, why, hist, left }]
+//   st: 'sq' = squalificato per la prossima partita, 'df' = diffidato, '' = nessun avviso
+function cardStats(ms, evs, R, ph) {
+  const real = ms.filter(m => !m.is_test), byId = Object.fromEntries(real.filter(m => !ph || (m.phase || 'andata') === ph).map(m => [m.id, m]));
+  const P = {};
+  evs.forEach(e => { if (!byId[e.match_id] || !e.player_id || !CARD_KINDS.includes(e.kind)) return;
+    const c = ((P[e.player_id] ??= {})[e.match_id] ??= { y: 0, dy: 0, r: 0 });
+    if (e.kind === 'giallo') c.y++; else if (e.kind === 'doppio_giallo') c.dy++; else c.r++; });
+  const today = todayStr();
+  return Object.entries(P).map(([pid, mm]) => {
+    const list = Object.entries(mm).map(([mid, c]) => ({ m: byId[mid], ...c })).sort((a, b) => a.m.played_on.localeCompare(b.m.played_on));
+    let y = 0, reds = 0, stop = null; const hist = [];
+    list.forEach(it => {
+      const dbl = it.dy > 0 || it.y >= 2;                // due gialli nella stessa partita = doppia ammonizione
+      const yc = !dbl && it.y === 1 ? 1 : 0;              // i gialli di una partita con espulsione per doppia ammonizione non si sommano
+      if (yc) { y++; if (isStop(y, R)) stop = { m: it.m, why: `${y}° cartellino giallo` }; }
+      if (dbl || it.r) { reds++; stop = { m: it.m, why: it.r ? 'espulsione diretta' : 'doppia ammonizione' }; }
+      hist.push({ m: it.m, ic: it.r ? '🟥' : dbl ? '🟨🟥' : '🟨' });
+    });
+    // la squalifica è da scontare se dopo quella partita non se n'è ancora giocata un'altra
+    const served = stop && real.some(m => m.played_on > stop.m.played_on && m.played_on <= today);
+    const left = nextStop(y, R) - y;
+    const st = stop && !served ? 'sq' : left === 1 ? 'df' : '';
+    return { pid, y, reds, st, why: stop && !served ? stop.why : '', hist, left, next: nextStop(y, R) };
+  }).filter(x => x.y || x.reds);
+}
+// selettore Marcatori / Cartellini (stessa voce del menù in basso)
+const statSwitch = () => `<div class="row" style="justify-content:flex-start;margin-bottom:4px"><button class="s ${tab === 'g' ? '' : 'g'}" onclick="go('g')">⚽ Marcatori</button><button class="s ${tab === 't' ? '' : 'g'}" onclick="go('t')"><span class="nl">🟨 Cartellini${nb(navCnt.card, 'avviso cartellini per te')}</span></button></div>`;
+async function cardsView() {
+  const [ms, pl, evs, R] = await Promise.all([
+    q(sb.from('matches').select('*').order('played_on', { ascending: false })), q(sb.from('players').select('id,name,profile_id')),
+    sb.from('match_events').select('match_id,kind,player_id').in('kind', CARD_KINDS).then(r => r.error ? null : r.data || [], () => null), cardRules(true)]);
+  const admin = isAdmin();
+  if (R.reset === 'girone' && (!rkPh || rkPh === 'tot')) rkPh = curCardPh(ms, R);
+  const ph = R.reset === 'girone' ? rkPh : null;
+  const nm = id => (pl.find(p => p.id === id) || {}).name || 'Giocatore eliminato', my = pl.find(p => p.profile_id === me.id);
+  const rk = { sq: 0, df: 1, '': 2 };
+  const rows = evs ? cardStats(ms, evs, R, ph).sort((a, b) => rk[a.st] - rk[b.st] || b.y - a.y || b.reds - a.reds || nm(a.pid).localeCompare(nm(b.pid))) : [];
+  const mine = my && rows.find(x => x.pid === my.id);
+  const yl = n => n > 6 ? `🟨×${n}` : '🟨'.repeat(n);
+  const stTxt = x => x.st === 'sq' ? `<span class="cst csq">🚫 Squalificato: salta la prossima partita</span><small>per ${esc(x.why)}</small>`
+    : x.st === 'df' ? `<span class="cst cdf">⚠️ Diffidato: al prossimo giallo salta una partita</span>`
+    : `<small>${x.left} ${x.left === 1 ? 'giallo' : 'gialli'} alla prossima squalifica (al ${x.next}°)</small>`;
+  const row = x => `<div class="crow${my && x.pid === my.id ? ' me' : ''}"><div class="f"><b>${esc(nm(x.pid))}</b>${my && x.pid === my.id ? ' <span class="mut">(tu)</span>' : ''}
+      <div class="ccards">${x.y ? `<span title="${x.y} gialli">${yl(x.y)}</span>` : ''}${x.reds ? `<span title="${x.reds} espulsioni">${x.reds > 1 ? `🟥×${x.reds}` : '🟥'}</span>` : ''}</div>${stTxt(x)}
+      <details class="cdet"><summary>Dettaglio</summary>${x.hist.map(h => `<div>${h.ic} vs ${esc(h.m.opponent)} <span class="mut">· ${dayShort(h.m.played_on)}</span></div>`).join('')}</details></div>
+      <div class="cnum"><b>${x.y}</b><span>gialli</span></div></div>`;
+  const banner = !mine || !mine.st ? '' : mine.st === 'sq'
+    ? `<div class="warn" style="border-color:#ff5a5a;background:color-mix(in srgb,#ff5a5a 22%,#000)">🚫 <b>Sei squalificato</b> per ${esc(mine.why)}: salti la prossima partita.</div>`
+    : `<div class="warn">⚠️ <b>Sei diffidato</b>: hai ${mine.y} ${mine.y === 1 ? 'giallo' : 'gialli'}. Al prossimo salti una partita, gioca tranquillo 😉</div>`;
+  const tabs = R.reset === 'girone' ? `<div class="row" style="justify-content:flex-start;margin-bottom:6px">${[['andata', 'Andata'], ['ritorno', 'Ritorno']].map(([k, l]) => `<button class="s ${rkPh === k ? '' : 'g'}" onclick="rkPh='${k}';render(true)">${l}</button>`).join('')}</div>` : '';
+  const rulesTxt = `Squalifica al <b>${R.first}°</b> giallo, poi una ogni <b>${R.every}</b> (${[0, 1, 2].map(i => R.first + i * R.every + '°').join(', ')}…). Diffida quando manca un solo giallo. Con doppia ammonizione o rosso si salta la partita successiva e i gialli di quella partita non si sommano. ${R.reset === 'girone' ? 'Il conteggio riparte da zero nel girone di ritorno.' : 'Il conteggio vale per tutta la stagione.'}`;
+  const setForm = admin ? grp('cardset', '⚙️ Regole dei cartellini (solo admin)', `${R.first} · ${R.every}`, `
+    <div class="row"><span class="f">Prima squalifica al giallo n°</span><input id="cr1" type="number" min="1" max="20" inputmode="numeric" value="${R.first}" style="width:80px"></div>
+    <div class="row"><span class="f">Poi una squalifica ogni … gialli</span><input id="cr2" type="number" min="1" max="20" inputmode="numeric" value="${R.every}" style="width:80px"></div>
+    <select id="cr3"><option value="stagione" ${R.reset === 'stagione' ? 'selected' : ''}>Conteggio unico per tutta la stagione</option><option value="girone" ${R.reset === 'girone' ? 'selected' : ''}>Si riparte da zero a ogni girone</option></select>
+    <button onclick="saveCardRules()">💾 Salva le regole</button>`, 'Valgono per tutti. Controlla il regolamento del campionato e adatta i numeri se servono.') : '';
+  return `${statSwitch()}<h2>Cartellini</h2>${tabs}${banner}
+    ${evs === null ? '<div class="card mut">La cronaca non è ancora attiva: i cartellini si contano dagli eventi della cronaca delle partite.</div>'
+      : rows.length ? `<div class="card">${rows.map(row).join('')}</div>` : '<div class="card mut">Nessun cartellino finora 😇</div>'}
+    <p class="mut" style="font-size:13px">Qui compare solo chi ha preso almeno un cartellino. I cartellini si contano dalla cronaca delle partite.<br>${rulesTxt}</p>${setForm}`;
+}
+function saveCardRules() {
+  const a = +v('cr1'), b = +v('cr2');
+  if (!Number.isInteger(a) || a < 1 || a > 20 || !Number.isInteger(b) || b < 1 || b > 20) return alert('Inserisci numeri interi tra 1 e 20.');
+  act(async () => { await q(sb.from('app_settings').upsert({ key: 'cards', value: { first: a, every: b, reset: v('cr3') }, updated_at: new Date().toISOString() })); await cardRules(true); }, true, 'Regole salvate ✓ Valgono per tutti');
+}
 async function scorersView() {
   const ms = (await q(sb.from('matches').select('*').order('played_on', { ascending: false }))).filter(m => !m.is_test);
   if (!rkPh) rkPh = ms.some(m => m.phase === 'ritorno') ? 'ritorno' : 'andata';
@@ -1863,7 +1959,7 @@ async function scorersView() {
   const rows = (r, ic) => r.map(x => `<div class="row" style="padding:6px 0"><div class="rk">${x.pos}</div><div class="f"><b>${esc(x.name)}</b>${ic === '⚽' && detail(x) ? `<div class="mut gkd">${detail(x)}</div>` : ''}</div><b>${x.n} ${ic}</b></div>`).join('');
   const tabs = [['andata', 'Andata'], ['ritorno', 'Ritorno'], ['tot', 'Stagione']].map(([k, l]) => `<button class="s ${rkPh === k ? '' : 'g'}" onclick="rkPh='${k}';render(true)">${l}</button>`).join('');
   const title = rkPh === 'tot' ? 'Marcatori di stagione' : `Marcatori del girone di ${PH[rkPh].toLowerCase()}`;
-  return `<h2>${title}</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div>
+  return `${statSwitch()}<h2>${title}</h2><div class="row" style="justify-content:flex-start;margin-bottom:6px">${tabs}</div>
   <div class="stats"><div><b>${tot}</b><span>Gol segnati</span></div><div><b>${against}</b><span>Gol subiti</span></div><div><b>${diff > 0 ? '+' + diff : diff}</b><span>Differenza reti</span></div></div>
   <p class="mut" style="font-size:13px">${played} ${played === 1 ? 'partita' : 'partite'} con risultato${og ? ` · ${og} autogol avversari` : ''}${assigned < tot ? ` · marcatori da inserire: ${tot - assigned}` : ''}<br>Legenda: 🎯 rigore · ☄️ punizione · 🚩 calcio d’angolo</p>
   <div class="card">${sc.length ? rows(sc, '⚽') : '<span class="mut">Nessun marcatore ancora.</span>'}</div>
