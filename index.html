@@ -262,7 +262,7 @@ button.busy{opacity:.7;pointer-events:none}
 button.busy::before{content:'';display:inline-block;flex:none;width:.9em;height:.9em;margin-right:.45em;vertical-align:-.1em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
 .tiles button.busy::before{margin:0}
 @keyframes spin{to{transform:rotate(360deg)}}
-#busy{position:fixed;top:0;left:0;right:0;height:3px;z-index:300;pointer-events:none;opacity:0;transition:opacity .15s;
+#busy{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;height:4px;z-index:300;/* sotto la barra con l'ora, non dietro la «tacca» */pointer-events:none;opacity:0;transition:opacity .15s;
   background:linear-gradient(90deg,transparent 0,#fff 50%,transparent 100%) no-repeat;background-size:40% 100%;animation:busybar 1s linear infinite}
 body.loading #busy{opacity:1;transition-delay:.2s}
 @keyframes busybar{from{background-position:-60% 0}to{background-position:160% 0}}
