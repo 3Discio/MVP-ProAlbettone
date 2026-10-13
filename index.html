@@ -764,11 +764,22 @@ const EV = {
   rosso: ['🟥', 'Espulsione diretta', 'Disciplina'],
   sost: ['🔄', 'Sostituzione', 'Altro'],
   infortunio: ['🚑', 'Infortunio', 'Altro'],
-  nota: ['📝', 'Nota libera', 'Altro']
+  nota: ['📝', 'Nota libera', 'Altro'],
+  gol_avv: ['🥅', 'Gol avversario', 'Avversari']
 };
-const EV_GROUPS = ['Attacco', 'Portiere', 'Difesa', 'Disciplina', 'Altro'];
-const EV_NEG = ['gol_sbagliato', 'rig_sbagliato', 'rig_causato', 'autogol', 'giallo', 'doppio_giallo', 'rosso'];
-const EV_NOBADGE = ['sost', 'infortunio', 'nota']; // non compaiono accanto ai nomi nel voto
+const EV_GROUPS = ['Attacco', 'Portiere', 'Difesa', 'Avversari', 'Disciplina', 'Altro'];
+const EV_NEG = ['gol_sbagliato', 'rig_sbagliato', 'rig_causato', 'autogol', 'giallo', 'doppio_giallo', 'rosso', 'gol_avv'];
+const EV_NOBADGE = ['sost', 'infortunio', 'nota', 'gol_avv']; // non compaiono accanto ai nomi nel voto
+const NO_PLAYER = ['nota', 'gol_avv']; // eventi senza giocatore della nostra squadra
+// gol avversari già in cronaca: gol avversari + nostri autogol
+const oppIn = all => all.filter(x => x.t === 'e' && (x.kind === 'gol_avv' || x.kind === 'autogol')).length;
+// controlla che un gol avversario in più non superi i gol subiti (need = serve il risultato)
+function oppRoom(m, all, need = true) {
+  if (!hasScore(m)) { if (need) alert('Inserisci prima il risultato (sezione «Risultato e marcatori»): serve a controllare che i gol tornino.'); return !need; }
+  const n = oppIn(all);
+  if (n + 1 > m.goals_against) { alert(`Il risultato dice ${m.goals_against} ${m.goals_against === 1 ? 'gol subito' : 'gol subiti'} e nella cronaca ce ne sono già ${n} (gol avversari e nostri autogol). Se manca un gol, correggi prima il risultato.`); return false; }
+  return true;
+}
 // "23’", "1° tempo", "23’ · 1° t." ...
 const tmTxt = x => { const mi = x.minute != null ? x.minute + '’' : '', ha = x.half ? x.half + '° t.' : ''; return [mi, ha].filter(Boolean).join(' · '); };
 let chronOK = null, chronErr = ''; // false = tabella match_events non raggiungibile (chronErr = messaggio di Supabase)
@@ -840,25 +851,22 @@ function chronHtml(all, nameOf, rowFn, grouped = false, noTimeFn = null) {
     return hd0 + (rowFn ? rowFn(x, i) : `<div class="tli${x.t === 'e' && EV_NEG.includes(x.kind) ? ' ng' : ''}"><span class="tm">${x.minute != null ? x.minute + '’' : ''}</span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>`);
   }).join('')}</div>`;
 }
-// Marcatori sotto il tabellone, come in TV: una riga per marcatore, un pallone per ogni gol al centro.
-// I nostri gol in un riquadro rosso dal bordo dalla nostra parte fino ai palloni (chi ha segnato di più sta in alto);
-// i gol degli avversari in un riquadro bianco smorto che va dai palloni fino al bordo dalla loro parte.
-// I nostri autogol stanno con gli avversari, col nome. Gli assist sono nella cronaca e nei simboli del voto.
+// Gol sotto il tabellone, come in TV, in ordine di tempo (lo stesso ordine della cronaca): una riga per gol, col minuto se c'è.
+// I nostri gol in un riquadro rosso dalla nostra parte; i gol subiti (gol avversari e nostri autogol) in un riquadro bianco smorto dalla loro.
+// I gol subiti non ancora inseriti in cronaca stanno in fondo, senza nome. Gli assist sono nella cronaca e nei simboli del voto.
 function scorersBoard(m, all, nameOf) {
-  const gl = all.filter(x => x.t === 'g'), nm = id => esc(nameOf(id) || 'Giocatore eliminato');
-  const c = {}; gl.forEach(g => { if (g.kind !== 'autogol' && g.scorer_id) c[g.scorer_id] = (c[g.scorer_id] || 0) + 1; });
-  const rows = Object.entries(c).sort((a, b) => b[1] - a[1] || String(nameOf(a[0])).localeCompare(String(nameOf(b[0]))))
-    .map(([id, n]) => ({ us: true, tx: nm(id), n }));
-  const ogOpp = gl.filter(g => g.kind === 'autogol').length;
-  if (ogOpp) rows.push({ us: true, tx: 'Autogol avversario', n: ogOpp });
-  const ogUs = {}; all.filter(x => x.t === 'e' && x.kind === 'autogol').forEach(e => { ogUs[e.player_id] = (ogUs[e.player_id] || 0) + 1; });
-  Object.entries(ogUs).forEach(([id, n]) => rows.push({ us: false, tx: `${nm(id)} <small>(autogol)</small>`, n }));
-  const restOpp = hasScore(m) ? m.goals_against - Object.values(ogUs).reduce((a, b) => a + b, 0) : 0;
-  if (restOpp > 0) rows.push({ us: false, tx: `<i>${restOpp === 1 ? 'Gol avversario' : 'Gol avversari'}</i>`, n: restOpp });
-  const miss = isAdmin() && hasScore(m) ? m.goals_for - gl.length : 0;
+  const nm = id => esc(nameOf(id) || 'Giocatore eliminato'), tm = x => x.minute != null ? ` ${x.minute}’` : '';
+  const rows = [];
+  all.forEach(x => {
+    if (x.t === 'g') rows.push({ us: true, tx: x.kind === 'autogol' ? '<i>Autogol avversario</i>' : nm(x.scorer_id) + (x.kind === 'rigore' ? ' <small>(rig.)</small>' : ''), b: '⚽' + tm(x) });
+    else if (x.kind === 'autogol') rows.push({ us: false, tx: `${nm(x.player_id)} <small>(autogol)</small>`, b: '⚽' + tm(x) });
+    else if (x.kind === 'gol_avv') rows.push({ us: false, tx: `<i>Gol avversario</i>${x.note ? ` <small>(${esc(x.note)})</small>` : ''}`, b: '⚽' + tm(x) });
+  });
+  const restOpp = hasScore(m) ? m.goals_against - oppIn(all) : 0;
+  if (restOpp > 0) rows.push({ us: false, tx: `<i>${restOpp === 1 ? 'Gol avversario' : 'Gol avversari'}</i>`, b: restOpp > 5 ? `⚽×${restOpp}` : '⚽'.repeat(restOpp) });
+  const miss = isAdmin() && hasScore(m) ? m.goals_for - all.filter(x => x.t === 'g').length : 0;
   if (!rows.length && miss <= 0) return { rows: '', miss: '' };
-  const balls = n => n > 5 ? `⚽×${n}` : '⚽'.repeat(n);
-  const body = rows.map(r => { const left = r.us === isHome(m), b = `<span class="bl">${balls(r.n)}</span>`, t = `<span class="sbt">${r.tx}</span>`;
+  const body = rows.map(r => { const left = r.us === isHome(m), b = `<span class="bl">${r.b}</span>`, t = `<span class="sbt">${r.tx}</span>`;
     return `<div class="bx ${r.us ? 'us' : 'op'} ${left ? 'L' : 'R'}">${left ? t + b : b + t}</div>`; }).join('');
   return { rows: body, miss: miss > 0 ? `<p class="mut" style="text-align:center;font-size:13px;margin:0">⚠ ${miss === 1 ? 'Manca 1 marcatore' : `Mancano ${miss} marcatori`} da inserire (lo vedi solo tu)</p>` : '' };
 }
@@ -895,15 +903,15 @@ let curChron = [], evEdit = null;
 // Esiti proposti per i rigori: aggiungono da soli l'evento collegato (autocompletamento)
 const OUTC = {
   rig_procurato: [['', 'Com’è finito il rigore? (facoltativo)'], ['gol', '⚽ Trasformato: aggiungi anche il gol'], ['sbagliato', '❌ Sbagliato: aggiungi anche l’errore']],
-  rig_causato: [['', 'Com’è finito il rigore? (facoltativo)'], ['gol', 'Gol degli avversari'], ['parato', '🖐️ Parato: aggiungi anche la parata'], ['fuori', 'Sbagliato dagli avversari']]
+  rig_causato: [['', 'Com’è finito il rigore? (facoltativo)'], ['gol', '🥅 Gol degli avversari: aggiungi anche il gol subito'], ['parato', '🖐️ Parato: aggiungi anche la parata'], ['fuori', 'Sbagliato dagli avversari']]
 };
 function chronAdmin(m, all, plist, nameOf) {
   const id = m.id, opts = plist.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  const nG = all.filter(x => x.t === 'g').length, og = all.filter(x => x.t === 'e' && x.kind === 'autogol').length;
+  const nG = all.filter(x => x.t === 'g').length, og = all.filter(x => x.t === 'e' && x.kind === 'autogol').length, oi = oppIn(all);
   if (chronOK === false) return '<div class="warn">Per usare la cronaca esegui prima su Supabase lo script <b>cronaca.sql</b> (SQL Editor → incolla → Run), poi ricarica la pagina.' + (chronErr ? `<br><span style="font-size:13px;opacity:.85">Risposta di Supabase: ${esc(chronErr)}</span>` : '') + '</div>';
   const chk = !hasScore(m) ? '<p class="mut">Inserisci il risultato per controllare che i gol tornino.</p>'
     : `<div class="${nG === m.goals_for ? 'mut' : 'warn'}" style="margin:4px 0">${nG === m.goals_for ? '✓' : '⚠'} Gol nostri nella cronaca: <b>${nG}</b> su ${m.goals_for}${nG < m.goals_for ? ` · ne mancano ${m.goals_for - nG}` : ''}</div>`
-      + (og ? `<div class="${og <= m.goals_against ? 'mut' : 'warn'}" style="margin:4px 0">${og <= m.goals_against ? '✓' : '⚠'} Autogol nostri: <b>${og}</b> · gol subiti: ${m.goals_against}</div>` : '');
+      + (m.goals_against || oi ? `<div class="${oi <= m.goals_against ? 'mut' : 'warn'}" style="margin:4px 0">${oi > m.goals_against ? '⚠' : oi === m.goals_against ? '✓' : '•'} Gol subiti nella cronaca: <b>${oi}</b> su ${m.goals_against}${og ? ` (di cui ${og} autogol nostri)` : ''}${oi < m.goals_against ? ` · ne mancano ${m.goals_against - oi}: sono facoltativi, senza compaiono in fondo sotto il risultato` : ''}</div>` : '');
   const btn = (lb, fn, cls = 'g', dis = false) => `<button class="${cls} s" ${dis ? 'disabled style="opacity:.35"' : ''} onclick="${fn}">${lb}</button>`;
   const row = (x, i) => {
     if (evEdit === x.id) return `<div class="cred"><div class="tli" style="padding:0"><span class="tm"></span><span class="ic">${chronIc(x)}</span><span class="tx">${chronTx(x, nameOf)}</span></div>
@@ -938,7 +946,7 @@ function onEvKind() {
   show('xg', k === 'goal'); show('xe', k !== 'goal'); show('xn', k !== 'goal'); show('xbw', k === 'rosso' || k === 'doppio_giallo'); show('xbh', k === 'rosso');
   if ($('xbg')) $('xbg').placeholder = k === 'doppio_giallo' ? '1' : '?';
   if (k === 'goal') { const gk = v('xgk'); show('xgs', gk !== 'autogol'); show('xga', ASSISTABLE.includes(gk)); show('xgp', gk === 'rigore'); return; }
-  show('xp', k !== 'nota'); show('xp2', k === 'sost');
+  show('xp', !NO_PLAYER.includes(k)); show('xp2', k === 'sost');
   $('xp').options[0].text = k === 'sost' ? '🔻 Esce…' : 'Chi?';
   const oc = OUTC[k], xo = $('xo');
   show('xo', !!oc);
@@ -965,16 +973,16 @@ function addChron(id) {
     if (pr) rows.push(['match_events', { kind: 'rig_procurato', player_id: pr }]);
     rows.push(['goals', { kind: gk, scorer_id: gk === 'autogol' ? null : sc, assist_id: as || null }]);
   } else {
-    const pl = k === 'nota' ? '' : v('xp'), p2 = k === 'sost' ? v('xp2') : '';
+    const pl = NO_PLAYER.includes(k) ? '' : v('xp'), p2 = k === 'sost' ? v('xp2') : '';
     if (k === 'nota' && !note) return alert('Scrivi il testo della nota.');
-    if (k === 'sost' ? !pl && !p2 : k !== 'nota' && !pl) return alert(k === 'sost' ? 'Indica chi esce e/o chi entra.' : 'Scegli il giocatore.');
+    if (k === 'sost' ? !pl && !p2 : !NO_PLAYER.includes(k) && !pl) return alert(k === 'sost' ? 'Indica chi esce e/o chi entra.' : 'Scegli il giocatore.');
     if (k === 'sost' && pl && pl === p2) return alert('Chi esce e chi entra devono essere diversi.');
-    if (k === 'autogol' && hasScore(m) && all.filter(x => x.t === 'e' && x.kind === 'autogol').length >= m.goals_against)
-      return alert(`Il risultato dice ${m.goals_against} ${m.goals_against === 1 ? 'gol subito' : 'gol subiti'}: gli autogol nostri non possono essere di più.`);
+    if ((k === 'autogol' || k === 'gol_avv') && !oppRoom(m, all, k === 'gol_avv')) return;
     const o = OUTC[k] ? v('xo') : '', who = v('xo2');
     let nt = note;
     if (k === 'rig_procurato' && o) { if (!who) return alert('Scegli chi ha tirato il rigore.'); if (o === 'gol' && !goalRoom(1)) return; }
     if (k === 'rig_causato' && o === 'parato' && !who) return alert('Scegli il portiere che ha parato.');
+    if (k === 'rig_causato' && o === 'gol' && !oppRoom(m, all, false)) return;
     if (k === 'rig_causato' && (o === 'gol' || o === 'fuori') && !nt) nt = o === 'gol' ? 'Trasformato dagli avversari' : 'Sbagliato dagli avversari';
     const bRaw = (k === 'rosso' || k === 'doppio_giallo') ? v('xbg') : '', bg = bRaw === '' ? null : Math.round(+bRaw);
     if (bg != null && (isNaN(bg) || bg < 0 || bg > 99)) return alert('Le giornate di squalifica devono essere tra 0 e 99.');
@@ -982,6 +990,7 @@ function addChron(id) {
     if (k === 'rig_procurato' && o === 'gol') rows.push(['goals', { kind: 'rigore', scorer_id: who, assist_id: null }]);
     if (k === 'rig_procurato' && o === 'sbagliato') rows.push(['match_events', { kind: 'rig_sbagliato', player_id: who }]);
     if (k === 'rig_causato' && o === 'parato') rows.push(['match_events', { kind: 'rig_parato', player_id: who }]);
+    if (k === 'rig_causato' && o === 'gol') rows.push(['match_events', { kind: 'gol_avv', player_id: null, note: 'su rigore' }]);
   }
   const ps = slotPos(all, tm, rows.length);
   act(async () => { for (let i = 0; i < rows.length; i++) await q(sb.from(rows[i][0]).insert({ match_id: id, ...rows[i][1], ...tm, pos: ps[i] })); },
@@ -1037,7 +1046,7 @@ function sugForm(m, plist, mine, nameOf) {
 }
 function onSugKind() {
   const k = v('sk'), show = (i, on) => { const e = $(i); if (e) e.style.display = on ? '' : 'none'; };
-  show('sg', k === 'goal'); show('sp', k !== 'goal' && k !== 'nota'); show('sp2', k === 'sost');
+  show('sg', k === 'goal'); show('sp', k !== 'goal' && !NO_PLAYER.includes(k)); show('sp2', k === 'sost');
   if (k === 'goal') { const gk = v('sgk'); show('sgs', gk !== 'autogol'); show('sga', ASSISTABLE.includes(gk)); }
   $('sp').options[0].text = k === 'sost' ? '🔻 Esce…' : 'Chi?';
   $('sn').placeholder = k === 'nota' ? 'Scrivi cosa è successo' : 'Note per l’admin (facoltative)';
@@ -1052,9 +1061,9 @@ function sendSug(id) {
     if (as && as === sc) return alert('Chi segna non può fare anche l’assist.');
     rec = { kind: 'goal', goal_kind: gk, player_id: sc || null, player2_id: as || null };
   } else {
-    const pl = k === 'nota' ? '' : v('sp'), p2 = k === 'sost' ? v('sp2') : '';
+    const pl = NO_PLAYER.includes(k) ? '' : v('sp'), p2 = k === 'sost' ? v('sp2') : '';
     if (k === 'nota' && !note) return alert('Scrivi cosa è successo.');
-    if (k === 'sost' ? !pl && !p2 : k !== 'nota' && !pl) return alert(k === 'sost' ? 'Indica chi esce e/o chi entra.' : 'Scegli il giocatore.');
+    if (k === 'sost' ? !pl && !p2 : !NO_PLAYER.includes(k) && !pl) return alert(k === 'sost' ? 'Indica chi esce e/o chi entra.' : 'Scegli il giocatore.');
     rec = { kind: k, player_id: pl || null, player2_id: p2 || null };
   }
   act(() => q(sb.from('chron_suggestions').insert({ match_id: id, ...rec, half, minute, note, suggested_by: me.id, status: 'pending' })), true, 'Suggerimento inviato, grazie ✓');
@@ -1096,8 +1105,7 @@ function approveSug(sid) {
     if (nG >= m.goals_for) return alert(`Il risultato dice ${m.goals_for} gol nostri e sono già tutti nella cronaca. Se il suggerimento è giusto, correggi prima il risultato o il gol sbagliato; altrimenti scartalo.`);
     tb = 'goals'; rec = { kind: x.goal_kind || 'azione', scorer_id: x.goal_kind === 'autogol' ? null : x.player_id, assist_id: x.player2_id || null };
   } else {
-    if (x.kind === 'autogol' && hasScore(m) && all.filter(y => y.t === 'e' && y.kind === 'autogol').length >= m.goals_against)
-      return alert(`Il risultato dice ${m.goals_against} ${m.goals_against === 1 ? 'gol subito' : 'gol subiti'}: gli autogol nostri non possono essere di più.`);
+    if ((x.kind === 'autogol' || x.kind === 'gol_avv') && !oppRoom(m, all, x.kind === 'gol_avv')) return;
     tb = 'match_events'; rec = { kind: x.kind, player_id: x.player_id, player2_id: x.player2_id, note: x.note };
   }
   act(async () => {
