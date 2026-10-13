@@ -610,7 +610,7 @@ async function manageMatch(id) {
     cc: grp('mc', 'Convocati', convBadge(nConv, nConvocabili, m.status === 'draft'), `${meetFields(m, "adminSaveMeet('" + id + "')")}${players.filter(p => !isOutP(p) || cids.includes(p.id)).map(p => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" class="cvx" data-name="${esc(p.name)}" style="width:auto" ${cids.includes(p.id) ? 'checked' : ''} data-pid="${p.id}"${cm[p.id] && cm[p.id].st === 'sq' ? ' data-ban="1"' : ''} onchange="banChk(this);countConv()"> ${esc(p.name)}${isMs(p) ? MS_TAG : ''}${cardTag(cm[p.id])}${isOutP(p) ? ` <span class="tag fr">${OUT_LABEL.toLowerCase()}: togli la spunta</span>` : ''}</label>`).join('') || '<span class="mut">Aggiungi prima i giocatori in Admin.</span>'}${cardLegend(cm, players.map(p => p.id))}${convBar(cids, "adminSaveConv('" + id + "')")}${shareTiles(id, 'Usano ritrovi e convocati qui sopra, più orario e luogo della sezione «Orari e luoghi» (salvali prima di condividere).')}`, CONV_HINT, cls('cc')),
     vt: grp('s-vt', 'Votazione', badge('vt', ST[m.status]), `${durBlock}${quorumBlock}
   <div class="row">${closeBtns}${m.status !== 'draft' ? `<button class="g s" onclick="setM('${id}',{status:'draft'})">Torna in bozza</button>` : ''}</div>
-  <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi link</button><button class="g" onclick="copyLink('${id}')">Copia link</button></div>
+  <div class="row"><button class="g" onclick="shareLink('${id}')">Condividi</button><button class="g" onclick="copyLink('${id}')">Copia messaggio</button></div>
   <p class="mut">Chi vota:</p><select onchange="setM('${id}',{voters:this.value})"><option value="convocati" ${m.voters === 'convocati' ? 'selected' : ''}>Solo i convocati</option><option value="extra" ${m.voters === 'extra' ? 'selected' : ''}>Convocati + extra scelti</option><option value="tutti" ${m.voters === 'tutti' ? 'selected' : ''}>Tutti quelli che possono votare</option></select>${extraList}`, '', cls('vt')),
     rs: grp('s-rs', 'Risultato e marcatori', badge('rs', hasScore(m) ? scoreTxt(m) : ''), `${scoreBlock}${forceBlock}<h3>Marcatori</h3>${goalsBlock}`, '', cls('rs')),
     cr: grp('s-cr', '📋 Cronaca', (curSugs.length ? `✍️ ${curSugs.length} da approvare · ` : '') + (chronOK === false ? 'da attivare' : ch.all.length ? ch.all.length + (ch.all.length === 1 ? ' evento' : ' eventi') : played ? 'facoltativa' : 'più avanti'),
@@ -1878,11 +1878,39 @@ function setTest(id, el) {
 const setM = (id, o) => act(() => q(sb.from('matches').update(o).eq('id', id)));
 const conv = (mid, pid, el) => quiet(() => q(el.checked ? sb.from('match_players').insert({ match_id: mid, player_id: pid }) : sb.from('match_players').delete().eq('match_id', mid).eq('player_id', pid)), el);
 let curMatch = null, curResults = [], curProg = null;
-function shareLink(id) {
+// Messaggio da condividere nel gruppo: cambia se si vota, se abbiamo perso o se il voto è già chiuso
+async function shareText(id) {
   const u = location.origin + location.pathname + '?match=' + id;
-  const t = 'Vota l’MVP di vs ' + (curMatch ? curMatch.opponent : 'la partita') + ':';
-  if (navigator.share) navigator.share({ title: 'MVP della Partita', text: t, url: u }).catch(() => {});
-  else copyLink(id);
+  const m = curMatch && curMatch.id === id ? curMatch : await q(sb.from('matches').select('*').eq('id', id).single());
+  const [a, b, ga, gb] = sides(m), score = hasScore(m) ? `⚔️ ${a} ${ga} - ${gb} ${b}` : `⚔️ ${TEAM} vs ${m.opponent}`;
+  const L = [];
+  if (m.outcome === 'sconfitta' && !m.force_vote)
+    L.push(score, 'Questa volta è andata male: quando perdiamo, l’MVP non si vota.', '💪 Testa alla prossima!');
+  else if (m.status === 'closed' || (m.status === 'open' && expired(m)))
+    L.push('🏆 L’MVP È STATO VOTATO!', score, 'Guarda chi ha vinto 👇');
+  else {
+    L.push('🏆 VOTA IL TUO MVP!', score);
+    if (m.status === 'open' && m.voting_deadline) {
+      const d = new Date(m.voting_deadline), left = d - (Date.now() + clockOffset), hhmm = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }).replace(':', '.');
+      if (left < 3600000) { const n = Math.max(1, Math.ceil(left / 60000)); L.push(n === 1 ? '⏳ Ultimo minuto per votare!' : `⏳ Ultimi ${n} minuti per votare!`); }
+      else if (left < 3 * 3600000) L.push(`⏳ Ultime ore! La votazione si chiude alle ${hhmm}.`);
+      else L.push(`⏰ Votazione aperta fino alle ${hhmm} di ${d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}.`);
+    }
+    if (m.status === 'open') {
+      let pr = null; try { pr = await q(sb.from('voting_progress').select('*').eq('match_id', id).single()); } catch (e) {}
+      if (pr && pr.voted > 0) {
+        L.push(`🗳️ Hanno già votato ${pr.voted} su ${pr.eligible}.`);
+        const n = need(pr.eligible, m.min_pct);
+        if (pr.voted < n) L.push(`⚠️ Servono almeno ${n} voti per assegnare l’MVP.`);
+      }
+    }
+  }
+  return [...L, '', `🔗 ${u}`].join('\n');
+}
+async function shareLink(id) {
+  let t; try { t = await shareText(id); } catch (e) { return alert('Non riesco a preparare il messaggio: ' + (e.message || e)); }
+  try { if (navigator.share) return await navigator.share({ text: t }); } catch (e) { if (e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(t); alert('Messaggio copiato: incollalo nel gruppo.'); } catch (e) { prompt('Copia il messaggio:', t); }
 }
 // Card MVP quadrata (1:1, formato Instagram) con i segni per il ritaglio
 function showCard() {
@@ -1907,9 +1935,9 @@ function showCard() {
   const fit = () => { let f = 1; sq.style.setProperty('--f', f); while (inner.scrollHeight > sq.clientHeight && f > 0.6) { f -= 0.04; sq.style.setProperty('--f', f.toFixed(2)); } };
   fit(); setTimeout(fit, 300); ov.querySelectorAll('img').forEach(im => im.addEventListener('load', fit));
 }
-function copyLink(id) {
-  const u = location.origin + location.pathname + '?match=' + id;
-  (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => alert('Link copiato!\n' + u), () => prompt('Copia il link:', u));
+async function copyLink(id) {
+  const t = await shareText(id);
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('Messaggio copiato: incollalo nel gruppo.'), () => prompt('Copia il messaggio:', t));
 }
 const extraV = (mid, uid, el) => quiet(() => q(el.checked ? sb.from('match_voters').insert({ match_id: mid, profile_id: uid }) : sb.from('match_voters').delete().eq('match_id', mid).eq('profile_id', uid)), el);
 const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; mg = null; }, false, 'Partita eliminata ✓');
