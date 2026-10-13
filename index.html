@@ -310,7 +310,7 @@ function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
 // (es. …/#lista-partite, …/#albo-mvp, …/#gestione-partite/<id>, …/#partita/<id>):
 // così il tasto «Indietro» torna alla schermata precedente, ricaricando si resta dove si era
 // e si può condividere il link di una sezione. I vecchi link …?match=<id> continuano a funzionare.
-const ROUTES = { p: 'lista-partite', c: 'albo-mvp', g: 'marcatori', t: 'cartellini', l: 'calendario', k: 'gestione-convocazioni', i: 'installa-app', n: 'gestione-partite', a: 'menu-admin', o: 'online' };
+const ROUTES = { p: 'lista-partite', c: 'albo-mvp', g: 'marcatori', t: 'cartellini', l: 'calendario', k: 'gestione-convocazioni', i: 'installa-app', n: 'gestione-partite', a: 'menu-admin', o: 'online', x: 'notifiche' };
 // vecchi indirizzi, ancora validi (link salvati o condivisi prima del cambio di nome)
 const OLD_ROUTES = { partite: 'p', mvp: 'c', convocazioni: 'k', app: 'i', gestione: 'n', admin: 'a' };
 const routeOf = () => cur ? 'partita/' + cur
@@ -385,13 +385,13 @@ async function render(keep) {
   // contatori per i badge del menù in basso e dell'icona dell'app (in parallelo alla pagina)
   const cntP = navCounts(admin).catch(() => ({}));
   let body;
-  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 't' ? await cardsView() : tab === 'l' ? await calView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
+  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 't' ? await cardsView() : tab === 'l' ? await calView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'x' ? await notifView(admin) : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   try { prof = await profP; } catch (e) {}
   const cnt = await cntP; navCnt = cnt;
   if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]) !== before) return render(keep);
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
-  ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="logout()">Esci</button></div></div>
+  ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="go('x')" title="Notifiche" aria-label="Notifiche">🔔</button> <button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   ${navHtml(admin, cnt)}`;
@@ -697,7 +697,7 @@ async function matchesView(admin) {
   const tabs = [['andata', 'Andata'], ['ritorno', 'Ritorno'], ['tot', 'Tutte']].map(([k, l]) => `<button class="s ${lPh === k ? '' : 'g'}" onclick="lPh='${k}';render(true)">${l}</button>`).join('');
   return `
   ${!isApp && isPhone && !lsGet('hideInstall') ? `<div class="pv"><span>📲 <b>Usa il sito come un’app</b>: aggiungilo alla schermata Home del telefono.</span><span style="display:flex;gap:6px">${installEvt ? '<button class="s" onclick="installNow()">Installa</button>' : '<button class="s" onclick="go(\'i\')">Come fare</button>'}<button class="g s" onclick="lsSet('hideInstall','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
-  ${canAskBadge() ? `<div class="pv"><span>🔴 <b>Numerino sull’icona</b>: attiva le notifiche per vedere sull’icona dell’app quante cose ti aspettano (es. un voto da dare).</span><span style="display:flex;gap:6px"><button class="s" onclick="askBadge()">Attiva</button><button class="g s" onclick="lsSet('hideBadgeAsk','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
+  ${canAskNotif() ? `<div class="pv"><span>🔔 <b>Attiva le notifiche</b>: ti avvisiamo quando si apre il voto, se manca il tuo voto e quando c’è l’MVP.</span><span style="display:flex;gap:6px"><button class="s" onclick="go('x')">Attiva</button><button class="g s" onclick="lsSet('hideNotifAsk','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
   <div class="row" style="align-items:center"><h2 class="f" style="margin:0">Partite</h2>${admin || prof.is_coach ? `<button class="g s" onclick="go('l')">📅 Calendario</button>` : ''}</div>
   <div class="row" style="justify-content:flex-start;margin:8px 0 6px">${tabs}</div>
   ${open.map(card).join('')}
@@ -994,7 +994,7 @@ function addChron(id) {
   }
   const ps = slotPos(all, tm, rows.length);
   act(async () => { for (let i = 0; i < rows.length; i++) await q(sb.from(rows[i][0]).insert({ match_id: id, ...rows[i][1], ...tm, pos: ps[i] })); },
-    true, rows.length > 1 ? `Aggiunti ${rows.length} eventi ✓` : 'Aggiunto alla cronaca ✓');
+    true, rows.length > 1 ? `Aggiunti ${rows.length} eventi ✓` : 'Aggiunto alla cronaca ✓').then(pokeNotif);
 }
 const chronTb = x => x.t === 'g' ? 'goals' : 'match_events';
 function moveChron(i, d) {
@@ -1016,7 +1016,7 @@ function saveChronEdit(i) {
     if (bg !== (x.ban_games ?? null)) up.ban_games = bg; }
   // se cambia il momento, l'evento si sposta da solo al posto giusto
   if ((half !== (x.half ?? null) || minute !== (x.minute ?? null)) && tKey(up) != null) up.pos = slotPos(curChron.filter(y => y !== x), up)[0];
-  act(async () => { await q(sb.from(chronTb(x)).update(up).eq('id', x.id)); evEdit = null; }, true, 'Modificato ✓');
+  act(async () => { await q(sb.from(chronTb(x)).update(up).eq('id', x.id)); evEdit = null; }, true, 'Modificato ✓').then(pokeNotif);
 }
 const delEv = id => confirm('Eliminare questo evento dalla cronaca?') && act(() => q(sb.from('match_events').delete().eq('id', id)), true, 'Evento eliminato ✓');
 
@@ -1169,7 +1169,7 @@ function adminSaveConv(id) {
     const add = ids.filter(p => !now.includes(p)), del = now.filter(p => !ids.includes(p));
     if (add.length) await q(sb.from('match_players').insert(add.map(p => ({ match_id: id, player_id: p }))));
     if (del.length) await q(sb.from('match_players').delete().eq('match_id', id).in('player_id', del));
-  }, true, `Convocati salvati ✓ (${ids.length})`);
+  }, true, `Convocati salvati ✓ (${ids.length})`).then(pokeNotif);
 }
 // Sezione «Convocati» completa da 11 convocati in su (admin e mister)
 const CONV_MIN = 11;
@@ -1231,7 +1231,7 @@ const coachArgs = (id, c, ids) => ({ p_match: id, p_kickoff: c.kickoff || null, 
 // Mister: tre «Salva» distinti. coach_set_callup salva tutto insieme, quindi per le parti non toccate rimanda i valori già salvati.
 const coachSave = (id, part) => {
   const meta = callupMeta[id] || {}, c = { ...(meta.saved || {}), ...(part.vals || {}) }, ids = part.conv ? checkedIds() : meta.savedIds || [];
-  act(() => q(sb.rpc('coach_set_callup', coachArgs(id, c, ids))), true, part.msg);
+  act(() => q(sb.rpc('coach_set_callup', coachArgs(id, c, ids))), true, part.msg).then(pokeNotif);
 };
 const coachSaveTimes = id => coachSave(id, { vals: placeVals(), msg: 'Orari e luoghi salvati ✓' });  // orario e luogo (locandina)
 const coachSaveMeet = id => coachSave(id, { vals: meetVals(), msg: 'Ritrovi salvati ✓' });           // ritrovi
@@ -1846,7 +1846,7 @@ function saveVote(mid, max = 3) {
     if (left.length) alert(`Voto registrato ✓\n\nHai dato ${listIt(done.map(m => m[1] + ' ' + m[0]))}. Se vuoi, puoi ancora aggiungere ${listIt(left.map(m => m[1] + ' ' + m[0]))} e premere «Aggiorna il voto».`);
   }, true, left.length ? '' : 'Voto registrato ✓');
 }
-const closeVote = (id, force) => act(() => q(sb.rpc('close_voting', { p_match: id, p_force: !!force })), true, 'Votazione chiusa ✓');
+const closeVote = (id, force) => act(() => q(sb.rpc('close_voting', { p_match: id, p_force: !!force })), true, 'Votazione chiusa ✓').then(pokeNotif);
 // data/ora per il campo «datetime-local» (ora del telefono): "2026-10-14T21:00"
 const dtLocal = d => { const x = new Date(d); return new Date(x - x.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
 // proposta per la chiusura a orario preciso: domani alle 21.00
@@ -1865,7 +1865,7 @@ function openVote(id) {
   act(async () => {
     await q(sb.rpc('set_voting', { p_match: id, p_hours: hours }));
     if (dl) await q(sb.from('matches').update({ voting_deadline: dl.toISOString() }).eq('id', id));
-  }, true, dl ? `${wasOpen ? 'Scadenza aggiornata' : 'Votazione aperta'} ✓ Si chiude ${dlTxt(dl)}` : wasOpen ? 'Scadenza aggiornata ✓' : 'Votazione aperta ✓');
+  }, true, dl ? `${wasOpen ? 'Scadenza aggiornata' : 'Votazione aperta'} ✓ Si chiude ${dlTxt(dl)}` : wasOpen ? 'Scadenza aggiornata ✓' : 'Votazione aperta ✓').then(pokeNotif);
 }
 // Trasforma una partita in test (nascosta ai compagni, fuori dall'albo) o viceversa, con conferma
 function setTest(id, el) {
@@ -1957,6 +1957,113 @@ let installEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (typeof prof !== 'undefined' && prof && (tab === 'i' || tab === 'p') && !cur) render(true); });
 window.addEventListener('appinstalled', () => { installEvt = null; lsSet('hideInstall', '1'); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// ---------- NOTIFICHE PUSH ----------
+// Le invia la funzione «notifiche» su Supabase (ogni 15 minuti e subito dopo le azioni dell'admin e del mister).
+// Qui ciascuno attiva le notifiche sul proprio telefono e sceglie quali avvisi ricevere.
+// [chiave, titolo, quando arriva, solo admin?]
+const NOTIF_KINDS = [
+  ['voto', '🗳️ Votazione aperta', 'quando si apre il voto di una partita in cui puoi votare'],
+  ['promemoria', '⏳ Promemoria', '3 ore e 1 ora prima della chiusura, solo se non hai ancora votato'],
+  ['mvp', '🏆 MVP proclamato', 'quando si chiude il voto, con il nome del vincitore'],
+  ['convocazione', '📋 Convocazioni', 'quando vieni convocato per una partita'],
+  ['cartellini', '🟨 Cartellini', 'se diventi diffidato o squalificato'],
+  ['iscritti', '👤 Nuovi iscritti', 'quando qualcuno si registra e va sistemato', true]
+];
+const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+let pushSub = null, pushChecked = false, notifInfo = null;
+const pushReg = () => navigator.serviceWorker.ready;
+async function checkPush() {
+  if (pushOK()) { try { pushSub = await (await pushReg()).pushManager.getSubscription(); } catch (e) { pushSub = null; } }
+  pushChecked = true; return pushSub;
+}
+checkPush();
+// toccando una notifica con l'app già aperta, il service worker chiede di andare alla pagina giusta
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.goto) location.href = e.data.goto; });
+// invito in Lista partite: solo sul telefono, se le notifiche si possono attivare e non sono attive
+const canAskNotif = () => isPhone && pushOK() && pushChecked && !pushSub && Notification.permission !== 'denied' && (isApp || !isIOS) && !lsGet('hideNotifAsk');
+// chiamata alla funzione «notifiche» (con l'accesso di chi usa il sito)
+async function nf(body) {
+  const r = await sb.functions.invoke('notifiche', { body });
+  if (r.error) {
+    let m = r.error.message || String(r.error);
+    try { const j = await r.error.context.json(); if (j && j.error) m = j.error; } catch (e) {}
+    throw new Error(m);
+  }
+  return r.data;
+}
+// dopo un'azione che può far partire avvisi (voto aperto o chiuso, convocati, cartellini) li manda subito
+let pokeT = null;
+function pokeNotif() { clearTimeout(pokeT); pokeT = setTimeout(() => { sb.functions.invoke('notifiche', { body: { action: 'tick' } }).catch(() => {}); }, 1500); }
+const b64u = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+const b64uEnc = a => btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const deviceName = () => (isIOS ? 'iPhone/iPad' : isAndroid ? 'Android' : 'Computer') + (isApp ? ' · app' : ' · browser');
+async function enablePush() {
+  if (!pushOK()) return alert('Questo browser non può ricevere notifiche.');
+  let perm;
+  try { perm = await Notification.requestPermission(); } catch (e) { perm = Notification.permission; }
+  if (perm !== 'granted') { await render(true); return alert('Le notifiche non sono state permesse. Puoi riattivarle dalle impostazioni del telefono (vedi le istruzioni nella pagina).'); }
+  await act(async () => {
+    const { key } = await nf({ action: 'vapid' });
+    const reg = await pushReg();
+    let s = await reg.pushManager.getSubscription();
+    // un'iscrizione vecchia con chiavi diverse non funzionerebbe: la rifacciamo
+    if (s && s.options && s.options.applicationServerKey && b64uEnc(s.options.applicationServerKey) !== key.replace(/=+$/, '')) { await s.unsubscribe(); s = null; }
+    if (!s) s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(key) });
+    await nf({ action: 'subscribe', sub: s.toJSON(), device: deviceName() });
+    pushSub = s; notifInfo = null; lsSet('hideNotifAsk', '1');
+  }, true, 'Notifiche attivate ✓');
+}
+async function disablePush() {
+  if (!confirm('Disattivare le notifiche su questo dispositivo?')) return;
+  await act(async () => {
+    const s = pushSub || await checkPush();
+    if (s) { try { await nf({ action: 'unsubscribe', endpoint: s.endpoint }); } catch (e) {} await s.unsubscribe(); }
+    pushSub = null; notifInfo = null;
+  }, true, 'Notifiche disattivate su questo dispositivo');
+}
+const setNotifPref = (k, el) => quiet(async () => { await nf({ action: 'prefs', prefs: { [k]: el.checked } }); if (notifInfo) notifInfo.prefs = { ...notifInfo.prefs, [k]: el.checked }; }, el, el.checked ? 'Avviso attivato ✓' : 'Avviso disattivato ✓');
+// admin: notifica di prova sui propri dispositivi
+const testPush = () => act(async () => {
+  const r = await nf({ action: 'test' });
+  if (!r.devices) throw new Error('Non hai ancora dispositivi iscritti: premi prima «Attiva le notifiche» su questo telefono.');
+  alert(r.sent ? `Notifica di prova inviata a ${r.sent} ${r.sent === 1 ? 'dispositivo' : 'dispositivi'} su ${r.devices}: dovrebbe arrivare entro pochi secondi.\n\nSe il telefono è sbloccato con l’app aperta, potrebbe comparire solo nel centro notifiche.`
+    : `L’invio a ${r.devices === 1 ? 'il tuo dispositivo' : 'i tuoi ' + r.devices + ' dispositivi'} non è riuscito. Prova a disattivare e riattivare le notifiche su questo telefono.`);
+}, true, '');
+// admin: controllo immediato di tutti gli avvisi (anche di notte), utile con le partite TEST
+const tickNow = () => act(async () => {
+  const r = await nf({ action: 'tick_now' });
+  alert(r.baseline ? 'Primo controllo fatto: le situazioni già esistenti sono state segnate come «già avvisate», così nessuno riceve notifiche vecchie. Da ora partono solo quelle nuove.'
+    : `Controllo fatto: ${r.nuovi || 0} ${r.nuovi === 1 ? 'avviso nuovo' : 'avvisi nuovi'}, ${r.inviati || 0} ${r.inviati === 1 ? 'notifica inviata' : 'notifiche inviate'}.`);
+}, true, '');
+async function notifView(admin) {
+  const ios = isIOS, perm = pushOK() ? Notification.permission : 'no';
+  let err = '';
+  if (!notifInfo) { try { notifInfo = await nf({ action: 'status' }); } catch (e) { err = e.message || String(e); } }
+  const prefs = (notifInfo && notifInfo.prefs) || {}, mine = (notifInfo && notifInfo.devices) || [];
+  // stato su questo dispositivo
+  let here;
+  if (ios && !isApp) here = `<div class="warn">📱 Su iPhone le notifiche funzionano solo dall’<b>app sulla schermata Home</b> (iOS 16.4 o più recente). Aggiungi prima il sito alla Home, aprilo dall’icona e torna qui.</div><button onclick="go('i')">📲 Come aggiungerlo alla Home</button>`;
+  else if (!pushOK()) here = '<div class="warn">Questo browser non può ricevere notifiche. Su Android usa Chrome; su iPhone l’app aggiunta alla Home.</div>';
+  else if (perm === 'denied') here = `<div class="warn">Le notifiche per questo sito sono bloccate.<br>${ios ? 'Impostazioni dell’iPhone → Notifiche → MVP → attiva «Consenti notifiche».' : 'Tocca il lucchetto accanto all’indirizzo (o Impostazioni → App → Chrome/MVP → Notifiche) e consentile.'} Poi torna qui e premi «Attiva».</div><button onclick="enablePush()">🔔 Attiva le notifiche</button>`;
+  else if (pushSub) here = `<p style="margin:0 0 6px"><b>✓ Attive su questo ${isPhone ? 'telefono' : 'dispositivo'}.</b></p><button class="g" onclick="disablePush()">Disattiva su questo dispositivo</button>`;
+  else here = `<p class="mut" style="margin:0 0 6px">Su questo ${isPhone ? 'telefono' : 'dispositivo'} le notifiche non sono attive.</p><button onclick="enablePush()">🔔 Attiva le notifiche</button>`;
+  const devs = mine.length ? `<p class="mut" style="font-size:13px;margin:8px 0 0">Dispositivi iscritti col tuo account: ${mine.length} (${mine.map(d => esc(d.device || 'dispositivo')).join(', ')}).</p>` : '';
+  const kinds = NOTIF_KINDS.filter(k => !k[3] || prof.is_admin).map(([k, t, d]) => `<label class="row" style="justify-content:flex-start;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)">
+    <input type="checkbox" style="width:auto;margin-top:3px" ${prefs[k] === false ? '' : 'checked'} ${notifInfo ? '' : 'disabled'} onchange="setNotifPref('${k}', this)"><span><b>${t}</b><br><span class="mut" style="font-size:13px">${d}</span></span></label>`).join('');
+  let adminBox = '';
+  if (prof.is_admin) {
+    const team = (notifInfo && notifInfo.team) || [], on = team.filter(x => x.devices);
+    adminBox = `<h3>Solo admin</h3><div class="card"><div class="btns" style="margin-top:0"><button onclick="testPush()">🧪 Notifica di prova</button><button class="g" onclick="tickNow()">🔄 Controlla adesso</button></div>
+      <p class="mut" style="font-size:13px;margin:8px 0 0"><b>Notifica di prova</b>: arriva solo sui tuoi dispositivi. <b>Controlla adesso</b>: manda subito gli avvisi in sospeso, anche di notte.<br>Per provare il giro completo usa una <b>partita TEST</b>: i suoi avvisi (voto aperto, promemoria, MVP, convocazione da 1 convocato in su) arrivano solo agli admin, al posto dei compagni.</p></div>
+      ${team.length ? grp('nteam', 'Chi ha attivato le notifiche', `${on.length} / ${team.length}`, team.map(x => `<div class="row" style="padding:4px 0"><span class="f">${esc(x.name || '—')}</span><span class="${x.devices ? '' : 'mut'}">${x.devices ? '🔔 ' + (x.devices > 1 ? x.devices + ' dispositivi' : 'attive') : 'non attive'}</span></div>`).join(''), 'Chi non le ha attive non riceve niente: ricordaglielo nel gruppo.') : ''}`;
+  }
+  return `<button class="g s" onclick="go('p')">← Partite</button><h2>🔔 Notifiche</h2>
+  ${err ? `<div class="warn">Il servizio notifiche non risponde.${prof.is_admin ? `<br><span style="font-size:13px">Risposta: ${esc(err)}. Controlla che su Supabase ci sia la Edge Function «notifiche» con «Verify JWT» spento.</span>` : ' Riprova più tardi.'}</div>` : ''}
+  <div class="card">${here}${devs}</div>
+  <h3>Cosa vuoi ricevere</h3><div class="card">${kinds}<p class="mut" style="font-size:13px;margin:8px 0 0">Le scelte valgono per tutti i tuoi dispositivi. Di notte (dalle 23 alle 8) non arriva niente: gli avvisi arrivano la mattina.</p></div>
+  ${adminBox}`;
+}
 async function installNow() {
   if (!installEvt) return go('i');
   installEvt.prompt();
@@ -2271,7 +2378,7 @@ function saveCardRules() {
 function saveBan(evId) {
   const raw = v('bg_' + evId), n = raw === '' ? null : Math.round(+raw);
   if (n != null && (isNaN(n) || n < 0 || n > 99)) return alert('Inserisci un numero di giornate tra 0 e 99 (vuoto = in attesa del comunicato).');
-  act(() => q(sb.from('match_events').update({ ban_games: n }).eq('id', evId)), true, n == null ? 'In attesa del comunicato ✓' : `Squalifica: ${gg(n)} ✓`);
+  act(() => q(sb.from('match_events').update({ ban_games: n }).eq('id', evId)), true, n == null ? 'In attesa del comunicato ✓' : `Squalifica: ${gg(n)} ✓`).then(pokeNotif);
 }
 // Card verticale da screenshot: si adatta da sola al numero di persone (1, 2 o 3 colonne e caratteri in scala)
 function showCardsCard() {
