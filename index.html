@@ -2069,6 +2069,27 @@ async function disablePush() {
     pushSub = null; notifInfo = null;
   }, true, 'Notifiche disattivate su questo dispositivo');
 }
+// rimuove un dispositivo dall'elenco (se è questo telefono, lo disiscrive anche qui)
+async function removeDevice(i) {
+  const d = notifInfo && notifInfo.devices && notifInfo.devices[i];
+  if (!d) return;
+  const here = pushSub && pushSub.endpoint === d.endpoint;
+  if (!confirm(here ? 'Disattivare le notifiche su questo dispositivo?' : `Rimuovere «${d.device || 'dispositivo'}»? Non riceverà più notifiche.`)) return;
+  await act(async () => {
+    await nf({ action: 'unsubscribe', endpoint: d.endpoint });
+    if (here) { try { await pushSub.unsubscribe(); } catch (e) {} pushSub = null; }
+    notifInfo = null;
+  }, true, 'Dispositivo rimosso ✓');
+}
+async function disableAll() {
+  if (!confirm('Disattivare le notifiche su TUTTI i tuoi dispositivi?\n\nPer riattivarle dovrai premere «Attiva le notifiche» su ciascun dispositivo.')) return;
+  await act(async () => {
+    await nf({ action: 'unsubscribe_all' });
+    const s = pushSub || await checkPush();
+    if (s) { try { await s.unsubscribe(); } catch (e) {} }
+    pushSub = null; notifInfo = null;
+  }, true, 'Notifiche disattivate su tutti i dispositivi');
+}
 const setNotifPref = (k, el) => quiet(async () => { await nf({ action: 'prefs', prefs: { [k]: el.checked } }); if (notifInfo) notifInfo.prefs = { ...notifInfo.prefs, [k]: el.checked }; }, el, el.checked ? 'Avviso attivato ✓' : 'Avviso disattivato ✓');
 // admin: notifica di prova sui propri dispositivi
 const testPush = () => act(async () => {
@@ -2095,7 +2116,14 @@ async function notifView(admin) {
   else if (perm === 'denied') here = `<div class="warn">Le notifiche per questo sito sono bloccate.<br>${ios ? 'Impostazioni dell’iPhone → Notifiche → MVP → attiva «Consenti notifiche».' : 'Tocca il lucchetto accanto all’indirizzo (o Impostazioni → App → Chrome/MVP → Notifiche) e consentile.'} Poi torna qui e premi «Attiva».</div><button onclick="enablePush()">🔔 Attiva le notifiche</button>`;
   else if (pushSub) here = `<p style="margin:0 0 6px"><b>✓ Attive su questo ${isPhone ? 'telefono' : 'dispositivo'}.</b></p><button class="g" onclick="disablePush()">Disattiva su questo dispositivo</button>`;
   else here = `<p class="mut" style="margin:0 0 6px">Su questo ${isPhone ? 'telefono' : 'dispositivo'} le notifiche non sono attive.</p><button onclick="enablePush()">🔔 Attiva le notifiche</button>`;
-  const devs = mine.length ? `<p class="mut" style="font-size:13px;margin:8px 0 0">Dispositivi iscritti col tuo account: ${mine.length} (${mine.map(d => esc(d.device || 'dispositivo')).join(', ')}).</p>` : '';
+  const dShort = x => x ? new Date(x).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) + ' ' + new Date(x).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }).replace(':', '.') : '';
+  const devs = mine.length ? `<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)"><p class="ak" style="margin:0 0 4px">📱 I tuoi dispositivi (${mine.length})</p>
+    ${mine.map((d, i) => { const here = pushSub && pushSub.endpoint === d.endpoint;
+      return `<div class="row" style="padding:6px 0;align-items:center"><div class="f"><b>${esc(d.device || 'Dispositivo')}</b>${here ? ' <span class="tag o">questo</span>' : ''}
+        <div class="mut" style="font-size:12px">attivato il ${dShort(d.created_at)} · ${d.last_ok ? 'ultima notifica ' + dShort(d.last_ok) : 'nessuna notifica ancora'}</div></div>
+        <button class="g s" onclick="removeDevice(${i})" aria-label="Rimuovi">✕ Rimuovi</button></div>`; }).join('')}
+    ${mine.length > 1 ? '<p class="mut" style="font-size:12px;margin:2px 0 6px">Se hai disinstallato e reinstallato l’app, quello vecchio è il dispositivo senza «questo»: rimuovilo. (Comunque sparisce da solo alla prima notifica che non riesce a ricevere.)</p>' : ''}
+    <button class="g" onclick="disableAll()">🔕 Disattiva su tutti i dispositivi</button></div>` : '';
   const kinds = NOTIF_KINDS.filter(k => !k[3] || prof.is_admin).map(([k, t, d]) => `<label class="row" style="justify-content:flex-start;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)">
     <input type="checkbox" style="width:auto;margin-top:3px" ${prefs[k] === false ? '' : 'checked'} ${notifInfo ? '' : 'disabled'} onchange="setNotifPref('${k}', this)"><span><b>${t}</b><br><span class="mut" style="font-size:13px">${d}</span></span></label>`).join('');
   let adminBox = '';
