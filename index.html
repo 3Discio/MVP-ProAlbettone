@@ -251,6 +251,22 @@ details.grp summary .tag{margin-left:auto}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}.chips button{width:auto;margin:0;padding:5px 10px;font-size:13px}
 .sres{margin:6px 0;padding:4px 12px}
 /* messaggio di conferma a scomparsa, in alto (non copre la barra «Salva convocati») */
+/* ===== RISPOSTA AI TOCCHI =====
+   - pulsanti e riquadri cliccabili si «schiacciano» subito al tocco
+   - il pulsante premuto mostra una rotellina finché l'operazione non è finita (e non si può ripremere)
+   - una barra sottile in alto mentre la pagina carica */
+button,a.btn,.card[onclick],.calr[onclick]{transition:transform .08s ease,opacity .08s ease;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button:active,a.btn:active{transform:scale(.96);opacity:.8}
+.card[onclick]:active,.calr[onclick]:active{transform:scale(.985);opacity:.85}
+button.busy{opacity:.7;pointer-events:none}
+button.busy::before{content:'';display:inline-block;flex:none;width:.9em;height:.9em;margin-right:.45em;vertical-align:-.1em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+.tiles button.busy::before{margin:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+#busy{position:fixed;top:0;left:0;right:0;height:3px;z-index:300;pointer-events:none;opacity:0;transition:opacity .15s;
+  background:linear-gradient(90deg,transparent 0,#fff 50%,transparent 100%) no-repeat;background-size:40% 100%;animation:busybar 1s linear infinite}
+body.loading #busy{opacity:1;transition-delay:.2s}
+@keyframes busybar{from{background-position:-60% 0}to{background-position:160% 0}}
+@media (prefers-reduced-motion:reduce){button.busy::before,#busy{animation-duration:2.5s}button:active,a.btn:active,.card[onclick]:active{transform:none}}
 .toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:100;max-width:calc(100vw - 32px);display:flex;align-items:center;gap:8px;
   background:#fff;color:color-mix(in srgb,var(--team) 70%,#000);border-radius:99px;padding:10px 18px;font:600 15px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap;animation:toast 2.6s ease forwards}
 @keyframes toast{0%{opacity:0;transform:translate(-50%,-12px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-6px);visibility:hidden}}
@@ -267,7 +283,7 @@ details.grp summary .tag{margin-left:auto}
 </style>
 </head>
 <body>
-<div class="w" id="app"></div>
+<div id="busy" aria-hidden="true"></div><div class="w" id="app"></div>
 <script>
 const sb = supabase.createClient(SB_URL, SB_KEY);
 sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') { me = null; prof = null; authView(); } });
@@ -297,14 +313,38 @@ function toast(msg) {
   document.body.appendChild(t); setTimeout(() => t.remove(), 2800);
 }
 // Esegue un'operazione sul database, ridisegna la pagina e conferma con un messaggio (msg = '' per nessun messaggio)
-async function act(fn, keep = true, msg = 'Salvato ✓') {
-  let ok = false;
-  try { await fn(); ok = true; } catch (e) { alert(e.message || e); }
-  await render(keep);
-  if (ok && msg) toast(msg);
+// ---------- RISPOSTA AI TOCCHI ----------
+// Ricorda l'ultimo pulsante toccato: act() lo mette in attesa (rotellina) finché il salvataggio non è finito.
+let lastBtn = null, lastAt = 0, busyN = 0;
+document.addEventListener('pointerdown', e => { lastBtn = e.target.closest ? e.target.closest('button') : null; lastAt = Date.now(); }, true);
+document.addEventListener('touchstart', () => {}, { passive: true }); // su iPhone serve per l'effetto «schiacciato» al tocco
+const busyOn = () => { busyN++; document.body.classList.add('loading'); };
+const busyOff = () => { busyN = Math.max(0, busyN - 1); if (!busyN) document.body.classList.remove('loading'); };
+const pressedBtn = () => lastBtn && Date.now() - lastAt < 20000 && document.contains(lastBtn) ? lastBtn : null;
+// Come act, ma per operazioni che non salvano niente (accesso, PDF): rotellina sul pulsante finché non hanno finito
+async function withBusy(fn) {
+  const b = pressedBtn();
+  if (b && b.classList.contains('busy')) return;
+  if (b) b.classList.add('busy');
+  lastBtn = null;
+  busyOn();
+  try { return await fn(); } finally { if (b) b.classList.remove('busy'); busyOff(); }
 }
-// Come act, ma senza ridisegnare (spunte che si salvano da sole)
-const quiet = async (fn, el, msg = 'Salvato ✓') => { try { await fn(); if (msg) toast(msg); } catch (e) { if (el) el.checked = !el.checked; alert(e.message || e); } };
+// Esegue un'operazione sul database, ridisegna la pagina e conferma con un messaggio (msg = '' per nessun messaggio)
+async function act(fn, keep = true, msg = 'Salvato ✓') {
+  const b = pressedBtn();
+  if (b && b.classList.contains('busy')) return; // doppio tocco: l'operazione è già in corso
+  if (b) b.classList.add('busy');
+  lastBtn = null;
+  busyOn();
+  let ok = false;
+  try {
+    try { await fn(); ok = true; } catch (e) { alert(e.message || e); }
+    await render(keep);
+    if (ok && msg) toast(msg);
+  } finally { if (b) b.classList.remove('busy'); busyOff(); }
+}
+const quiet = async (fn, el, msg = 'Salvato ✓') => { busyOn(); try { await fn(); if (msg) toast(msg); } catch (e) { if (el) el.checked = !el.checked; alert(e.message || e); } finally { busyOff(); } };
 function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
 
 // ---------- INDIRIZZO DI OGNI SEZIONE ----------
@@ -353,12 +393,14 @@ function authView(err = '') {
   <button onclick="${regMode ? 'signUp()' : 'signIn()'}">${regMode ? 'Registrati' : 'Entra'}</button>
   <button class="g" onclick="regMode=!regMode;render()">${regMode ? 'Ho già un account' : 'Nuovo? Registrati'}</button></div>`;
 }
-async function signIn() {
+const signIn = () => withBusy(signInNow);
+async function signInNow() {
   const r = await sb.auth.signInWithPassword({ email: v('em'), password: $('pw').value });
   if (r.error) return authView('Email o password non corretti.');
   render();
 }
-async function signUp() {
+const signUp = () => withBusy(signUpNow);
+async function signUpNow() {
   const fn = v('fn'), ln = v('ln');
   if (!fn || !ln) return authView('Scrivi nome e cognome.');
   const r = await sb.auth.signUp({ email: v('em'), password: $('pw').value, options: { data: { display_name: fn + ' ' + ln } } });
@@ -368,7 +410,8 @@ async function signUp() {
 }
 
 // ---------- SCHERMATE ----------
-async function render(keep) {
+async function render(keep) { busyOn(); try { return await renderNow(keep); } finally { busyOff(); } }
+async function renderNow(keep) {
   const y = window.scrollY;
   // ridisegno della stessa schermata (es. dopo un «Salva»): ricorda campi e spunte non ancora salvati
   const snap = keep ? formSnap() : null;
@@ -1524,7 +1567,8 @@ function savePdf(bytes, name) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
-async function downloadPoster(id) {
+const downloadPoster = id => withBusy(() => downloadPosterNow(id));
+async function downloadPosterNow(id) {
   const c = callupNow(id);
   if (!c.opp) return alert('Manca l’avversario.');
   try { savePdf(await makePosterPdf(c), `Locandina vs ${c.opp}.pdf`); }
@@ -1532,7 +1576,8 @@ async function downloadPoster(id) {
 }
 // ===== CONVOCAZIONE A4 IN PDF (usata dal telefono) =====
 // Stessa impaginazione della stampa dal computer: data, campo, logo · VS · avversario, ritrovi, convocati.
-async function downloadCallupPdf(id) {
+const downloadCallupPdf = id => withBusy(() => downloadCallupPdfNow(id));
+async function downloadCallupPdfNow(id) {
   const c = callupNow(id);
   if (!c.names.length) return alert('Seleziona almeno un convocato.');
   try { savePdf(await makeCallupPdf(c), `Convocazione vs ${c.opp}.pdf`); }
