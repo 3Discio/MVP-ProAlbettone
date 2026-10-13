@@ -8,7 +8,7 @@ self.addEventListener('fetch', e => e.respondWith(fetch(e.request)));
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
-  const title = d.title || 'MVP Pro Albettone';
+  const title = d.title || 'Pro Albettone';
   // numerino sull'icona: lo stesso conteggio dei pallini gialli del sito, calcolato al momento dell'invio
   const setBadge = () => {
     try {

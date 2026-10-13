@@ -1,7 +1,8 @@
 {
-  "name": "MVP Pro Albettone",
-  "short_name": "MVP",
-  "description": "MVP, marcatori e convocazioni della Pro Albettone",
+  "id": "./",
+  "name": "Pro Albettone",
+  "short_name": "Pro Albettone",
+  "description": "MVP, marcatori, cartellini, convocazioni e calendario della Pro Albettone",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
