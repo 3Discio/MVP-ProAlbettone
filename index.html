@@ -207,8 +207,8 @@ a.btn{display:block;text-align:center;text-decoration:none;background:var(--acc,
 details.grp{background:var(--card);border:2px solid var(--line);border-radius:14px;margin:10px 0}
 details.grp[open]{border-color:#fff}
 /* iPhone: i campi orario non devono uscire dal riquadro */
-input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;text-align:left}
-input[type=time]::-webkit-date-and-time-value{text-align:left}
+input[type=time],input[type=datetime-local]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;text-align:left}
+input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left}
 .tmr{display:grid;grid-template-columns:136px 1fr;gap:8px;align-items:center}.tmr input{margin:4px 0}
 details.grp.c-todo{border-color:#fff;box-shadow:0 0 0 2px color-mix(in srgb,#fff 18%,transparent)}details.grp.c-todo summary .tag{background:#fff;color:var(--team)}
 .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.btns button{width:100%;margin:0}
@@ -585,7 +585,8 @@ async function manageMatch(id) {
     ? `<button class="s" onclick="if(confirm('Chiudere la votazione e proclamare l’MVP?'))closeVote('${id}',false)">Chiudi e proclama MVP</button>`
     : `<button class="s" onclick="if(confirm('Chiudere SENZA proclamare l’MVP?'))closeVote('${id}',false)">Chiudi senza MVP</button><button class="g s" onclick="if(confirm('Proclamare comunque l’MVP?'))closeVote('${id}',true)">Proclama comunque</button>`;
   const quorumBlock = `<p class="mut">Votanti minimi: <input type="number" min="0" max="100" step="5" value="${m.min_pct ?? 50}" style="width:84px;display:inline-block" onchange="setM('${id}',{min_pct:Math.min(100,Math.max(0,Number(this.value)||0))})"> % degli aventi diritto (0 = basta 1 voto)</p>${curProg ? `<p class="mut">${curProg.voted < need ? '⚠ ' : ''}Ora hanno votato ${curProg.voted} su ${curProg.eligible}: servono almeno ${need}.</p>` : ''}`;
-  const durBlock = `<p class="mut">${m.status === 'open' ? 'Scadenza del voto (conta da adesso):' : 'Durata della votazione:'}</p><div class="row"><select id="dur" style="flex:1"><option value="">Nessuna scadenza</option>${[3, 6, 12, 24, 48, 72].map(n => `<option value="${n}">${n} ore</option>`).join('')}</select><button class="s" ${m.outcome ? '' : 'disabled style="opacity:.5"'} onclick="openVote('${id}')">${m.status === 'open' ? 'Aggiorna' : 'Apri voto'}</button></div>${m.outcome ? '' : '<p class="mut">Per aprire il voto imposta prima l’esito (qui sopra): serve a sapere se l’MVP si può votare.</p>'}`;
+  const durBlock = `<p class="mut">${m.status === 'open' ? 'Scadenza del voto (conta da adesso, oppure scegli giorno e ora):' : 'Durata della votazione:'}</p><div class="row"><select id="dur" style="flex:1" onchange="$('dlw').style.display=this.value==='at'?'':'none'"><option value="">Nessuna scadenza</option>${[3, 6, 12, 24, 48, 72].map(n => `<option value="${n}">${n} ore</option>`).join('')}<option value="at">📅 Chiudi a un orario preciso…</option></select><button class="s" ${m.outcome ? '' : 'disabled style="opacity:.5"'} onclick="openVote('${id}')">${m.status === 'open' ? 'Aggiorna' : 'Apri voto'}</button></div>
+  <div id="dlw" style="display:none"><p class="mut" style="margin:6px 0 0">La votazione si chiude il:</p><input id="dl" type="datetime-local" value="${dtLocal(m.voting_deadline && new Date(m.voting_deadline) > Date.now() ? m.voting_deadline : defDeadline())}" style="max-width:260px"></div>${m.outcome ? '' : '<p class="mut">Per aprire il voto imposta prima l’esito (qui sopra): serve a sapere se l’MVP si può votare.</p>'}`;
   let extraList = '';
   if (admin && m.voters === 'extra') {
     const pfs = await q(sb.from('profiles').select('*').eq('can_vote', true).order('display_name'));
@@ -1838,7 +1839,26 @@ function saveVote(mid, max = 3) {
   }, true, left.length ? '' : 'Voto registrato ✓');
 }
 const closeVote = (id, force) => act(() => q(sb.rpc('close_voting', { p_match: id, p_force: !!force })), true, 'Votazione chiusa ✓');
-const openVote = id => act(() => q(sb.rpc('set_voting', { p_match: id, p_hours: $('dur').value === '' ? null : Number($('dur').value) })), true, curMatch && curMatch.status === 'open' ? 'Scadenza aggiornata ✓' : 'Votazione aperta ✓');
+// data/ora per il campo «datetime-local» (ora del telefono): "2026-10-14T21:00"
+const dtLocal = d => { const x = new Date(d); return new Date(x - x.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+// proposta per la chiusura a orario preciso: domani alle 21.00
+const defDeadline = () => { const x = new Date(); x.setDate(x.getDate() + 1); x.setHours(21, 0, 0, 0); return x; };
+// Apre il voto (o aggiorna la scadenza): con una durata in ore oppure fino a un giorno e un'ora precisi
+function openVote(id) {
+  const d = $('dur').value, wasOpen = curMatch && curMatch.status === 'open';
+  let hours = d === '' ? null : Number(d), dl = null;
+  if (d === 'at') {
+    if (!v('dl')) return alert('Scegli giorno e ora di chiusura della votazione.');
+    dl = new Date(v('dl'));
+    const ms = dl - (Date.now() + clockOffset);
+    if (isNaN(ms) || ms < 60000) return alert('L’orario di chiusura deve essere nel futuro.');
+    hours = Math.ceil(ms / 3600000); // apre il voto come prima, poi la scadenza viene fissata all'orario esatto
+  }
+  act(async () => {
+    await q(sb.rpc('set_voting', { p_match: id, p_hours: hours }));
+    if (dl) await q(sb.from('matches').update({ voting_deadline: dl.toISOString() }).eq('id', id));
+  }, true, dl ? `${wasOpen ? 'Scadenza aggiornata' : 'Votazione aperta'} ✓ Si chiude ${dlTxt(dl)}` : wasOpen ? 'Scadenza aggiornata ✓' : 'Votazione aperta ✓');
+}
 // Trasforma una partita in test (nascosta ai compagni, fuori dall'albo) o viceversa, con conferma
 function setTest(id, el) {
   const msg = el.checked
