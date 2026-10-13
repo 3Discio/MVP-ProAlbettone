@@ -9,14 +9,22 @@ self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : '' }; }
   const title = d.title || 'MVP Pro Albettone';
-  e.waitUntil(self.registration.showNotification(title, {
+  // numerino sull'icona: lo stesso conteggio dei pallini gialli del sito, calcolato al momento dell'invio
+  const setBadge = () => {
+    try {
+      const nav = self.navigator;
+      if (typeof d.badge !== 'number' || !nav || !('setAppBadge' in nav)) return Promise.resolve();
+      return (d.badge > 0 ? nav.setAppBadge(d.badge) : nav.clearAppBadge()).catch(() => {});
+    } catch (err) { return Promise.resolve(); }
+  };
+  e.waitUntil(Promise.all([setBadge(), self.registration.showNotification(title, {
     body: d.body || '',
     icon: 'icon.png',
     badge: 'icon.png',
     tag: d.tag || undefined,       // avvisi con lo stesso tag si sostituiscono (es. promemoria della stessa partita)
     renotify: !!d.tag,
     data: { url: d.url || './' }
-  }));
+  })]));
 });
 
 // Tocco sulla notifica: apre l'app (o la porta in primo piano) sulla pagina giusta
