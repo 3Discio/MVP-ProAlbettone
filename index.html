@@ -280,6 +280,23 @@ body.loading #busy{opacity:1;transition-delay:.2s}
 /* card convocazione: niente X, si chiude toccando; l'avviso sparisce prima dello screenshot */
 #ov.tap{cursor:pointer}
 .tapx{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:rgba(0,0,0,.65);color:#fff;padding:6px 14px;border-radius:99px;font-size:13px;pointer-events:none;white-space:nowrap;animation:tapx 2.6s ease forwards}
+/* ===== MULTE ===== */
+.wal{display:flex;align-items:center;gap:12px;cursor:pointer}.wal .wi{font-size:30px;line-height:1}.wal .wbig{font:700 22px Oswald,Impact,sans-serif}
+.frow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line)}.frow:last-child{border-bottom:0}
+.frow small{display:block;color:var(--mut);font-size:13px}.frow .fnm{color:var(--hl)}.frow .fwho{font-size:12px;opacity:.85}
+.famt{font:700 19px Oswald,Impact,sans-serif;white-space:nowrap}
+.frow.fs-paid .famt{opacity:.6}.frow.fs-rejected .famt,.frow.fs-cancelled .famt{opacity:.5;text-decoration:line-through}.frow.off{opacity:.55}
+.frow .ab{display:flex;flex-wrap:wrap;gap:6px}.frow input[type=checkbox]{width:22px;height:22px;margin:2px 0 0;flex:none}
+.role{padding:8px 0;border-bottom:1px dashed var(--line)}.role:last-child{border-bottom:0}.role .who{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.fpg{border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin:8px 0}.fpg .fph{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0}
+.frk.me{background:color-mix(in srgb,var(--team) 18%,transparent);border-radius:10px;padding:6px 8px!important;margin:0 -8px}
+nav button.wrap{white-space:normal;line-height:1.05}
+.topc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:10px 0}.topc .card{margin:0;padding:10px 12px;cursor:pointer;min-width:0}
+.topc .th{display:flex;justify-content:space-between;align-items:center;gap:6px;font:500 14px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--hl)}
+.topc .tc1{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topc .wbig{display:block;margin:2px 0}
+.fbar{height:12px;border-radius:99px;background:var(--in);border:1px solid var(--line);overflow:hidden}.fbar i{display:block;height:100%;background:#fff;border-radius:99px}
+.mchips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}.mchips button{flex:none;text-transform:capitalize}
+.frow small.flate,.flate{color:#ffb4ab;font-weight:600}.frow small.fsoon{color:#f5c518;font-weight:600}
 @keyframes tapx{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
 @media (prefers-reduced-motion:reduce){.tapx{animation-duration:.01s;animation-delay:2.5s}}
 </style>
@@ -354,20 +371,23 @@ function go(t, id = null) { tab = t; cur = id; pick = null; render(); }
 // (es. …/#lista-partite, …/#albo-mvp, …/#gestione-partite/<id>, …/#partita/<id>):
 // così il tasto «Indietro» torna alla schermata precedente, ricaricando si resta dove si era
 // e si può condividere il link di una sezione. I vecchi link …?match=<id> continuano a funzionare.
-const ROUTES = { p: 'lista-partite', c: 'albo-mvp', g: 'marcatori', t: 'cartellini', l: 'calendario', k: 'gestione-convocazioni', i: 'installa-app', n: 'gestione-partite', a: 'menu-admin', o: 'online', x: 'notifiche' };
+const ROUTES = { p: 'lista-partite', c: 'albo-mvp', g: 'marcatori', t: 'cartellini', l: 'calendario', k: 'gestione-convocazioni', i: 'installa-app', n: 'gestione-partite', a: 'menu-admin', o: 'online', x: 'notifiche', f: 'multe', w: 'borsellino' };
 // vecchi indirizzi, ancora validi (link salvati o condivisi prima del cambio di nome)
 const OLD_ROUTES = { partite: 'p', mvp: 'c', convocazioni: 'k', app: 'i', gestione: 'n', admin: 'a' };
 const routeOf = () => cur ? 'partita/' + cur
-  : ROUTES[tab] + (tab === 'n' && mg ? '/' + (mg === 'new' ? 'nuova' : mg) : tab === 'k' && ck ? '/' + ck : '');
+  : tab === 'f' ? F_ROUTES[fT] || F_ROUTES.rk : ROUTES[tab] + (tab === 'n' && mg ? '/' + (mg === 'new' ? 'nuova' : mg) : tab === 'k' && ck ? '/' + ck : '');
 function readRoute() {
   const h = decodeURIComponent(location.hash.slice(1));
   cur = null; mg = null; ck = null; pick = null; tab = 'p';
   if (!h || h.includes('=')) return; // indirizzo vuoto o dati del login (es. conferma email): si parte dalle partite
   const [a, b] = h.split('/');
+  const fk = Object.keys(F_ROUTES).find(k => F_ROUTES[k] === a); // #classifica-multe, #gestione-multe, #cassa-multe
+  if (fk) { tab = 'f'; fT = fk; return; }
   if (a === 'partita' && b) { cur = b; return; }
   const t = Object.keys(ROUTES).find(k => ROUTES[k] === a) || OLD_ROUTES[a];
   if (!t) return;
   tab = t;
+  if (t === 'f') fT = 'rk'; // vecchio #multe: la classifica
   if (t === 'n' && b) mg = b === 'nuova' ? 'new' : b;
   if (t === 'k' && b) ck = b;
 }
@@ -425,27 +445,28 @@ async function renderNow(keep) {
   // il profilo si aggiorna in parallelo alla pagina: se cambia qualcosa di importante, la pagina si ridisegna
   const profP = q(sb.from('profiles').select('*').eq('id', me.id).single());
   if (!prof || prof.id !== me.id) prof = await profP;
-  const before = JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]);
+  const before = JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote, prof.is_judge, prof.is_treasurer]);
   const admin = isAdmin();
   // sezioni riservate: chi non ha i permessi torna alle partite
   if (((tab === 'a' || tab === 'n' || tab === 'o') && !admin) || (tab === 'k' && !prof.is_coach)) tab = 'p';
   // contatori per i badge del menù in basso e dell'icona dell'app (in parallelo alla pagina)
   const cntP = navCounts(admin).catch(() => ({}));
   let body;
-  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 't' ? await cardsView() : tab === 'l' ? await calView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'x' ? await notifView(admin) : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
+  try { body = cur ? await matchView(cur) : tab === 'c' ? await rankView() : tab === 'g' ? await scorersView() : tab === 't' ? await cardsView() : tab === 'l' ? await calView() : tab === 'k' && prof.is_coach ? await callupView() : tab === 'i' ? installView() : tab === 'f' ? await finesView() : tab === 'w' ? await walletView() : tab === 'x' ? await notifView(admin) : tab === 'a' && admin ? await adminView() : tab === 'o' && admin ? await onlineView() : tab === 'n' && admin ? await manageView() : await matchesView(admin); }
   catch (e) { body = cur ? `<div class="err">Partita non trovata o non accessibile.</div><button onclick="go('p')">Torna alle partite</button>` : `<div class="err">${esc(e.message)}</div>`; }
   try { prof = await profP; } catch (e) {}
   const cnt = await cntP; navCnt = cnt;
-  if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote]) !== before) return render(keep);
+  if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote, prof.is_judge, prof.is_treasurer]) !== before) return render(keep);
   A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
   ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="go('x')" title="Notifiche" aria-label="Notifiche">🔔</button> <button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   ${navHtml(admin, cnt)}`;
-  setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0) + (cnt.card || 0));
+  setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0) + (cnt.card || 0) + (cnt.multe || 0));
   formRestore(snap);
   if ($('xk')) onEvKind();
   if ($('sk')) onSugKind();
+  if ($('fpay')) fSelUpd();
   syncRoute();
   window.scrollTo(0, keep ? y : 0);
 }
@@ -478,6 +499,7 @@ async function navCounts(admin) {
   const my = pl.find(p => p.profile_id === me.id);
   const next = prof.is_coach && !admin ? vis.filter(m => m.status === 'draft' && m.played_on >= now).sort((a, b) => a.played_on.localeCompare(b.played_on))[0] : null;
   const ids = open.map(m => m.id).concat(next ? [next.id] : []);
+  const fpP = fJudge() ? safe(sb.from('fines').select('id').eq('status', 'proposed')) : Promise.resolve([]);
   const [conv, xv, myv, sg, pf, gl] = await Promise.all([
     ids.length ? safe(sb.from('match_players').select('match_id,player_id').in('match_id', ids)) : [],
     open.length ? safe(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', open.map(m => m.id))) : [],
@@ -500,7 +522,9 @@ async function navCounts(admin) {
   // avviso cartellini per me: diffidato o squalificato
   const mine = my ? cardStats(ms, cev, rules, curCardPh(ms, rules)).find(x => x.pid === my.id) : null;
   const card = mine && mine.st ? 1 : 0;
-  return { vote, conv: convTodo, gest, nuovi, card };
+  const multe = (await fpP).length; // proposte di multa in attesa (solo giudice)
+
+  return { vote, conv: convTodo, gest, nuovi, card, multe };
 }
 // Numerino sull'icona dell'app installata (dove il telefono lo permette; su iPhone servono le notifiche attive)
 function setAppBadge(n) {
@@ -518,10 +542,13 @@ function navHtml(admin, cnt) {
   const items = [b(tab === 'p', "go('p')", 'Lista', 'partite', nb(cnt.vote, 'votazioni in cui non hai ancora votato')),
     b(tab === 'c', "go('c')", 'Albo', 'MVP'),
     b(tab === 'g' || tab === 't', `go('${cnt.card ? 't' : 'g'}')`, 'Marcatori', 'e cartellini', nb(cnt.card, 'avviso cartellini per te'), 'wide')];
-  if (admin) items.push(b(tab === 'n', "mg=null;go('n')", 'Gestione', 'partite', nb(cnt.gest, 'cose da sistemare nelle partite')),
+  // multe: giudice e tesoriere le gestiscono; il pallino conta le proposte da approvare (giudice)
+  const fRole = fJudge() || fTreas(), fN = cnt.multe || 0, fLb = 'multe da approvare';
+  if (admin) items.push(b(tab === 'n' || tab === 'f', "mg=null;go('n')", 'Gestione', 'partite e multe', nb((cnt.gest || 0) + fN, 'cose da sistemare in partite e multe'), 'wide'),
     b(tab === 'a', "go('a')", 'Menu', 'admin', nb(cnt.nuovi, 'nuovi iscritti da sistemare')));
-  else if (prof.is_coach) items.push(b(tab === 'k', "ck=null;go('k')", 'Gestione', 'convocazioni', nb(cnt.conv, 'prossima partita da completare'), 'wide'));
-  else items.push(b(tab === 'l', "go('l')", 'Calendario', 'Pro Albettone', '', 'wide'));
+  else if (prof.is_coach) items.push(b(tab === 'k' || tab === 'f', "ck=null;go('k')", fRole ? 'Gestione' : 'Gestione partite', fRole ? 'partite e multe' : 'e classifica multe', nb((cnt.conv || 0) + fN, 'cose da sistemare in partite e multe'), fRole ? 'wide' : 'wide wrap'));
+  else if (fRole) items.push(b(tab === 'f', "go('f')", 'Gestione', 'multe', nb(fN, fLb), 'wide'));
+  else items.push(b(tab === 'f', "go('f')", 'Classifica', 'multe', '', 'wide'));
   return `<nav class="n${items.length}">${items.join('')}</nav>`;
 }
 const OUT = { vittoria: 'Vittoria', pareggio: 'Pareggio', sconfitta: 'Sconfitta' };
@@ -578,7 +605,7 @@ async function manageView() {
   const sum = [['sug', n => `✍️ ${n} ${n === 1 ? 'suggerimento' : 'suggerimenti'} per la cronaca`], ['exp', n => `⏰ ${n} ${n === 1 ? 'votazione scaduta da chiudere' : 'votazioni scadute da chiudere'}`],
     ['res', n => `📝 ${n} ${n === 1 ? 'risultato mancante' : 'risultati mancanti'}`], ['sco', n => `⚽ ${n} ${n === 1 ? 'marcatore mancante' : 'marcatori mancanti'}`], ['ban', n => `⚖️ ${n} ${n === 1 ? 'squalifica per rosso diretto da definire' : 'squalifiche per rosso diretto da definire'} (in Cartellini)`]]
     .map(([k, f]) => tot(k) ? f(tot(k)) : '').filter(Boolean);
-  return `<h2>Gestione partite</h2><button onclick="mg='new';render()">➕ Nuova partita</button>
+  return `${pmSwitch('p')}<h2>Gestione partite</h2><button onclick="mg='new';render()">➕ Nuova partita</button>
   ${sum.length ? `<div class="warn"><b>Da sistemare:</b><br>${sum.join('<br>')}</div>` : ''}
   <p class="mut">Tocca una partita per gestirla: convocati, esito, apertura e chiusura del voto.</p>
   ${ms.map(m => `<div class="card mc${m.status === 'open' ? ' live' : ''}${m.is_test ? ' test' : ''}" onclick="mg='${m.id}';render()" style="cursor:pointer"><div class="mcd">${m.is_test ? '<span class="tag tt">TEST</span> ' : ''}${dayShort(m.played_on)}${m.phase ? ' · ' + PH[m.phase] : ''} · ${ST[m.status]}</div>${nT(m.id) ? `<span class="nb cnb">${nT(m.id)}</span>` : ''}${miniTitle(m)}${todo[m.id].length ? `<div class="li">${todo[m.id].map(x => `<b>${x[2]}</b>`).join('<br>')}</div>` : ''}</div>`).join('') || '<p class="mut">Nessuna partita.</p>'}`;
@@ -639,7 +666,8 @@ async function manageMatch(id) {
     const pfs = await q(sb.from('profiles').select('*').eq('can_vote', true).order('display_name'));
     const xs = extras.map(e => e.profile_id);
     extraList = '<p class="mut">Extra (oltre ai convocati):</p>' + (pfs.filter(u => { const pl = players.find(p => p.profile_id === u.id); return !(pl && cids.includes(pl.id)); })
-      .map(u => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${xs.includes(u.id) ? 'checked' : ''} onchange="extraV('${id}','${u.id}',this)"> ${esc(u.display_name)}</label>`).join('') || '<span class="mut">Nessun altro account abilitato al voto.</span>');
+      .map(u => `<label class="row" style="justify-content:flex-start;padding:4px 0"><input type="checkbox" style="width:auto" ${xs.includes(u.id) ? 'checked' : ''} data-uid="${u.id}" class="xvx" onchange="xvDirty()"> ${esc(u.display_name)}</label>`).join('') || '<span class="mut">Nessun altro account abilitato al voto.</span>')
+      + `<div class="cbar" id="xvbar" style="position:static;margin-top:8px"><span id="xvs">✓ salvati</span><button class="s" onclick="saveExtras('${id}')">💾 Salva votanti extra</button></div>`;
   }
   const testBlock = `<label class="row" style="justify-content:flex-start;padding:6px 0"><input type="checkbox" style="width:auto" ${m.is_test ? 'checked' : ''} onchange="setTest('${id}', this)"> 🧪 Partita di test (la vedono solo gli admin)</label>`;
   // Sezioni a scomparsa, ordinate per priorità: prima quello che c'è da fare, poi ciò che serve più avanti, in fondo ciò che è completo
@@ -685,6 +713,7 @@ async function matchesView(admin) {
   const closedIds = vis.filter(m => m.status === 'closed').map(m => m.id);
   const convIds = openIds.concat(draftIds);
   // 2° giro (in parallelo): solo ciò che dipende dalle partite aperte, in bozza o chiuse
+  const calP = topCardsHtml(my).catch(() => '');
   const [conv, xv, prog, mvps, cdM] = await Promise.all([
     convIds.length ? q(sb.from('match_players').select('match_id,player_id').in('match_id', convIds)) : [],
     convIds.length ? q(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', convIds)) : [],
@@ -745,7 +774,8 @@ async function matchesView(admin) {
   return `
   ${!isApp && isPhone && !lsGet('hideInstall') ? `<div class="pv"><span>📲 <b>Usa il sito come un’app</b>: aggiungilo alla schermata Home del telefono.</span><span style="display:flex;gap:6px">${installEvt ? '<button class="s" onclick="installNow()">Installa</button>' : '<button class="s" onclick="go(\'i\')">Come fare</button>'}<button class="g s" onclick="lsSet('hideInstall','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
   ${canAskNotif() ? `<div class="pv"><span>🔔 <b>Attiva le notifiche</b>: ti avvisiamo quando si apre il voto, se manca il tuo voto e quando c’è l’MVP.</span><span style="display:flex;gap:6px"><button class="s" onclick="go('x')">Attiva</button><button class="g s" onclick="lsSet('hideNotifAsk','1');render(true)" aria-label="Nascondi">✕</button></span></div>` : ''}
-  <div class="row" style="align-items:center"><h2 class="f" style="margin:0">Partite</h2>${admin || prof.is_coach ? `<button class="g s" onclick="go('l')">📅 Calendario</button>` : ''}</div>
+  ${await calP}
+  <div class="row" style="align-items:center"><h2 class="f" style="margin:0">Partite</h2></div>
   <div class="row" style="justify-content:flex-start;margin:8px 0 6px">${tabs}</div>
   ${open.map(card).join('')}
   ${next ? `<h3>Prossima partita</h3>${card(next)}` : ''}
@@ -1250,7 +1280,7 @@ async function callupView() {
   if (ck && !ms.some(m => m.id === ck)) ck = null;
   if (ck) return callupEdit(ms.find(m => m.id === ck));
   const cv = ms.length ? await q(sb.from('match_players').select('match_id').in('match_id', ms.map(m => m.id))) : [];
-  return `<h2>Convocazioni</h2><p class="mut">Le partite le crea l’admin. Qui scegli orari, ritrovi e convocati finché la votazione non è aperta.</p>
+  return `${pmSwitch('p')}<h2>Convocazioni</h2><p class="mut">Le partite le crea l’admin. Qui scegli orari, ritrovi e convocati finché la votazione non è aperta.</p>
   ${ms.map(m => { const n = cv.filter(c => c.match_id === m.id).length;
     const todo = !(m.kickoff && (m.venue_name || m.venue_address)) || n < CONV_MIN;
     return `<div class="card row" onclick="ck='${m.id}';render()" style="cursor:pointer"><div>${scoreLine(m)}<div class="mut">${dayTxt(m.played_on)}${m.kickoff ? ' · ore ' + hm(m.kickoff) : ''}</div></div><span class="tag ${todo ? 'o' : ''}">${n ? n + ' convocati' : 'Da fare'}${todo && n ? ' · da fare' : ''}</span></div>`; }).join('') || '<div class="card mut">Nessuna partita in programma.</div>'}`;
@@ -1988,6 +2018,17 @@ async function copyLink(id) {
   const t = await shareText(id);
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('Messaggio copiato: incollalo nel gruppo.'), () => prompt('Copia il messaggio:', t));
 }
+// Votanti extra: le spunte si salvano tutte insieme con «Salva votanti extra»
+function xvDirty() { const b = $('xvbar'); if (b) { b.classList.add('dirty'); $('xvs').textContent = 'da salvare'; } }
+function saveExtras(mid) {
+  const ids = [...document.querySelectorAll('.xvx:checked')].map(x => x.dataset.uid);
+  act(async () => {
+    const now = (await q(sb.from('match_voters').select('profile_id').eq('match_id', mid))).map(x => x.profile_id);
+    const add = ids.filter(u => !now.includes(u)), del = now.filter(u => !ids.includes(u));
+    if (add.length) await q(sb.from('match_voters').insert(add.map(u => ({ match_id: mid, profile_id: u }))));
+    if (del.length) await q(sb.from('match_voters').delete().eq('match_id', mid).in('profile_id', del));
+  }, true, `Votanti extra salvati ✓ (${ids.length})`).then(pokeNotif);
+}
 const extraV = (mid, uid, el) => quiet(() => q(el.checked ? sb.from('match_voters').insert({ match_id: mid, profile_id: uid }) : sb.from('match_voters').delete().eq('match_id', mid).eq('profile_id', uid)), el);
 const delM = id => act(async () => { await q(sb.from('matches').delete().eq('id', id)); cur = null; mg = null; }, false, 'Partita eliminata ✓');
 
@@ -2017,7 +2058,9 @@ const NOTIF_KINDS = [
   ['mvp', '🏆 MVP proclamato', 'quando si chiude il voto, con il nome del vincitore'],
   ['convocazione', '📋 Convocazioni', 'quando vieni convocato per una partita'],
   ['cartellini', '🟨 Cartellini', 'se diventi diffidato o squalificato'],
-  ['iscritti', '👤 Nuovi iscritti', 'quando qualcuno si registra e va sistemato', true]
+  ['iscritti', '👤 Nuovi iscritti', 'quando qualcuno si registra e va sistemato', true],
+  ['multe', '💸 Multe', 'quando ricevi una multa, 3 giorni prima della scadenza e se raddoppia'],
+  ['proposte', '⚖️ Multe da approvare', 'quando qualcuno propone una multa (solo per il giudice)', 'judge']
 ];
 const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 let pushSub = null, pushChecked = false, notifInfo = null;
@@ -2126,7 +2169,7 @@ async function notifView(admin) {
         <button class="g s" onclick="removeDevice(${i})" aria-label="Rimuovi">✕ Rimuovi</button></div>`; }).join('')}
     ${mine.length > 1 ? '<p class="mut" style="font-size:12px;margin:2px 0 6px">Se hai disinstallato e reinstallato l’app, quello vecchio è il dispositivo senza «questo»: rimuovilo. (Comunque sparisce da solo alla prima notifica che non riesce a ricevere.)</p>' : ''}
     <button class="g" onclick="disableAll()">🔕 Disattiva su tutti i dispositivi</button></div>` : '';
-  const kinds = NOTIF_KINDS.filter(k => !k[3] || prof.is_admin).map(([k, t, d]) => `<label class="row" style="justify-content:flex-start;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)">
+  const kinds = NOTIF_KINDS.filter(k => !k[3] || (k[3] === 'judge' ? prof.is_judge : prof.is_admin)).map(([k, t, d]) => `<label class="row" style="justify-content:flex-start;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)">
     <input type="checkbox" style="width:auto;margin-top:3px" ${prefs[k] === false ? '' : 'checked'} ${notifInfo ? '' : 'disabled'} onchange="setNotifPref('${k}', this)"><span><b>${t}</b><br><span class="mut" style="font-size:13px">${d}</span></span></label>`).join('');
   let adminBox = '';
   if (prof.is_admin) {
@@ -2318,7 +2361,7 @@ async function calView() {
     return `${head}<div class="calr k${e.k}${e.d === today ? ' oggi' : ''}"${m ? ` onclick="go('p','${m.id}')" style="cursor:pointer"` : ''}><div class="cald"><span>${dt.toLocaleDateString('it-IT', { weekday: 'short' })}</span><b>${dt.getDate()}</b></div>
       <div class="f"><b>${esc(e.title)}</b><div class="mut">${e.d === today ? '<span class="tag o">Oggi</span> ' : ''}${e.k === 'alt' ? '🎉 ' : ''}${esc(when)}</div></div>${m ? '<span class="calgo">›</span>' : ''}</div>`;
   }).join('');
-  return `<h2>📅 Calendario Pro Albettone</h2>${add}${filt}
+  return `<button class="g s" onclick="go('p')">← Partite</button><h2>📅 Calendario Pro Albettone</h2>${add}${filt}
     ${err ? `<div class="warn">Non riesco a leggere il calendario adesso.${isAdmin() ? `<br><span style="font-size:13px">Risposta: ${esc(err)}. Controlla che su Supabase ci sia la Edge Function «calendario».</span>` : ' Riprova tra poco.'}</div>`
       : all.length && !evs.length ? '<div class="card mut">Nessun evento di questo tipo in programma.</div>'
       : evs.length ? `<div class="card">${list}</div><p class="mut" style="font-size:13px">Gli eventi che si ripetono (es. allenamenti) sono mostrati per i prossimi ${Math.round(CAL_DAYS / 30)} mesi.</p>` : '<div class="card mut">Nessun evento in programma.</div>'}`;
@@ -2546,6 +2589,8 @@ const SF = {
   senza: ['Senza account', x => !x.u],
   account: ['Iscritti', x => !!x.u],
   giocatore: ['Giocatori', x => !!x.p],
+  giudice: ['Giudice multe', x => !!(x.u && x.u.is_judge)],
+  tesoriere: ['Tesoriere', x => !!(x.u && x.u.is_treasurer)],
   collegato: ['Collegati', x => !!(x.u && x.p)]
 };
 // Parole (singolari, plurali, sinonimi) -> filtro
@@ -2558,7 +2603,8 @@ const SW = { admin: 'admin', admins: 'admin', amministratore: 'admin', amministr
   online: 'online', connesso: 'online', connessi: 'online',
   giocatore: 'giocatore', giocatori: 'giocatore',
   collegato: 'collegato', collegati: 'collegato', iscritto: 'account', iscritti: 'account', iscritta: 'account', account: 'account',
-  infortunato: 'fuori', infortunati: 'fuori', convocabile: 'rosa', convocabili: 'rosa' };
+  infortunato: 'fuori', infortunati: 'fuori', convocabile: 'rosa', convocabili: 'rosa',
+  giudice: 'giudice', giudici: 'giudice', tesoriere: 'tesoriere', tesorieri: 'tesoriere', cassiere: 'tesoriere' };
 // Frasi di più parole, riconosciute prima delle singole parole
 const SPH = [['fuori rosa', 'fuori'], ['in rosa', 'rosa'], ['da sistemare', 'nuovo'], ['senza account', 'senza'], ['puo votare', 'vota'], ['possono votare', 'vota'], ['scollegato', 'xcollegato'], ['scollegati', 'xcollegato']];
 const STOP = new Set('tutti tutte tutto gli i il la le lo l e ed con che sono chi di del dei degli delle un una uno mostra cerca trova quali quanti solo anche come tipo per'.split(' '));
@@ -2578,11 +2624,11 @@ function parseQ(s) {
 }
 // un pezzo di nome vale se è l'inizio di una parola del nome (o del nome del giocatore collegato)
 const matchP = (x, P) => P.f.every(({ k, neg }) => SF[k][1](x) !== neg) && P.names.every(({ w, neg }) => x.words.some(y => y.startsWith(w)) !== neg);
-const FWORD = { admin: 'admin', mister: 'mister', rosa: 'in rosa', fuori: 'fuori rosa', staff: 'staff', spett: 'spettatori', nuovo: 'da sistemare', vota: 'votanti', online: 'online', senza: 'senza account', account: 'iscritti', giocatore: 'giocatori', collegato: 'collegati' };
+const FWORD = { admin: 'admin', mister: 'mister', rosa: 'in rosa', fuori: 'fuori rosa', staff: 'staff', spett: 'spettatori', nuovo: 'da sistemare', vota: 'votanti', online: 'online', senza: 'senza account', account: 'iscritti', giocatore: 'giocatori', collegato: 'collegati', giudice: 'giudice', tesoriere: 'tesoriere' };
 const serQ = P => [...P.names.map(n => (n.neg ? 'non ' : '') + n.w), ...P.f.map(x => (x.neg ? 'non ' : '') + FWORD[x.k])].join(' ');
 // Pulsanti rapidi: [filtro, escluso?, etichetta]
 const CHIPS = [['admin', false, 'Admin'], ['mister', false, '⭐ Mister'], ['rosa', false, 'In rosa'], ['fuori', false, OUT_LABEL], ['staff', false, 'Staff'], ['spett', false, 'Spettatori'],
-  ['nuovo', false, 'Da sistemare'], ['vota', false, 'Può votare'], ['vota', true, 'Non può votare'], ['senza', false, 'Senza account'], ['online', false, '🟢 Online']];
+  ['nuovo', false, 'Da sistemare'], ['vota', false, 'Può votare'], ['vota', true, 'Non può votare'], ['senza', false, 'Senza account'], ['online', false, '🟢 Online'], ['giudice', false, '⚖️ Giudice'], ['tesoriere', false, '💰 Tesoriere']];
 const admChipsHtml = () => { const P = parseQ(admQ);
   return CHIPS.map(([k, n, l], i) => `<button class="s ${P.f.some(x => x.k === k && x.neg === n) ? '' : 'g'}" onclick="admChip(${i})">${l}</button>`).join('') + (admQ.trim() ? '<button class="s g" onclick="admSearch(\'\', true)">✕ Azzera</button>' : ''); };
 function admResHtml() {
@@ -2613,9 +2659,9 @@ async function adminView() {
   const cat = u => linked(u) ? (u.is_out ? 'fuori' : 'rosa') : u.is_staff ? 'staff' : u.is_out ? 'spett' : 'nuovo';
   const by = k => pf.filter(u => cat(u) === k);
   const nuovi = by('nuovo').sort((x, y) => String(y.created_at || '').localeCompare(String(x.created_at || '')));
-  const tags = u => `${u.is_admin ? ' <span class="tag">admin</span>' : ''}${u.is_coach ? MS_TAG : ''}`;
+  const tags = u => `${u.is_admin ? ' <span class="tag">admin</span>' : ''}${u.is_coach ? MS_TAG : ''}${u.is_judge ? ' <span class="tag">⚖️ giudice</span>' : ''}${u.is_treasurer ? ' <span class="tag">💰 tesoriere</span>' : ''}`;
   const box = (u, k, label) => `<label><input type="checkbox" ${u[k] ? 'checked' : ''} onchange="setF('${u.id}','${k}',this)"> ${label}</label>`;
-  const props = u => `<div class="chk">${box(u, 'can_vote', 'Può votare')}${box(u, 'is_coach', '⭐ Mister (voto doppio)')}</div>`;
+  const props = u => `<div class="chk">${box(u, 'can_vote', 'Può votare')}${box(u, 'is_coach', '⭐ Mister (voto doppio)')}${box(u, 'is_judge', '⚖️ Giudice multe')}${box(u, 'is_treasurer', '💰 Tesoriere')}</div>`;
   const linkOpts = () => free.map(p => `<option value="p:${p.id}">Collega a: ${esc(p.name)}</option>`).join('');
   // menù categoria: per i collegati In rosa / Fuori rosa; per i non collegati Staff / Spettatore / collega a un giocatore
   const catSel = u => { const c = cat(u), mp = linked(u);
@@ -2683,6 +2729,377 @@ const unlink = id => act(async () => { const p = await q(sb.from('players').sele
 const addP = () => v('pn') && act(() => q(sb.from('players').insert({ name: v('pn') })), true, 'Giocatore aggiunto ✓');
 const delP = id => confirm('Eliminare il giocatore?') && act(() => q(sb.from('players').delete().eq('id', id)), true, 'Giocatore eliminato ✓');
 const setU = (id, k, el) => quiet(() => upP(id, { [k]: el.checked }), el);
+
+// ---------- MULTE (al posto di Paynalty) ----------
+// Ruoli: spunte sul profilo che si sommano (le mette l'admin dal Menu admin).
+//   Admin (is_admin):         gestisce il listino; propone multe (le approva il giudice); NON vede la cassa
+//   Giudice (is_judge):       assegna multe direttamente (anche a sé stesso), approva o respinge le proposte,
+//                             gestisce il listino, vede la cassa e registra le uscite
+//   Tesoriere (is_treasurer): propone multe (le approva il giudice), segna le multe come pagate,
+//                             vede la cassa e registra le uscite
+//   Tutti gli altri:          vedono le proprie multe e la classifica
+// Le multe si danno a chiunque: giocatori (anche senza account), mister, staff, spettatori.
+// Chi ha un giocatore collegato viene multato su quello (player_id); chi è solo un account, sull'account (profile_id).
+// Le regole vere stanno su Supabase (script multe.sql): qui si decide solo cosa mostrare.
+// Multe di tutti visibili ai giocatori: predisposto ma spento. Per accenderlo, su Supabase:
+//   insert into app_settings(key, value) values ('fines', '{"public": true}') on conflict (key) do update set value = excluded.value;
+const fJudge = () => !!(prof && prof.is_judge && !asPlayer);
+const fTreas = () => !!(prof && prof.is_treasurer && !asPlayer);
+const fStaff = () => isAdmin() || fJudge() || fTreas();   // vede la gestione delle multe
+const fCash = () => fJudge() || fTreas();                  // vede cassa, saldo e uscite
+const fList = () => isAdmin() || fJudge();                 // modifica il listino
+const eur = n => (Number(n) || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+const fSum = fs => (fs || []).reduce((t, f) => t + Number(f.amount || 0), 0);
+const money = s => { const n = Number(String(s).replace(',', '.')); return isFinite(n) ? Math.round(n * 100) / 100 : NaN; };
+const fDay = d => d ? new Date(String(d).length === 10 ? d + 'T12:00:00' : d).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+// Classifica per stagione (dal 1° luglio al 30 giugno): una foto della squadra a fine anno.
+// Prima stagione con le multe nell'app: se importate lo storico da Paynalty, abbassate questo anno.
+const FINES_FIRST_SEASON = 2026;
+const seasonStartNow = () => { const t = new Date(); return t.getFullYear() - (t.getMonth() < 6 ? 1 : 0); };
+const seasonName = y => y + '/' + String(y + 1).slice(2);
+// Scadenza: ogni multa approvata va pagata entro «due_on»; dopo, l'importo raddoppia (una volta sola).
+// Il raddoppio si calcola qui finché la multa è da pagare; quando il tesoriere la incassa, il database salva l'importo raddoppiato.
+const fLate = f => f.status === 'approved' && !!f.due_on && !f.double_waived && f.due_on < todayStr();
+const fCanWaive = f => (fJudge() || fTreas()) && !f.double_waived && ((f.status === 'approved' && !!f.due_on) || (f.status === 'paid' && f.doubled));
+const fAmt = f => fLate(f) ? Number(f.amount) * 2 : Number(f.amount);
+const fSumE = fs => (fs || []).reduce((t, f) => t + fAmt(f), 0);
+function fDue(f) {
+  if (f.status === 'paid' && f.doubled) return `<small class="flate">Pagata dopo la scadenza: raddoppiata (era ${eur(f.amount / 2)})</small>`;
+  if (f.double_waived) return `<small>🙏 Raddoppio tolto${f.waived_by_name && fStaff() ? ' da ' + esc(f.waived_by_name) : ''}</small>`;
+  if (f.status !== 'approved' || !f.due_on) return '';
+  if (fLate(f)) return `<small class="flate">⚠️ Non pagata entro il ${fDay(f.due_on)}: raddoppiata (era ${eur(f.amount)})</small>`;
+  const left = Math.round((new Date(f.due_on + 'T12:00:00') - new Date(todayStr() + 'T12:00:00')) / 864e5);
+  return `<small${left <= 3 ? ' class="fsoon"' : ''}>⏰ Paga entro ${left === 0 ? 'oggi' : left === 1 ? 'domani' : 'il ' + fDay(f.due_on)}, poi raddoppia a ${eur(f.amount * 2)}</small>`;
+}
+// Mesi (come in Paynalty): «2026-10» -> «ottobre» (con l'anno se non è quello in corso)
+let fMonth = null;
+const monthLbl = m => { const d = new Date(m + '-15T12:00:00'), y = d.getFullYear() !== new Date().getFullYear(); return d.toLocaleDateString('it-IT', y ? { month: 'short', year: '2-digit' } : { month: 'long' }); };
+const monthList = dates => { const cur = todayStr().slice(0, 7), ms = [...new Set([cur, ...dates.filter(Boolean).map(d => String(d).slice(0, 7))])].sort().reverse();
+  if (!fMonth || (fMonth !== 'tot' && !ms.includes(fMonth))) fMonth = cur; return ms; };
+const inMonth = d => fMonth === 'tot' || (!!d && String(d).slice(0, 7) === fMonth);
+const monthChips = ms => `<div class="mchips">${ms.map(m => [m, monthLbl(m)]).concat([['tot', 'Tutto']]).map(([k, l]) => `<button class="s ${fMonth === k ? '' : 'g'}" onclick="fMonth='${k}';render(true)">${l}</button>`).join('')}</div>`;
+const F_ST = { proposed: ['⏳', 'Proposta: attende il giudice'], approved: ['💸', 'Da pagare'], paid: ['✓', 'Pagata'], rejected: ['✕', 'Respinta dal giudice'], cancelled: ['🚫', 'Annullata'] };
+const ROLE_INFO = [
+  ['is_admin', '🛠️ Admin', 'Gestisce il listino delle multe. Può proporre multe, che diventano valide solo se il giudice le approva. Non vede la cassa.'],
+  ['is_judge', '⚖️ Giudice', 'Assegna le multe direttamente (anche a sé stesso), approva o respinge le proposte, gestisce il listino, vede la cassa e registra le uscite.'],
+  ['is_treasurer', '💰 Tesoriere', 'Incassa: segna le multe come pagate. Può proporre multe (le approva il giudice), vede la cassa e registra le uscite.']];
+// indirizzi delle schede della pagina Multe (stessi nomi del menù)
+const F_ROUTES = { rk: 'classifica-multe', gest: 'gestione-multe', cassa: 'cassa-multe' };
+let fT = 'rk', fRk = 'pagate', fRkS = null, fSel = new Set(), fEdit = null, curTypes = [], curFines = [], fCard = [];
+// Persone multabili (funzione fine_people su Supabase): [{ person_key: 'p:<giocatore>' | 'u:<account>', name, kind, player_id, profile_id }]
+let fPeople = [];
+const F_KIND = [['giocatore', 'Giocatori'], ['mister', 'Mister'], ['staff', 'Staff'], ['spettatore', 'Spettatori'], ['account', 'Altri iscritti']];
+// la persona di una multa: il giocatore, oppure l'account (e se nel frattempo l'account è stato collegato a un giocatore, quel giocatore)
+const fKey = f => f.player_id ? 'p:' + f.player_id : (fPeople.find(x => x.player_id && x.profile_id === f.profile_id) || {}).person_key || 'u:' + f.profile_id;
+const fName = f => (fPeople.find(x => x.person_key === (typeof f === 'string' ? f : fKey(f))) || {}).name || 'Persona eliminata';
+const fByName = (a, b) => String(a).localeCompare(String(b), 'it', { sensitivity: 'base' });
+// filtro per le multe di una persona: le sue come giocatore e quelle date al suo account
+const fMineOr = myPid => `profile_id.eq.${me.id}` + (myPid ? `,player_id.eq.${myPid}` : '');
+const fDueDays = () => sb.from('fine_settings').select('due_days').eq('id', 1).maybeSingle().then(r => (r.data && r.data.due_days) || 0, () => 0);
+// Multe ufficiali o in prova: lo decidono admin e giudice (fine_settings.live). Senza la colonna: in prova.
+const fLive = () => sb.from('fine_settings').select('live').eq('id', 1).maybeSingle().then(r => !!(r.data && r.data.live), () => false);
+const FINES_TEST_MSG = `<div class="warn"><b>🧪 Multe in prova.</b> Il passaggio da Paynalty a questo sito non è ancora ufficiale: le multe che vedi qui potrebbero essere solo di prova e <b>non vanno pagate</b>. Finché vedi questo avviso fa fede Paynalty.</div>`;
+const fRoles = () => sb.rpc('fines_roles').then(r => r.error ? [] : r.data || [], () => []);
+const rolesInner = roles => ROLE_INFO.map(([k, t, d]) => { const who = roles.filter(r => r[k]);
+  return `<div class="role"><b>${t}</b><div class="who">${who.map(r => `<span class="tag">${esc(r.display_name)}</span>`).join('') || '<span class="mut">Nessuno</span>'}</div><div class="mut" style="font-size:13px">${d}</div></div>`; }).join('');
+const fBtn = (lb, fn, cls = 'g') => `<button class="${cls} s" onclick="${fn}">${lb}</button>`;
+// Riga di una multa. nm = nome del giocatore (se va mostrato), actions = pulsanti, chk = casella di selezione
+function fineRow(f, nm, actions = '', chk = '') {
+  const st = F_ST[f.status] || ['•', f.status];
+  const who = [f.created_by_name && (f.status === 'proposed' ? 'proposta da ' : 'inserita da ') + esc(f.created_by_name),
+    f.reviewed_by_name && f.status !== 'proposed' && f.reviewed_by_name !== f.created_by_name && ({ rejected: 'respinta da ', cancelled: 'annullata da ' }[f.status] || 'approvata da ') + esc(f.reviewed_by_name),
+    f.status === 'paid' && 'incassata' + (f.collected_by_name ? ' da ' + esc(f.collected_by_name) : '') + (f.paid_at ? ' il ' + fDay(f.paid_at) : '')].filter(Boolean).join(' · ');
+  return `<div class="frow fs-${f.status}">${chk}<div class="f"><b>${esc(f.type_name)}</b>${nm ? ` <span class="fnm">· ${esc(nm(f))}</span>` : ''}
+    <small>${fDay(f.fined_on)}${f.note ? ' · ' + esc(f.note) : ''}</small>
+    <small>${st[0]} ${st[1]}${f.review_note ? ' · «' + esc(f.review_note) + '»' : ''}</small>
+    ${fDue(f)}${who && fStaff() ? `<small class="fwho">${who}</small>` : ''}${actions ? `<span class="ab" style="margin-top:6px">${actions}</span>` : ''}</div><b class="famt">${eur(fAmt(f))}</b></div>`;
+}
+
+async function finesView() {
+  const staff = fStaff(), cash = fCash();
+  const tabsL = [['rk', '🏆 Classifica'], ...(staff ? [['gest', '⚖️ Gestione']] : []), ...(cash ? [['cassa', '💰 Cassa']] : [])];
+  if (!tabsL.some(t => t[0] === fT)) fT = 'rk';
+  const setts = await pdfOverrides('fines', true);
+  const nm = fName;
+  const tabs = tabsL.length < 2 ? '' : `<div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin:8px 0">${tabsL.map(([k, l]) => `<button class="s ${fT === k ? '' : 'g'}" onclick="fT='${k}';render()"><span class="nl">${l}${k === 'gest' ? nb(navCnt.multe, 'proposte da approvare') : ''}</span></button>`).join('')}</div>`;
+  let body;
+  const live = await fLive();
+  try {
+    fPeople = await q(sb.rpc('fine_people'));
+    body = fT === 'gest' ? (live ? await finesManage(nm) + liveCard(live) : liveCard(live) + await finesManage(nm)) : fT === 'cassa' ? await finesCash() : await finesRank() + (staff ? '' : await finesPlayerInfo(nm, setts.public === true)); }
+  catch (e) { body = `<div class="warn">Le multe non sono ancora attive.${isAdmin() ? `<br><span style="font-size:13px">Esegui su Supabase lo script <b>multe.sql</b> (SQL Editor → incolla → Run), poi ricarica la pagina. Risposta di Supabase: ${esc(e.message || e)}</span>` : ' Riprova più tardi.'}</div>`; }
+  return `${pmSwitch('f')}<h2>${staff ? '💰 Multe' : '🏆 Classifica multe'}</h2>${live ? '' : FINES_TEST_MSG}${tabs}${body}`;
+}
+
+// Classifica: chi ha pagato di più, oppure chi ha ricevuto più multe
+async function finesRank() {
+  const cur = seasonStartNow(), seasons = []; for (let y = cur; y >= Math.min(FINES_FIRST_SEASON, cur); y--) seasons.push(y);
+  if (!seasons.includes(fRkS)) fRkS = cur;
+  const a = fRkS + '-07-01', b = (fRkS + 1) + '-06-30';
+  const rs = await q(sb.rpc('fines_ranking', { p_from: a, p_to: b }));
+  const key = fRk === 'pagate' ? 'paid' : 'n_fines', val = x => Number(x[key]) || 0;
+  let r = rs.filter(x => val(x) > 0);
+  r = r.map(x => ({ ...x, pos: 1 + r.filter(y => val(y) > val(x)).length })).sort((x, y) => x.pos - y.pos || String(x.name).localeCompare(String(y.name)));
+  const sw = (list, cur, vn) => `<div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 6px">${list.map(([k, l]) => `<button class="s ${cur === k ? '' : 'g'}" onclick="${vn}='${k}';render(true)">${l}</button>`).join('')}</div>`;
+  return `${sw([['pagate', '💸 Più pagate'], ['ricevute', '📋 Più multe ricevute']], fRk, 'fRk')}${seasons.length > 1 ? sw(seasons.map(y => [y, 'Stagione ' + seasonName(y)]), fRkS, 'fRkS') : `<p class="ak" style="margin:4px 0 6px">Stagione ${seasonName(fRkS)}</p>`}
+  <div class="card">${r.map(x => `<div class="row frk${x.is_me ? ' me' : ''}" style="padding:6px 0"><div class="rk">${x.pos}</div><div class="f"><b>${esc(x.name)}</b>${x.is_me ? ' <span class="mut">(tu)</span>' : ''}</div>
+    <b>${fRk === 'pagate' ? `${eur(x.paid)} <span class="mut" style="font-weight:400;font-size:13px">· ${x.n_paid}</span>` : `${x.n_fines} ${x.n_fines === 1 ? 'multa' : 'multe'}`}</b></div>`).join('') || '<span class="mut">Ancora nessuno in classifica.</span>'}</div>
+  <p class="mut" style="font-size:13px">${fRk === 'pagate' ? 'Euro di multe pagate (e quante). Contano solo le multe già incassate dal tesoriere.' : 'Multe approvate, pagate o ancora da pagare. Non contano le proposte, quelle respinte e quelle annullate.'}</p>`;
+}
+
+// Gestione (admin, giudice, tesoriere)
+async function finesManage(nm) {
+  const judge = fJudge(), treas = fTreas(), lst = fList();
+  const [fs, types, roles, dueDays] = await Promise.all([
+    q(sb.from('fines').select('*').order('fined_on', { ascending: false }).order('created_at', { ascending: false })),
+    q(sb.from('fine_types').select('*').order('name')), fRoles(), fDueDays()]);
+  curFines = fs; curTypes = types;
+  fSel = new Set([...fSel].filter(id => fs.some(f => f.id === id && f.status === 'approved')));
+  const prop = fs.filter(f => f.status === 'proposed'), due = fs.filter(f => f.status === 'approved'), hist = fs.filter(f => ['paid', 'rejected', 'cancelled'].includes(f.status));
+  if (prop.length && judge && !autoOpen.has('fprop')) { autoOpen.add('fprop'); openG.add('f-prop'); }
+  const actT = types.filter(t => t.active);
+  // ruoli e persone
+  let h = `<div class="card"><p class="ak" style="margin:0 0 4px">👥 Ruoli</p>${rolesInner(roles)}<p class="mut" style="font-size:13px;margin:6px 0 0">I ruoli si sommano. Li assegna l’admin dal Menu admin, con le spunte «⚖️ Giudice multe» e «💰 Tesoriere» nella scheda di ogni account.</p></div>`;
+  // riepilogo del mese (come in Paynalty): multe assegnate nel mese, pagate e da pagare, giocatore per giocatore
+  const valid = fs.filter(f => f.status === 'approved' || f.status === 'paid'), ms = monthList(valid.map(f => f.fined_on));
+  const sel = valid.filter(f => inMonth(f.fined_on)), sp = fSum(sel.filter(f => f.status === 'paid')), sd = fSumE(sel.filter(f => f.status === 'approved'));
+  const per = {}; sel.forEach(f => { const k = fKey(f), x = per[k] ??= { pid: k, tot: 0, due: 0 }; x.tot += fAmt(f); if (f.status === 'approved') x.due += fAmt(f); });
+  h += `<div class="card">${monthChips(ms)}<p class="ak" style="margin:8px 0 6px">Multe assegnate${fMonth === 'tot' ? '' : ' a ' + monthLbl(fMonth)} · ${sel.length}</p>
+    <div class="fbar"><i style="width:${sp + sd ? Math.round(sp / (sp + sd) * 100) : 0}%"></i></div><div class="row mut" style="font-size:13px;margin:4px 0 6px"><span>${eur(sp)} pagate</span><span>${eur(sd)} da pagare</span></div>
+    ${Object.values(per).sort((a, b) => b.tot - a.tot).map(x => `<div class="row" style="padding:5px 0;border-top:1px dashed var(--line)"><b class="f">${esc(nm(x.pid))}</b><span>${eur(x.tot)}</span><span style="min-width:24px;text-align:right" title="${x.due ? 'da pagare ' + eur(x.due) : 'tutto pagato'}">${x.due ? '<span class="mut">⏳</span>' : '✓'}</span></div>`).join('') || '<p class="mut" style="margin:0">Nessuna multa in questo periodo.</p>'}</div>`;
+  // proposte in attesa
+  h += grp('f-prop', '⏳ Proposte in attesa', prop.length,
+    prop.map(f => fineRow(f, nm, judge ? fBtn('✓ Approva', `fineReview('${f.id}',true)`, '') + fBtn('✕ Respingi', `fineReview('${f.id}',false)`, 'r')
+      : f.created_by === me.id ? fBtn('Ritira', `fineWithdraw('${f.id}')`) : '')).join(''),
+    judge ? 'Multe proposte dall’admin o dal tesoriere: se le approvi diventano da pagare.' : 'Le approva o le respinge il giudice.', prop.length ? 'c-todo' : '');
+  // nuova multa
+  h += `<h3>${judge ? '⚖️ Assegna una multa' : '📨 Proponi una multa'}</h3><div class="card">
+    <select id="fxp"><option value="">Chi?</option>${F_KIND.map(([k, l]) => { const xs = fPeople.filter(x => x.kind === k).sort((a, b) => fByName(a.name, b.name));
+      return xs.length ? `<optgroup label="${l}">${xs.map(x => `<option value="${x.person_key}">${esc(x.name)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select>
+    <select id="fxt" onchange="onFineType()"><option value="">Tipo di multa…</option>${actT.map(t => `<option value="${t.id}">${esc(t.name)} · ${eur(t.amount)}</option>`).join('')}<option value="_">✏️ Altro (scrivilo nella nota)</option></select>
+    <div class="row"><input id="fxa" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Importo €"><input id="fxd" type="date" value="${todayStr()}"></div>
+    <input id="fxn" placeholder="Nota (es. «15 minuti di ritardo»)">
+    <button onclick="addFine()">${judge ? 'Assegna la multa' : 'Invia al giudice'}</button>
+    ${judge ? '' : '<p class="mut" style="font-size:13px;margin:6px 0 0">La multa diventa valida solo quando il giudice la approva.</p>'}
+    ${actT.length ? '' : `<p class="mut" style="font-size:13px;margin:6px 0 0">Il listino è vuoto: ${lst ? 'aggiungi le voci qui sotto, in «Listino».' : 'chiedi all’admin o al giudice di compilarlo.'}</p>`}</div>`;
+  // da incassare: una scheda per persona, in ordine alfabetico (la lista del tesoriere)
+  const byP = {}; due.forEach(f => (byP[fKey(f)] ??= []).push(f));
+  const groups = Object.entries(byP).sort((a, b) => fByName(nm(a[0]), nm(b[0])));
+  fCard = groups.map(([k, list]) => ({ name: nm(k), tot: fSumE(list), n: list.length, late: list.filter(fLate).length,
+    next: list.filter(f => f.due_on && !f.double_waived && !fLate(f)).map(f => f.due_on).sort()[0] || null }));
+  h += `<div class="row" style="align-items:center;margin-top:18px"><h3 class="f" style="margin:0">💸 Da incassare · ${eur(fSumE(due))}</h3>${groups.length ? `<button class="g s" onclick="showFinesCard()">📸 Card</button>` : ''}</div>
+    <p class="mut" style="font-size:13px">In ordine alfabetico.${treas && due.length ? ' Spunta le multe che ti hanno pagato (anche più di una insieme, o «Tutte» per una persona) e premi «Segna pagate».' : ''} «📸 Card» prepara l’elenco da condividere nel gruppo.</p>
+    ${groups.map(([pid, list]) => `<div class="fpg"><div class="fph"><b>${esc(nm(pid))}</b><span><b>${eur(fSumE(list))}</b>${treas ? ` <button class="g s" onclick="fSelAll('${pid}')">Tutte</button>` : ''}</span></div>
+      ${list.map(f => fineRow(f, null, (fCanWaive(f) ? fBtn('🙏 Togli raddoppio', `fineWaive('${f.id}')`) : '') + (judge ? fBtn('🚫 Annulla', `fineCancel('${f.id}')`) : ''),
+        treas ? `<input type="checkbox" class="fck" data-id="${f.id}" data-amt="${fAmt(f)}" data-pid="${pid}" ${fSel.has(f.id) ? 'checked' : ''} onchange="fSelToggle(this)" aria-label="Seleziona">` : '')).join('')}</div>`).join('') || '<div class="card mut">Nessuna multa da incassare.</div>'}
+    ${treas ? `<div class="cbar" id="fpay" style="display:none"><span><b id="fpn">0</b> <span id="fpt"></span></span><button class="s" onclick="payFines()">💰 Segna pagate</button></div>` : ''}`;
+  // storico
+  h += grp('f-hist', '📜 Storico', hist.length, hist.slice(0, 100).map(f => fineRow(f, nm, (fCanWaive(f) ? fBtn('🙏 Togli raddoppio', `fineWaive('${f.id}')`) : '') + (treas && f.status === 'paid' ? fBtn('↩️ Annulla incasso', `fineUnpay('${f.id}')`) : ''))).join(''),
+    'Multe pagate, respinte e annullate' + (hist.length > 100 ? ' (le ultime 100).' : '.'));
+  // scadenza e raddoppio
+  h += grp('f-due', '⏰ Scadenza e raddoppio', dueDays ? `${dueDays} giorni` : 'spenta', lst
+    ? `<div class="row"><span class="f">Giorni per pagare prima che la multa raddoppi (0 = mai)</span><input id="fdd" type="number" min="0" max="365" inputmode="numeric" value="${dueDays}" style="width:90px"></div><button onclick="saveDueDays()">💾 Salva</button>`
+    : `<p class="mut" style="margin:0">${dueDays ? `Le multe vanno pagate entro ${dueDays} giorni, poi raddoppiano.` : 'Le multe non hanno scadenza.'}</p>`,
+    'I giorni contano da quando la multa diventa valida (assegnata dal giudice o approvata). La regola vale per le multe date da quel momento in poi: quelle già date tengono la loro scadenza. Una multa raddoppia una volta sola. Se è giusto (per esempio la scadenza cade in giorni senza allenamenti), giudice e tesoriere possono toccare «🙏 Togli raddoppio» sulla multa: anche prima della scadenza, anche dopo, anche se è già stata pagata raddoppiata.');
+  // listino
+  const typeRow = t => fEdit === t.id
+    ? `<div class="cred"><input id="lyn" value="${esc(t.name)}"><div class="row"><input id="lya" type="number" min="0" step="0.5" inputmode="decimal" value="${t.amount}" style="width:120px"><input id="lyd" placeholder="Descrizione (facoltativa)" value="${esc(t.description || '')}"></div>
+      <div class="row" style="justify-content:flex-end">${fBtn('Annulla', 'fEdit=null;render(true)')}${fBtn('💾 Salva', `saveType('${t.id}')`, '')}</div></div>`
+    : `<div class="frow${t.active ? '' : ' off'}"><div class="f"><b>${esc(t.name)}</b>${t.active ? '' : ' <span class="tag">disattivata</span>'}${t.description ? `<small>${esc(t.description)}</small>` : ''}
+      ${lst ? `<span class="ab" style="margin-top:6px">${fBtn('✏️ Modifica', `fEdit='${t.id}';render(true)`)}${fBtn(t.active ? 'Disattiva' : 'Riattiva', `toggleType('${t.id}',${!t.active})`)}</span>` : ''}</div><b class="famt">${eur(t.amount)}</b></div>`;
+  h += grp('f-list', '📋 Listino', `${actT.length} ${actT.length === 1 ? 'attiva' : 'attive'}`, `${types.map(typeRow).join('') || '<p class="mut">Nessuna voce.</p>'}
+    ${lst ? `<div class="card" style="margin:10px 0 0"><p class="ak">➕ Nuova voce</p><input id="lnn" placeholder="Nome (es. «Ritardo allenamento»)"><div class="row"><input id="lna" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Importo €" style="width:140px"><input id="lnd" placeholder="Descrizione (facoltativa)"></div><button onclick="addType()">Aggiungi al listino</button></div>` : ''}`,
+    lst ? 'Se cambi un importo, le multe già date restano con l’importo di allora. Le voci non si eliminano: si disattivano, così spariscono dalle nuove multe ma lo storico resta corretto.' : 'Lo modificano l’admin e il giudice.');
+  return h;
+}
+
+// Cassa (giudice e tesoriere): incassi, uscite, saldo
+async function finesCash() {
+  const [paid, due, ex0] = await Promise.all([q(sb.from('fines').select('amount,paid_at').eq('status', 'paid')), q(sb.from('fines').select('amount,status,due_on').eq('status', 'approved')),
+    q(sb.from('cash_expenses').select('*').order('spent_on', { ascending: false }).order('created_at', { ascending: false }))]);
+  const bal = fSum(paid) - fSum(ex0), ms = monthList(paid.map(f => f.paid_at && dtLocal(f.paid_at).slice(0, 10)).concat(ex0.map(e => e.spent_on)));
+  const pm = paid.filter(f => inMonth(f.paid_at && dtLocal(f.paid_at).slice(0, 10))), ex = ex0.filter(e => inMonth(e.spent_on));
+  const inc = fSum(pm), out = fSum(ex), per = fMonth === 'tot' ? '' : ' a ' + monthLbl(fMonth);
+  return `<div class="card wal" style="cursor:default"><span class="wi">🏦</span><div class="f"><b>Saldo cassa</b><div class="wbig">${eur(bal)}</div><div class="mut" style="font-size:13px">Ancora da incassare: ${eur(fSumE(due))}</div></div></div>
+  ${monthChips(ms)}
+  <div class="stats" style="grid-template-columns:repeat(3,1fr)"><div><b>${eur(inc)}</b><span>Entrate${per}</span></div><div><b>${eur(out)}</b><span>Uscite${per}</span></div><div><b>${eur(inc - out)}</b><span>Bilancio${per}</span></div></div>
+  <p class="mut" style="font-size:13px">Entrate = multe incassate nel periodo. Cassa e uscite le vedono solo giudice e tesoriere.</p>
+  <h3>➖ Registra un’uscita</h3><div class="card"><input id="exd" placeholder="Per cosa? (es. «Cena di fine girone»)"><div class="row"><input id="exa" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Importo €"><input id="exo" type="date" value="${todayStr()}"></div><button onclick="addExpense()">Registra l’uscita</button></div>
+  <h3>Uscite${per} (${ex.length})</h3><div class="card">${ex.map(e => `<div class="frow"><div class="f"><b>${esc(e.description)}</b><small>${fDay(e.spent_on)}${e.created_by_name ? ' · registrata da ' + esc(e.created_by_name) : ''}</small><span class="ab" style="margin-top:6px">${fBtn('✕ Elimina', `delExpense('${e.id}')`, 'r')}</span></div><b class="famt">−${eur(e.amount)}</b></div>`).join('') || '<span class="mut">Nessuna uscita.</span>'}</div>`;
+}
+
+// --- azioni ---
+function onFineType() {
+  const t = curTypes.find(x => x.id === v('fxt'));
+  if (t) $('fxa').value = t.amount;
+  $('fxn').placeholder = v('fxt') === '_' ? 'Scrivi per cosa è la multa' : 'Nota (es. «15 minuti di ritardo»)';
+}
+function addFine() {
+  const pid = v('fxp'), tid = v('fxt'), amt = money(v('fxa')), note = v('fxn') || null, d = v('fxd') || todayStr();
+  if (!pid) return alert('Scegli chi ha preso la multa.');
+  if (!tid) return alert('Scegli il tipo di multa.');
+  if (tid === '_' && !note) return alert('Scrivi nella nota per cosa è la multa.');
+  if (!(amt > 0)) return alert('Inserisci un importo maggiore di zero.');
+  const t = curTypes.find(x => x.id === tid), judge = fJudge(), who = fPeople.find(x => x.person_key === pid);
+  if (!who) return alert('Persona non trovata: ricarica la pagina.');
+  act(() => q(sb.from('fines').insert({ ...(who.player_id ? { player_id: who.player_id } : { profile_id: who.profile_id }), type_id: t ? t.id : null, type_name: t ? t.name : 'Altro', amount: amt, note, fined_on: d, status: judge ? 'approved' : 'proposed' })),
+    true, judge ? 'Multa assegnata ✓' : 'Proposta inviata al giudice ✓').then(pokeNotif);
+}
+function fineReview(id, ok) {
+  let note = null;
+  if (!ok) { note = prompt('Perché la respingi? (facoltativo: lo vede chi l’ha proposta)', ''); if (note === null) return; }
+  act(() => q(sb.rpc('fine_review', { p_fine: id, p_ok: ok, p_note: note })), true, ok ? 'Multa approvata ✓' : 'Proposta respinta ✓').then(pokeNotif);
+}
+function fineCancel(id) {
+  const note = prompt('Perché annulli questa multa? (es. «inserita per errore»)', '');
+  if (note === null) return;
+  if (!note.trim()) return alert('Scrivi il motivo: resta nello storico.');
+  act(() => q(sb.rpc('fine_cancel', { p_fine: id, p_note: note.trim() })), true, 'Multa annullata ✓');
+}
+function fineWaive(id) {
+  const f = curFines.find(x => x.id === id); if (!f) return;
+  const msg = f.status === 'paid' ? `Togliere il raddoppio? La multa torna a ${eur(f.amount / 2)} e la differenza va restituita.`
+    : fLate(f) ? `Togliere il raddoppio? La multa torna a ${eur(f.amount)}.` : 'Togliere il raddoppio? Questa multa non raddoppierà, anche se viene pagata dopo la scadenza.';
+  if (!confirm(msg)) return;
+  act(() => q(sb.rpc('fine_waive', { p_fine: id })), true, 'Raddoppio tolto ✓');
+}
+const fineWithdraw = id => confirm('Ritirare questa proposta?') && act(() => q(sb.from('fines').delete().eq('id', id)), true, 'Proposta ritirata ✓');
+const fineUnpay = id => confirm('Annullare l’incasso? La multa torna «da pagare».') && act(() => q(sb.rpc('fine_unpay', { p_fine: id })), true, 'Incasso annullato ✓');
+// selezione delle multe da segnare pagate (senza ridisegnare la pagina)
+function fSelUpd() {
+  const bar = $('fpay'); if (!bar) return;
+  const ck = [...document.querySelectorAll('.fck:checked')];
+  bar.style.display = ck.length ? '' : 'none';
+  $('fpn').textContent = ck.length;
+  $('fpt').textContent = (ck.length === 1 ? 'multa · ' : 'multe · ') + eur(ck.reduce((t, x) => t + Number(x.dataset.amt), 0));
+}
+function fSelToggle(el) { el.checked ? fSel.add(el.dataset.id) : fSel.delete(el.dataset.id); fSelUpd(); }
+function fSelAll(pid) {
+  const xs = [...document.querySelectorAll('.fck')].filter(x => x.dataset.pid === pid), on = !xs.every(x => x.checked);
+  xs.forEach(x => { x.checked = on; on ? fSel.add(x.dataset.id) : fSel.delete(x.dataset.id); }); fSelUpd();
+}
+function payFines() {
+  const ids = [...fSel]; if (!ids.length) return;
+  const tot = fSumE(curFines.filter(f => ids.includes(f.id)));
+  if (!confirm(`Segnare come pagate ${ids.length} ${ids.length === 1 ? 'multa' : 'multe'} per un totale di ${eur(tot)}?`)) return;
+  act(async () => { await q(sb.rpc('fine_pay', { p_fines: ids })); fSel.clear(); }, true, `Incassati ${eur(tot)} ✓`);
+}
+function addType() {
+  const n = v('lnn'), a = money(v('lna'));
+  if (!n) return alert('Scrivi il nome della multa.');
+  if (!(a > 0)) return alert('Inserisci un importo maggiore di zero.');
+  act(() => q(sb.from('fine_types').insert({ name: n, amount: a, description: v('lnd') || null })), true, 'Voce aggiunta al listino ✓');
+}
+function saveType(id) {
+  const n = v('lyn'), a = money(v('lya'));
+  if (!n) return alert('Il nome non può essere vuoto.');
+  if (!(a > 0)) return alert('Inserisci un importo maggiore di zero.');
+  act(async () => { await q(sb.from('fine_types').update({ name: n, amount: a, description: v('lyd') || null }).eq('id', id)); fEdit = null; }, true, 'Listino aggiornato ✓');
+}
+function saveDueDays() {
+  const n = Math.round(Number(v('fdd')));
+  if (!Number.isInteger(n) || n < 0 || n > 365) return alert('Inserisci un numero di giorni tra 0 e 365 (0 = le multe non raddoppiano).');
+  act(() => q(sb.from('fine_settings').update({ due_days: n }).eq('id', 1)), true, n ? `Scadenza: ${n} giorni ✓` : 'Raddoppio spento ✓');
+}
+const toggleType = (id, on) => act(() => q(sb.from('fine_types').update({ active: on }).eq('id', id)), true, on ? 'Voce riattivata ✓' : 'Voce disattivata ✓');
+function addExpense() {
+  const d = v('exd'), a = money(v('exa'));
+  if (!d) return alert('Scrivi per cosa è l’uscita.');
+  if (!(a > 0)) return alert('Inserisci un importo maggiore di zero.');
+  act(() => q(sb.from('cash_expenses').insert({ description: d, amount: a, spent_on: v('exo') || todayStr() })), true, 'Uscita registrata ✓');
+}
+const delExpense = id => confirm('Eliminare questa uscita?') && act(() => q(sb.from('cash_expenses').delete().eq('id', id)), true, 'Uscita eliminata ✓');
+
+// Card verticale da screenshot (come quella dei cartellini): chi deve pagare, quanto ed entro quando.
+// In ordine alfabetico; si adatta da sola al numero di persone.
+async function showFinesCard() {
+  const c = fCard; if (!c.length) return;
+  const [roles, days] = await Promise.all([fRoles(), fDueDays()]);
+  const treas = roles.filter(r => r.is_treasurer).map(r => r.display_name);
+  const n = c.length, cols = n <= 12 ? 1 : n <= 30 ? 2 : n <= 48 ? 3 : 4;
+  const dd = d => new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'numeric' });
+  const tg = (cls, long, short) => `<em class="kt ${cls}"><span class="kl">${long}</span><span class="ks">${short}</span></em>`;
+  const tag = x => x.late ? tg('ksq', '⚠️ RADDOPPIATA', '⚠️') : x.next ? (x.next <= dAddLocal(todayStr(), 3) ? tg('kdf', '⏰ entro ' + dd(x.next), '⏰ ' + dd(x.next)) : `<em class="kt">entro ${dd(x.next)}</em>`) : '';
+  const tot = c.reduce((t, x) => t + x.tot, 0);
+  const ov = document.createElement('div'); ov.id = 'ov'; ov.className = 'sqov';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div class="ckw"><div class="ck"><div class="cki">
+    <div class="ckh"><b>Multe da pagare</b><span>aggiornate al ${new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })} · totale ${eur(tot)}</span></div>
+    <div class="ckl${cols >= 3 ? ' dense' : ''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${c.map(x => `<div class="kr${x.late ? ' ksq' : ''}"><span class="kn">${esc(x.name)}</span><span class="kc"><span>💸 ${eur(x.tot)}</span><span>${x.n} ${x.n === 1 ? 'multa' : 'multe'}</span></span>${tag(x)}</div>`).join('')}</div>
+    <div class="ckf">${treas.length ? `<div>💰 Paga a ${esc(listIt(treas))}</div>` : ''}${days ? `<div>⏰ Ogni multa va pagata entro ${days} giorni, poi raddoppia</div><div>⚠️ RADDOPPIATA: scadenza passata, l’importo è già doppio</div>` : ''}<div>La data è la prima scadenza tra le multe di ciascuno</div></div>
+    <img class="cksig" src="logo-bianco.png" alt="" onerror="this.remove()">
+  </div></div></div>
+  <p class="sqhint">Fai lo screenshot e ritaglia lungo la card. Tocca fuori dalla card per chiudere.</p>`;
+  document.body.appendChild(ov);
+  const back = () => ov.remove(); window.addEventListener('popstate', back, { once: true });
+  const ck = ov.querySelector('.ck'), inner = ov.querySelector('.cki');
+  const fit = () => { let f = cols === 1 ? 1.25 : 1; ck.style.setProperty('--f', f); while (inner.scrollHeight > ck.clientHeight && f > 0.3) { f -= 0.03; ck.style.setProperty('--f', f.toFixed(2)); } };
+  fit(); setTimeout(fit, 300); ov.querySelectorAll('img').forEach(im => im.addEventListener('load', fit));
+}
+const dAddLocal = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+
+
+// Sotto la classifica, per chi non gestisce le multe: solo a chi si pagano (e, se un giorno si accende, le multe di tutti)
+async function finesPlayerInfo(nm, pub) {
+  const treas = (await fRoles()).filter(r => r.is_treasurer).map(r => esc(r.display_name));
+  let h = treas.length ? `<div class="card">💰 Le multe si pagano a <b>${listIt(treas)}</b>.</div>` : '';
+  if (pub) {
+    const all = await q(sb.from('fines').select('*').in('status', ['approved', 'paid']).order('fined_on', { ascending: false }));
+    h += grp('fm-all', '👥 Multe di tutti', all.length, all.map(f => fineRow(f, nm)).join(''));
+  }
+  return h;
+}
+
+// Selettore in cima alle pagine di gestione, per chi nel menù in basso ha «Gestione partite (e multe)»: admin e mister
+function pmSwitch(on) {
+  const admin = isAdmin();
+  if (!admin && !prof.is_coach) return '';
+  const staff = admin || fJudge() || fTreas();
+  return `<div class="row" style="justify-content:flex-start;margin-bottom:4px"><button class="s ${on === 'p' ? '' : 'g'}" onclick="${admin ? "mg=null;go('n')" : "ck=null;go('k')"}">${admin ? '⚽ Partite' : '📋 Convocazioni'}</button>`
+    + `<button class="s ${on === 'f' ? '' : 'g'}" onclick="go('f')"><span class="nl">${staff ? '💰 Multe' : '🏆 Classifica multe'}${nb(navCnt.multe, 'multe da approvare')}</span></button></div>`;
+}
+
+// In cima a Lista partite, per tutti: a sinistra il borsellino (le mie multe da pagare), a destra il calendario
+async function topCardsHtml(my) {
+  const [mine, evs, live] = await Promise.all([
+    sb.from('fines').select('amount,status,due_on,double_waived').or(fMineOr(my && my.id)).eq('status', 'approved').then(r => r.error ? null : r.data || [], () => null),
+    loadCal().then(c => c.evs, () => []), fLive()]);
+  const t = todayStr(), hh = x => x ? x.replace(':', '.') : '';
+  const lbl = e => e.k === 'par' ? '⚽ Partita' : e.k === 'all' ? '🏃 Allenamento' : esc(e.title);
+  const day = d => d === t ? 'Oggi' : new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
+  const cal = `<div class="card" onclick="go('l')"><div class="th"><span>📅 Calendario</span><span class="calgo" style="font-size:20px;padding:0">›</span></div>
+    ${evs.slice(0, 2).map(e => ({ ...e, k: calKind(e.title) })).map(e => `<div class="tc1">${day(e.d)}${e.t ? ' ' + hh(e.t) : ''} · ${lbl(e)}</div>`).join('') || '<div class="tc1">Partite e allenamenti</div>'}</div>`;
+  if (mine === null) return `<div class="topc" style="grid-template-columns:1fr">${cal}</div>`; // multe non ancora attive
+  const d = fSumE(mine), late = mine.filter(fLate).length, next = mine.filter(f => f.due_on && !f.double_waived && !fLate(f)).map(f => f.due_on).sort()[0];
+  const wal = `<div class="card" onclick="go('w')"><div class="th"><span>👛 Multe${live ? '' : ' <span class="tag" style="font-size:11px">🧪 prova</span>'}</span><span class="calgo" style="font-size:20px;padding:0">›</span></div>
+    ${d ? `<b class="wbig">${eur(d)}</b><div class="tc1${late ? ' flate' : ''}">${late ? `⚠️ ${late === 1 ? '1 raddoppiata' : late + ' raddoppiate'}` : next ? `⏰ entro ${day(next).toLowerCase()}` : `${mine.length} da pagare`}</div>`
+      : '<b class="wbig">✓</b><div class="tc1">Tutto pagato</div>'}</div>`;
+  return `<div class="topc">${wal}${cal}</div>`;
+}
+
+// Borsellino: solo le mie multe ancora da pagare, e a chi pagarle
+async function walletView() {
+  const [pl, roles, live] = await Promise.all([q(sb.from('players').select('id').eq('profile_id', me.id)), fRoles(), fLive()]);
+  const fs = (await q(sb.from('fines').select('*').or(fMineOr(pl[0] && pl[0].id)).eq('status', 'approved')))
+    .sort((a, b) => String(a.due_on || '9999').localeCompare(String(b.due_on || '9999')));
+  const treas = roles.filter(r => r.is_treasurer).map(r => esc(r.display_name));
+  return `<button class="g s" onclick="go('p')">← Partite</button><h2>👛 Le mie multe</h2>${live ? '' : FINES_TEST_MSG}
+  <div class="stats" style="grid-template-columns:1fr 1fr"><div><b>${eur(fSumE(fs))}</b><span>Da pagare</span></div><div><b>${fs.length}</b><span>${fs.length === 1 ? 'Multa' : 'Multe'}</span></div></div>
+  <div class="card">${fs.map(f => fineRow(f)).join('') || '<span class="mut">Niente da pagare, bravo 😇</span>'}</div>
+  ${fs.length && treas.length ? `<p class="mut">💰 Si pagano a <b>${listIt(treas)}</b>.</p>` : ''}`;
+}
+
+// Interruttore «in prova / ufficiali» in cima alla Gestione (lo cambiano admin e giudice; il tesoriere lo vede soltanto)
+function liveCard(live) {
+  return `<div class="card${live ? '' : ' sugc'}"><p class="ak" style="margin:0 0 4px">🚦 Avvio delle multe</p>
+    <p style="margin:0 0 6px">${live ? '✅ <b>Ufficiali</b>: i giocatori fanno affidamento sul sito per le multe.' : '🧪 <b>In prova</b>: potete caricare e provare le multe. I giocatori vedono un avviso che le multe non sono ancora ufficiali e non ricevono notifiche sulle loro multe.'}</p>
+    ${fList() ? `<button class="${live ? 'g' : ''}" onclick="setLive(${!live})">${live ? '🧪 Torna in prova' : '🚀 Rendi ufficiali le multe'}</button>` : '<p class="mut" style="font-size:13px;margin:0">Lo decidono l’admin e il giudice.</p>'}</div>`;
+}
+function setLive(on) {
+  if (!confirm(on ? 'Rendere ufficiali le multe?\n\nDa ora i giocatori non vedranno più l’avviso «in prova» e riceveranno le notifiche sulle loro multe. Prima annulla (o fai annullare dal giudice) le multe di prova.'
+    : 'Rimettere le multe in prova?\n\nI giocatori vedranno di nuovo l’avviso e non riceveranno notifiche sulle loro multe.')) return;
+  act(() => q(sb.from('fine_settings').update({ live: on }).eq('id', 1)), true, on ? 'Multe ufficiali ✓' : 'Multe in prova ✓');
+}
 
 setInterval(() => document.querySelectorAll('.cd').forEach(el => {
   const t = cdText(el.dataset.d);
