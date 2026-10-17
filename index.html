@@ -407,7 +407,7 @@ const v = id => $(id).value.trim();
 
 // ---------- ACCESSO ----------
 function authView(err = '') {
-  A.innerHTML = `<h1>${LOGO} MVP della Partita</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
+  A.innerHTML = `<h1>${LOGO} Pro Albettone</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
   ${regMode ? `<ol class="mut"><li>Scrivi nome e cognome, come ti chiamano in squadra.</li><li>Inserisci email e password (minimo 6 caratteri) e premi Registrati.</li><li>Aspetta che l’admin ti colleghi al tuo giocatore e ti abiliti al voto: fino ad allora puoi entrare, ma non votare.</li><li>Quando l’admin condivide nel gruppo il link di una partita, aprilo: se la votazione è aperta, puoi votare.</li><li>Consiglio: aggiungi il sito alla schermata Home del telefono.</li></ol>` : ''}
   ${err ? `<div class="err">${esc(err)}</div>` : ''}
   ${regMode ? '<div class="row"><input id="fn" placeholder="Nome"><input id="ln" placeholder="Cognome"></div>' : ''}
@@ -457,7 +457,7 @@ async function renderNow(keep) {
   try { prof = await profP; } catch (e) {}
   const cnt = await cntP; navCnt = cnt;
   if (JSON.stringify([prof.is_admin, prof.is_coach, prof.can_vote, prof.is_judge, prof.is_treasurer]) !== before) return render(keep);
-  A.innerHTML = `<div class="top"><h1>${LOGO} MVP</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
+  A.innerHTML = `<div class="top"><h1>${LOGO}</h1><div style="text-align:right"><div class="mut">${esc(prof.display_name)}${admin ? ' · admin' : ''}${prof.is_coach ? ' · mister' : ''}</div>
   ${admin ? `<button class="g s on-pill" onclick="go('o')" title="Chi ha il sito aperto ora">🟢 <span id="onl">${onlineIds.length}</span> online</button> ` : ''}${prof.is_admin ? `<button class="g s" onclick="togglePreview()">${asPlayer ? 'Vista admin' : 'Vista giocatore'}</button> ` : ''}${isApp ? '' : `<button class="g s" onclick="go('i')">📲 App</button> `}<button class="g s" onclick="go('x')" title="Notifiche" aria-label="Notifiche">🔔</button> <button class="g s" onclick="logout()">Esci</button></div></div>
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
