@@ -2924,7 +2924,7 @@ async function finesManage(nm) {
   fCard = groups.map(([k, list]) => ({ name: nm(k), tot: fSumE(list), n: list.length, late: list.filter(fLate).length,
     next: list.filter(f => f.due_on && !f.double_waived && !fLate(f)).map(f => f.due_on).sort()[0] || null }));
   h += `<div class="row" style="align-items:center;margin-top:18px"><h3 class="f" style="margin:0">💸 Da incassare · ${eur(fSumE(due))}</h3>${groups.length ? `<button class="g s" onclick="showFinesCard()">📸 Card</button>` : ''}</div>
-    <p class="mut" style="font-size:13px">In ordine alfabetico.${treas && due.length ? ' Spunta le multe che ti hanno pagato (anche più di una insieme, o «Tutte» per una persona) e premi «Segna pagate».' : ''} «📸 Card» prepara l’elenco da condividere nel gruppo.</p>
+    ${due.length ? `<p class="mut" style="font-size:13px">In ordine alfabetico.${treas ? ' Spunta le multe che ti hanno pagato (anche più di una insieme, o «Tutte» per una persona) e premi «Segna pagate».' : ''} «📸 Card» prepara l’elenco da condividere nel gruppo.</p>` : ''}
     ${groups.map(([pid, list]) => `<div class="fpg"><div class="fph"><b>${esc(nm(pid))}</b><span><b>${eur(fSumE(list))}</b>${treas ? ` <button class="g s" onclick="fSelAll('${pid}')">Tutte</button>` : ''}</span></div>
       ${list.map(f => fineRow(f, null, (fCanWaive(f) ? fBtn('🙏 Togli raddoppio', `fineWaive('${f.id}')`) : '') + (judge ? fBtn('🚫 Annulla', `fineCancel('${f.id}')`) : ''),
         treas ? `<input type="checkbox" class="fck" data-id="${f.id}" data-amt="${fAmt(f)}" data-pid="${pid}" ${fSel.has(f.id) ? 'checked' : ''} onchange="fSelToggle(this)" aria-label="Seleziona">` : '')).join('')}</div>`).join('') || '<div class="card mut">Nessuna multa da incassare.</div>'}
