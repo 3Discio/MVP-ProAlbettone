@@ -294,6 +294,8 @@ nav button.wrap{white-space:normal;line-height:1.05}
 body.kb nav{display:none}
 /* iPhone: se iOS lascia il menù sollevato, lo spazio sotto ha lo stesso colore del menù (niente fascia scura). Il menù non si sposta. */
 nav::after{content:'';position:absolute;left:0;right:0;top:100%;height:140px;background:inherit;pointer-events:none}
+/* la pagina scorre sempre almeno di un pixel: su iPhone serve a far ricalcolare lo schermo (vedi «Schermo iPhone» nel codice) */
+body{min-height:calc(100vh + 1px);min-height:calc(100dvh + 1px)}
 .lkl{column-gap:4cqw;padding-bottom:12cqw}.lkg{margin-bottom:calc(var(--f) * 2.2cqw)}.lkc{break-after:avoid;break-inside:avoid}
 .lkc{margin:0 0 calc(var(--f) * .8cqw);font:600 calc(var(--f) * 3.4cqw) Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid rgba(255,255,255,.35);padding-bottom:.6cqw}
 .lkr{display:flex;align-items:flex-start;gap:2cqw;padding:calc(var(--f) * .7cqw) 0;break-inside:avoid;border-bottom:1px dashed rgba(255,255,255,.15)}
@@ -3173,6 +3175,19 @@ function showListinoCard() {
   const fit = () => { let f = 1.3; ck.style.setProperty('--f', f); while (inner.scrollHeight > ck.clientHeight && f > 0.3) { f -= 0.03; ck.style.setProperty('--f', f.toFixed(2)); } };
   fit(); setTimeout(fit, 300); ov.querySelectorAll('img').forEach(im => im.addEventListener('load', fit));
 }
+
+// Schermo iPhone (sito aperto come app): se la pagina è corta e non scorre, iOS a volte lascia lo schermo «accorciato»
+// e il menù in basso resta sollevato con una fascia scura sotto. Basta uno scorrimento perché iOS ricalcoli tutto:
+// lo facciamo noi, di un pixel e subito indietro (non si vede). Il menù non viene spostato a mano.
+(() => {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const app = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  if (!ios || !app) return;
+  const nudge = () => { if (window.scrollY > 0 || document.hidden) return; window.scrollTo(0, 1); requestAnimationFrame(() => setTimeout(() => window.scrollY <= 1 && window.scrollTo(0, 0), 30)); };
+  [300, 1200, 2500].forEach(ms => setTimeout(nudge, ms));
+  window.addEventListener('pageshow', () => setTimeout(nudge, 300));
+  document.addEventListener('visibilitychange', () => !document.hidden && setTimeout(nudge, 300));
+})();
 
 setInterval(() => document.querySelectorAll('.cd').forEach(el => {
   const t = cdText(el.dataset.d);
