@@ -291,6 +291,12 @@ body.loading #busy{opacity:1;transition-delay:.2s}
 .fpg{border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin:8px 0}.fpg .fph{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0}
 .frk.me{background:color-mix(in srgb,var(--team) 18%,transparent);border-radius:10px;padding:6px 8px!important;margin:0 -8px}
 nav button.wrap{white-space:normal;line-height:1.05}
+.famt{flex:none;min-width:84px;text-align:right;font-variant-numeric:tabular-nums}
+.lcat{margin:4px 0 14px}.lch{font:500 15px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--hl);margin:0 0 2px;padding-bottom:4px;border-bottom:2px solid var(--line)}.lch span{color:var(--mut);font-size:12px;margin-left:4px}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:6px;align-items:start;padding:10px 0;border-bottom:1px dashed var(--line)}.lrow:last-child{border-bottom:0}.lrow.off{opacity:.55}
+.lrow .lnm b{display:block;line-height:1.25}.lrow .lnm small{display:block;color:var(--mut);font-size:13px;margin-top:2px}
+.lpr{min-width:78px;text-align:center;background:var(--team);color:#fff;border-radius:8px;padding:3px 8px;font:700 17px Oswald,Impact,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lrow .lab{grid-column:1/-1;display:flex;gap:6px}.lrow .lab button{padding:4px 12px;font-size:13px;min-height:0}
 .topc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:10px 0}.topc .card{margin:0;padding:10px 12px;cursor:pointer;min-width:0}
 .topc .th{display:flex;justify-content:space-between;align-items:center;gap:6px;font:500 14px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--hl)}
 .topc .tc1{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topc .wbig{display:block;margin:2px 0}
@@ -2802,6 +2808,11 @@ const FINES_TEST_MSG = `<div class="warn"><b>🧪 Multe in prova.</b> Il passagg
 const fRoles = () => sb.rpc('fines_roles').then(r => r.error ? [] : r.data || [], () => []);
 const rolesInner = roles => ROLE_INFO.map(([k, t, d]) => { const who = roles.filter(r => r[k]);
   return `<div class="role"><b>${t}</b><div class="who">${who.map(r => `<span class="tag">${esc(r.display_name)}</span>`).join('') || '<span class="mut">Nessuno</span>'}</div><div class="mut" style="font-size:13px">${d}</div></div>`; }).join('');
+// Tipologie del listino (Allenamento, Partita, Spogliatoio…): testo libero, con i suggerimenti di quelle già usate
+const tCat = t => (t.category || '').trim();
+const tCats = types => [...new Set(types.map(tCat).filter(Boolean))].sort(fByName);
+const tFull = t => tCat(t) ? tCat(t) + ' | ' + t.name : t.name;   // nome salvato sulla multa (copia)
+const catList = types => `<datalist id="fcats">${tCats(types).map(c => `<option value="${esc(c)}">`).join('')}</datalist>`;
 const fBtn = (lb, fn, cls = 'g') => `<button class="${cls} s" onclick="${fn}">${lb}</button>`;
 // Riga di una multa. nm = nome del giocatore (se va mostrato), actions = pulsanti, chk = casella di selezione
 function fineRow(f, nm, actions = '', chk = '') {
@@ -2876,7 +2887,10 @@ async function finesManage(nm) {
   h += `<h3>${judge ? '⚖️ Assegna una multa' : '📨 Proponi una multa'}</h3><div class="card">
     <select id="fxp"><option value="">Chi?</option>${F_KIND.map(([k, l]) => { const xs = fPeople.filter(x => x.kind === k).sort((a, b) => fByName(a.name, b.name));
       return xs.length ? `<optgroup label="${l}">${xs.map(x => `<option value="${x.person_key}">${esc(x.name)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select>
-    <select id="fxt" onchange="onFineType()"><option value="">Tipo di multa…</option>${actT.map(t => `<option value="${t.id}">${esc(t.name)} · ${eur(t.amount)}</option>`).join('')}<option value="_">✏️ Altro (scrivilo nella nota)</option></select>
+    <select id="fxt" onchange="onFineType()"><option value="">Tipo di multa…</option>${[...tCats(actT), ''].map(c => { const xs = actT.filter(t => tCat(t) === c); if (!xs.length) return '';
+      const o = xs.map(t => `<option value="${t.id}">${esc(t.name)} · ${eur(t.amount)}</option>`).join(''); return `<optgroup label="${esc(c || 'Altre')}">${o}</optgroup>`; }).join('')}
+      <optgroup label="Fuori listino"><option value="_">✏️ Multa personalizzata…</option></optgroup></select>
+    <input id="fxc" placeholder="Nome della multa (es. «Pallone calciato in tribuna»)" style="display:none">
     <div class="row"><input id="fxa" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Importo €"><input id="fxd" type="date" value="${todayStr()}"></div>
     <input id="fxn" placeholder="Nota (es. «15 minuti di ritardo»)">
     <button onclick="addFine()">${judge ? 'Assegna la multa' : 'Invia al giudice'}</button>
@@ -2902,14 +2916,20 @@ async function finesManage(nm) {
     : `<p class="mut" style="margin:0">${dueDays ? `Le multe vanno pagate entro ${dueDays} giorni, poi raddoppiano.` : 'Le multe non hanno scadenza.'}</p>`,
     'I giorni contano da quando la multa diventa valida (assegnata dal giudice o approvata). La regola vale per le multe date da quel momento in poi: quelle già date tengono la loro scadenza. Una multa raddoppia una volta sola. Se è giusto (per esempio la scadenza cade in giorni senza allenamenti), giudice e tesoriere possono toccare «🙏 Togli raddoppio» sulla multa: anche prima della scadenza, anche dopo, anche se è già stata pagata raddoppiata.');
   // listino
+  const typeForm = (t, pfx) => `<input id="${pfx}c" list="fcats" placeholder="Tipologia (es. Partita)" value="${esc(t ? tCat(t) : '')}">
+      <input id="${pfx}n" placeholder="Nome (es. «Ritardo ingiustificato»)" value="${esc(t ? t.name : '')}">
+      <div class="row"><input id="${pfx}a" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Importo €" value="${t ? t.amount : ''}" style="width:130px;flex:none"><input id="${pfx}d" placeholder="Info (facoltativa)" value="${esc(t ? t.description || '' : '')}"></div>`;
   const typeRow = t => fEdit === t.id
-    ? `<div class="cred"><input id="lyn" value="${esc(t.name)}"><div class="row"><input id="lya" type="number" min="0" step="0.5" inputmode="decimal" value="${t.amount}" style="width:120px"><input id="lyd" placeholder="Descrizione (facoltativa)" value="${esc(t.description || '')}"></div>
-      <div class="row" style="justify-content:flex-end">${fBtn('Annulla', 'fEdit=null;render(true)')}${fBtn('💾 Salva', `saveType('${t.id}')`, '')}</div></div>`
-    : `<div class="frow${t.active ? '' : ' off'}"><div class="f"><b>${esc(t.name)}</b>${t.active ? '' : ' <span class="tag">disattivata</span>'}${t.description ? `<small>${esc(t.description)}</small>` : ''}
-      ${lst ? `<span class="ab" style="margin-top:6px">${fBtn('✏️ Modifica', `fEdit='${t.id}';render(true)`)}${fBtn(t.active ? 'Disattiva' : 'Riattiva', `toggleType('${t.id}',${!t.active})`)}</span>` : ''}</div><b class="famt">${eur(t.amount)}</b></div>`;
-  h += grp('f-list', '📋 Listino', `${actT.length} ${actT.length === 1 ? 'attiva' : 'attive'}`, `${types.map(typeRow).join('') || '<p class="mut">Nessuna voce.</p>'}
-    ${lst ? `<div class="card" style="margin:10px 0 0"><p class="ak">➕ Nuova voce</p><input id="lnn" placeholder="Nome (es. «Ritardo allenamento»)"><div class="row"><input id="lna" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Importo €" style="width:140px"><input id="lnd" placeholder="Descrizione (facoltativa)"></div><button onclick="addType()">Aggiungi al listino</button></div>` : ''}`,
-    lst ? 'Se cambi un importo, le multe già date restano con l’importo di allora. Le voci non si eliminano: si disattivano, così spariscono dalle nuove multe ma lo storico resta corretto.' : 'Lo modificano l’admin e il giudice.');
+    ? `<div class="cred">${typeForm(t, 'ly')}<div class="row" style="justify-content:flex-end">${fBtn('Annulla', 'fEdit=null;render(true)')}${fBtn('💾 Salva', `saveType('${t.id}')`, '')}</div></div>`
+    : `<div class="lrow${t.active ? '' : ' off'}"><div class="lnm"><b>${esc(t.name)}</b>${t.active ? '' : ' <span class="tag">disattivata</span>'}${t.description ? `<small>${esc(t.description)}</small>` : ''}</div>
+      <span class="lpr">${eur(t.amount)}</span>
+      ${lst ? `<span class="lab">${fBtn('✏️', `fEdit='${t.id}';render(true)`)}${fBtn(t.active ? 'Disattiva' : 'Riattiva', `toggleType('${t.id}',${!t.active})`)}</span>` : ''}</div>`;
+  const cats = [...tCats(types), ''].filter(c => types.some(t => tCat(t) === c));
+  const byCat = cats.map(c => { const xs = types.filter(t => tCat(t) === c).sort((a, b) => (b.active - a.active) || fByName(a.name, b.name));
+    return `<div class="lcat"><p class="lch">${esc(c || 'Senza tipologia')} <span>${xs.filter(t => t.active).length}</span></p>${xs.map(typeRow).join('')}</div>`; }).join('');
+  h += grp('f-list', '📋 Listino', `${actT.length} ${actT.length === 1 ? 'attiva' : 'attive'}`, `${catList(types)}${byCat || '<p class="mut">Nessuna voce.</p>'}
+    ${lst ? `<div class="card" style="margin:10px 0 0"><p class="ak">➕ Nuova voce</p>${typeForm(null, 'ln')}<button onclick="addType()">Aggiungi al listino</button></div>` : ''}`,
+    lst ? 'Le voci sono raggruppate per tipologia. Se cambi un importo, le multe già date restano con l’importo di allora. Le voci non si eliminano: si disattivano, così spariscono dalle nuove multe ma lo storico resta corretto.' : 'Lo modificano l’admin e il giudice.');
   return h;
 }
 
@@ -2930,19 +2950,21 @@ async function finesCash() {
 
 // --- azioni ---
 function onFineType() {
-  const t = curTypes.find(x => x.id === v('fxt'));
-  if (t) $('fxa').value = t.amount;
-  $('fxn').placeholder = v('fxt') === '_' ? 'Scrivi per cosa è la multa' : 'Nota (es. «15 minuti di ritardo»)';
+  const t = curTypes.find(x => x.id === v('fxt')), cu = v('fxt') === '_';
+  if (t) $('fxa').value = t.amount; else if (cu) $('fxa').value = '';
+  $('fxc').style.display = cu ? '' : 'none';
+  if (cu) $('fxc').focus();
 }
 function addFine() {
   const pid = v('fxp'), tid = v('fxt'), amt = money(v('fxa')), note = v('fxn') || null, d = v('fxd') || todayStr();
   if (!pid) return alert('Scegli chi ha preso la multa.');
   if (!tid) return alert('Scegli il tipo di multa.');
-  if (tid === '_' && !note) return alert('Scrivi nella nota per cosa è la multa.');
+  const custom = tid === '_' ? v('fxc') : '';
+  if (tid === '_' && !custom) return alert('Scrivi il nome della multa personalizzata.');
   if (!(amt > 0)) return alert('Inserisci un importo maggiore di zero.');
   const t = curTypes.find(x => x.id === tid), judge = fJudge(), who = fPeople.find(x => x.person_key === pid);
   if (!who) return alert('Persona non trovata: ricarica la pagina.');
-  act(() => q(sb.from('fines').insert({ ...(who.player_id ? { player_id: who.player_id } : { profile_id: who.profile_id }), type_id: t ? t.id : null, type_name: t ? t.name : 'Altro', amount: amt, note, fined_on: d, status: judge ? 'approved' : 'proposed' })),
+  act(() => q(sb.from('fines').insert({ ...(who.player_id ? { player_id: who.player_id } : { profile_id: who.profile_id }), type_id: t ? t.id : null, type_name: t ? tFull(t) : custom, amount: amt, note, fined_on: d, status: judge ? 'approved' : 'proposed' })),
     true, judge ? 'Multa assegnata ✓' : 'Proposta inviata al giudice ✓').then(pokeNotif);
 }
 function fineReview(id, ok) {
@@ -2988,13 +3010,13 @@ function addType() {
   const n = v('lnn'), a = money(v('lna'));
   if (!n) return alert('Scrivi il nome della multa.');
   if (!(a > 0)) return alert('Inserisci un importo maggiore di zero.');
-  act(() => q(sb.from('fine_types').insert({ name: n, amount: a, description: v('lnd') || null })), true, 'Voce aggiunta al listino ✓');
+  act(() => q(sb.from('fine_types').insert({ category: v('lnc') || null, name: n, amount: a, description: v('lnd') || null })), true, 'Voce aggiunta al listino ✓');
 }
 function saveType(id) {
   const n = v('lyn'), a = money(v('lya'));
   if (!n) return alert('Il nome non può essere vuoto.');
   if (!(a > 0)) return alert('Inserisci un importo maggiore di zero.');
-  act(async () => { await q(sb.from('fine_types').update({ name: n, amount: a, description: v('lyd') || null }).eq('id', id)); fEdit = null; }, true, 'Listino aggiornato ✓');
+  act(async () => { await q(sb.from('fine_types').update({ category: v('lyc') || null, name: n, amount: a, description: v('lyd') || null }).eq('id', id)); fEdit = null; }, true, 'Listino aggiornato ✓');
 }
 function saveDueDays() {
   const n = Math.round(Number(v('fdd')));
