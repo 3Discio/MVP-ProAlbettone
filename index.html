@@ -291,6 +291,7 @@ body.loading #busy{opacity:1;transition-delay:.2s}
 .fpg{border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin:8px 0}.fpg .fph{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0}
 .frk.me{background:color-mix(in srgb,var(--team) 18%,transparent);border-radius:10px;padding:6px 8px!important;margin:0 -8px}
 nav button.wrap{white-space:normal;line-height:1.05}
+body.kb nav{display:none}
 .famt{flex:none;min-width:84px;text-align:right;font-variant-numeric:tabular-nums}
 .lcat{margin:4px 0 14px}.lch{font:500 15px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--hl);margin:0 0 2px;padding-bottom:4px;border-bottom:2px solid var(--line)}.lch span{color:var(--mut);font-size:12px;margin-left:4px}
 .lrow{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:6px;align-items:start;padding:10px 0;border-bottom:1px dashed var(--line)}.lrow:last-child{border-bottom:0}.lrow.off{opacity:.55}
@@ -3122,6 +3123,16 @@ function setLive(on) {
     : 'Rimettere le multe in prova?\n\nI giocatori vedranno di nuovo l’avviso e non riceveranno notifiche sulle loro multe.')) return;
   act(() => q(sb.from('fine_settings').update({ live: on }).eq('id', 1)), true, on ? 'Multe ufficiali ✓' : 'Multe in prova ✓');
 }
+
+// Tastiera aperta (iPhone e Android): il menù in basso si nasconde, altrimenti viene spinto sopra la tastiera
+// e resta a metà schermo. Ricompare appena si esce dal campo.
+(() => {
+  const typing = el => el && (el.tagName === 'TEXTAREA' || el.isContentEditable
+    || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'range', 'color', 'file'].includes(el.type)));
+  const upd = () => document.body.classList.toggle('kb', typing(document.activeElement));
+  document.addEventListener('focusin', upd);
+  document.addEventListener('focusout', () => setTimeout(upd, 50)); // passando da un campo all'altro non sfarfalla
+})();
 
 setInterval(() => document.querySelectorAll('.cd').forEach(el => {
   const t = cdText(el.dataset.d);
