@@ -292,6 +292,11 @@ body.loading #busy{opacity:1;transition-delay:.2s}
 .frk.me{background:color-mix(in srgb,var(--team) 18%,transparent);border-radius:10px;padding:6px 8px!important;margin:0 -8px}
 nav button.wrap{white-space:normal;line-height:1.05}
 body.kb nav{display:none}
+.lkl{column-gap:4cqw;padding-bottom:12cqw}.lkg{margin-bottom:calc(var(--f) * 2.2cqw)}.lkc{break-after:avoid;break-inside:avoid}
+.lkc{margin:0 0 calc(var(--f) * .8cqw);font:600 calc(var(--f) * 3.4cqw) Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid rgba(255,255,255,.35);padding-bottom:.6cqw}
+.lkr{display:flex;align-items:flex-start;gap:2cqw;padding:calc(var(--f) * .7cqw) 0;break-inside:avoid;border-bottom:1px dashed rgba(255,255,255,.15)}
+.lkn{flex:1;font-weight:700;font-size:calc(var(--f) * 2.9cqw);line-height:1.2}.lkn small{display:block;font-weight:400;opacity:.8;font-size:.85em}
+.lkp{flex:none;min-width:15cqw;text-align:center;background:#fff;color:var(--team);border-radius:1.6cqw;padding:.3cqw 1.4cqw;font:700 calc(var(--f) * 3.1cqw) Oswald,Impact,sans-serif;white-space:nowrap}
 .famt{flex:none;min-width:84px;text-align:right;font-variant-numeric:tabular-nums}
 .lcat{margin:4px 0 14px}.lch{font:500 15px Oswald,Impact,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--hl);margin:0 0 2px;padding-bottom:4px;border-bottom:2px solid var(--line)}.lch span{color:var(--mut);font-size:12px;margin-left:4px}
 .lrow{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:6px;align-items:start;padding:10px 0;border-bottom:1px dashed var(--line)}.lrow:last-child{border-bottom:0}.lrow.off{opacity:.55}
@@ -2843,8 +2848,20 @@ async function finesView() {
   return `${pmSwitch('f')}<h2>${staff ? '💰 Multe' : '🏆 Classifica multe'}</h2>${live ? '' : FINES_TEST_MSG}${tabs}${body}`;
 }
 
+// Schede della classifica: più pagate, più multe ricevute, listino
+const rkSwitch = () => `<div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 6px">${[['pagate', '💸 Più pagate'], ['ricevute', '📋 Più multe ricevute'], ['listino', '📒 Listino multe']]
+  .map(([k, l]) => `<button class="s ${fRk === k ? '' : 'g'}" onclick="fRk='${k}';render(true)">${l}</button>`).join('')}</div>`;
+// Listino in sola lettura (solo voci attive), raggruppato per tipologia
+async function listinoRO() {
+  const ts = (await q(sb.from('fine_types').select('*').eq('active', true).order('name'))).filter(t => t.active !== false);
+  const cats = [...tCats(ts), ''].filter(c => ts.some(t => tCat(t) === c));
+  return `<div class="card">${cats.map(c => `<div class="lcat"><p class="lch">${esc(c || 'Altre')}</p>${ts.filter(t => tCat(t) === c).sort((a, b) => fByName(a.name, b.name))
+    .map(t => `<div class="lrow"><div class="lnm"><b>${esc(t.name)}</b>${t.description ? `<small>${esc(t.description)}</small>` : ''}</div><span class="lpr">${eur(t.amount)}</span></div>`).join('')}</div>`).join('')
+    || '<span class="mut">Il listino è ancora vuoto.</span>'}</div>`;
+}
 // Classifica: chi ha pagato di più, oppure chi ha ricevuto più multe
 async function finesRank() {
+  if (fRk === 'listino') return rkSwitch() + await listinoRO();
   const cur = seasonStartNow(), seasons = []; for (let y = cur; y >= Math.min(FINES_FIRST_SEASON, cur); y--) seasons.push(y);
   if (!seasons.includes(fRkS)) fRkS = cur;
   const a = fRkS + '-07-01', b = (fRkS + 1) + '-06-30';
@@ -2853,7 +2870,7 @@ async function finesRank() {
   let r = rs.filter(x => val(x) > 0);
   r = r.map(x => ({ ...x, pos: 1 + r.filter(y => val(y) > val(x)).length })).sort((x, y) => x.pos - y.pos || String(x.name).localeCompare(String(y.name)));
   const sw = (list, cur, vn) => `<div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 6px">${list.map(([k, l]) => `<button class="s ${cur === k ? '' : 'g'}" onclick="${vn}='${k}';render(true)">${l}</button>`).join('')}</div>`;
-  return `${sw([['pagate', '💸 Più pagate'], ['ricevute', '📋 Più multe ricevute']], fRk, 'fRk')}${seasons.length > 1 ? sw(seasons.map(y => [y, 'Stagione ' + seasonName(y)]), fRkS, 'fRkS') : `<p class="ak" style="margin:4px 0 6px">Stagione ${seasonName(fRkS)}</p>`}
+  return `${rkSwitch()}${seasons.length > 1 ? sw(seasons.map(y => [y, 'Stagione ' + seasonName(y)]), fRkS, 'fRkS') : `<p class="ak" style="margin:4px 0 6px">Stagione ${seasonName(fRkS)}</p>`}
   <div class="card">${r.map(x => `<div class="row frk${x.is_me ? ' me' : ''}" style="padding:6px 0"><div class="rk">${x.pos}</div><div class="f"><b>${esc(x.name)}</b>${x.is_me ? ' <span class="mut">(tu)</span>' : ''}</div>
     <b>${fRk === 'pagate' ? `${eur(x.paid)} <span class="mut" style="font-weight:400;font-size:13px">· ${x.n_paid}</span>` : `${x.n_fines} ${x.n_fines === 1 ? 'multa' : 'multe'}`}</b></div>`).join('') || '<span class="mut">Ancora nessuno in classifica.</span>'}</div>
   <p class="mut" style="font-size:13px">${fRk === 'pagate' ? 'Euro di multe pagate (e quante). Contano solo le multe già incassate dal tesoriere.' : 'Multe approvate, pagate o ancora da pagare. Non contano le proposte, quelle respinte e quelle annullate.'}</p>`;
@@ -2928,7 +2945,7 @@ async function finesManage(nm) {
   const cats = [...tCats(types), ''].filter(c => types.some(t => tCat(t) === c));
   const byCat = cats.map(c => { const xs = types.filter(t => tCat(t) === c).sort((a, b) => (b.active - a.active) || fByName(a.name, b.name));
     return `<div class="lcat"><p class="lch">${esc(c || 'Senza tipologia')} <span>${xs.filter(t => t.active).length}</span></p>${xs.map(typeRow).join('')}</div>`; }).join('');
-  h += grp('f-list', '📋 Listino', `${actT.length} ${actT.length === 1 ? 'attiva' : 'attive'}`, `${catList(types)}${byCat || '<p class="mut">Nessuna voce.</p>'}
+  h += grp('f-list', '📋 Listino', `${actT.length} ${actT.length === 1 ? 'attiva' : 'attive'}`, `${catList(types)}${actT.length ? `<button class="g s" style="margin-bottom:8px" onclick="showListinoCard()">📸 Card del listino</button>` : ''}${byCat || '<p class="mut">Nessuna voce.</p>'}
     ${lst ? `<div class="card" style="margin:10px 0 0"><p class="ak">➕ Nuova voce</p>${typeForm(null, 'ln')}<button onclick="addType()">Aggiungi al listino</button></div>` : ''}`,
     lst ? 'Le voci sono raggruppate per tipologia. Se cambi un importo, le multe già date restano con l’importo di allora. Le voci non si eliminano: si disattivano, così spariscono dalle nuove multe ma lo storico resta corretto.' : 'Lo modificano l’admin e il giudice.');
   return h;
@@ -3109,7 +3126,8 @@ async function walletView() {
   return `<button class="g s" onclick="go('p')">← Partite</button><h2>👛 Le mie multe</h2>${live ? '' : FINES_TEST_MSG}
   <div class="stats" style="grid-template-columns:1fr 1fr"><div><b>${eur(fSumE(fs))}</b><span>Da pagare</span></div><div><b>${fs.length}</b><span>${fs.length === 1 ? 'Multa' : 'Multe'}</span></div></div>
   <div class="card">${fs.map(f => fineRow(f)).join('') || '<span class="mut">Niente da pagare, bravo 😇</span>'}</div>
-  ${fs.length && treas.length ? `<p class="mut">💰 Si pagano a <b>${listIt(treas)}</b>.</p>` : ''}`;
+  ${treas.length ? `<div class="card">💰 Le multe si pagano a <b>${listIt(treas)}</b>.</div>` : ''}
+  <button class="g" onclick="fT='rk';fRk='listino';go('f')">📒 Listino multe</button>`;
 }
 
 // Interruttore «in prova / ufficiali» in cima alla Gestione (lo cambiano admin e giudice; il tesoriere lo vede soltanto)
@@ -3133,6 +3151,26 @@ function setLive(on) {
   document.addEventListener('focusin', upd);
   document.addEventListener('focusout', () => setTimeout(upd, 50)); // passando da un campo all'altro non sfarfalla
 })();
+
+// Card verticale da screenshot del listino (solo voci attive, per tipologia): si adatta da sola al numero di voci
+function showListinoCard() {
+  const ts = curTypes.filter(t => t.active); if (!ts.length) return;
+  const cats = [...tCats(ts), ''].filter(c => ts.some(t => tCat(t) === c)), cols = ts.length > 14 ? 2 : 1;
+  const ov = document.createElement('div'); ov.id = 'ov'; ov.className = 'sqov';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div class="ckw"><div class="ck"><div class="cki">
+    <div class="ckh"><b>Listino multe</b><span>Pro Albettone · aggiornato al ${new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+    <div class="lkl" style="column-count:${cols}">${cats.map(c => `<div class="lkg"><p class="lkc">${esc(c || 'Altre')}</p>${ts.filter(t => tCat(t) === c).sort((a, b) => fByName(a.name, b.name))
+      .map(t => `<div class="lkr"><span class="lkn">${esc(t.name)}${t.description ? `<small>${esc(t.description)}</small>` : ''}</span><b class="lkp">${eur(t.amount)}</b></div>`).join('')}</div>`).join('')}</div>
+    <img class="cksig" src="logo-bianco.png" alt="" onerror="this.remove()">
+  </div></div></div>
+  <p class="sqhint">Fai lo screenshot e ritaglia lungo la card. Tocca fuori dalla card per chiudere.</p>`;
+  document.body.appendChild(ov);
+  window.addEventListener('popstate', () => ov.remove(), { once: true });
+  const ck = ov.querySelector('.ck'), inner = ov.querySelector('.cki');
+  const fit = () => { let f = 1.3; ck.style.setProperty('--f', f); while (inner.scrollHeight > ck.clientHeight && f > 0.3) { f -= 0.03; ck.style.setProperty('--f', f.toFixed(2)); } };
+  fit(); setTimeout(fit, 300); ov.querySelectorAll('img').forEach(im => im.addEventListener('load', fit));
+}
 
 setInterval(() => document.querySelectorAll('.cd').forEach(el => {
   const t = cdText(el.dataset.d);
