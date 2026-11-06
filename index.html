@@ -2759,7 +2759,7 @@ const setU = (id, k, el) => quiet(() => upP(id, { [k]: el.checked }), el);
 //   Tutti gli altri:          vedono le proprie multe e la classifica
 // Le multe si danno a chiunque: giocatori (anche senza account), mister, staff, spettatori.
 // Chi ha un giocatore collegato viene multato su quello (player_id); chi è solo un account, sull'account (profile_id).
-// Le regole vere stanno su Supabase (script multe.sql e ricorsi-multe.sql): qui si decide solo cosa mostrare.
+// Le regole vere stanno su Supabase (script multe.sql e ricorsi-multe.sql, eseguiti su Supabase): qui si decide solo cosa mostrare.
 // Multe di tutti visibili ai giocatori: predisposto ma spento. Per accenderlo, su Supabase:
 //   insert into app_settings(key, value) values ('fines', '{"public": true}') on conflict (key) do update set value = excluded.value;
 const fJudge = () => !!(prof && prof.is_judge && !asPlayer);
@@ -2780,7 +2780,7 @@ const seasonName = y => y + '/' + String(y + 1).slice(2);
 // Il raddoppio si calcola qui finché la multa è da pagare; quando il tesoriere la incassa, il database salva l'importo raddoppiato.
 const fLate = f => f.status === 'approved' && !fAppealing(f) && !!f.due_on && !f.double_waived && f.due_on < todayStr();
 const fCanWaive = f => (fJudge() || fTreas()) && !f.double_waived && ((f.status === 'approved' && !!f.due_on && !fAppealing(f)) || (f.status === 'paid' && f.doubled));
-// Ricorsi (script ricorsi-multe.sql): chi ha preso la multa può contestarla una volta, con una motivazione.
+// Ricorsi (script ricorsi-multe.sql su Supabase): chi ha preso la multa può contestarla una volta, con una motivazione.
 // Mentre il giudice decide la scadenza è sospesa e la multa non si incassa. Il giudice risponde sempre:
 // accolto = multa annullata; respinto = importo ×2 (salvato dal database). Il raddoppio per ritardo si somma: fino a ×4.
 const fAppealing = f => f.appeal_status === 'pending';
