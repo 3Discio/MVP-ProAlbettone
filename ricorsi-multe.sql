@@ -5,7 +5,8 @@
 --
 -- Regole:
 --   • Chi ha preso una multa (approvata e non ancora pagata) può fare ricorso
---     una volta sola, scrivendo la motivazione.
+--     una volta sola, scrivendo la motivazione. Il giudice no: non può
+--     contestare le proprie multe.
 --   • Finché il ricorso è in attesa la scadenza è sospesa (la multa non può
 --     raddoppiare per il ritardo) e il tesoriere non la incassa.
 --   • Il giudice risponde sempre con una motivazione:
@@ -46,6 +47,9 @@ begin
   if not (f.profile_id = auth.uid()
           or exists (select 1 from public.players p where p.id = f.player_id and p.profile_id = auth.uid())) then
     raise exception 'Puoi fare ricorso solo sulle tue multe.';
+  end if;
+  if exists (select 1 from public.profiles where id = auth.uid() and is_judge) then
+    raise exception 'Il giudice non può fare ricorso sulle proprie multe.';
   end if;
   if f.status <> 'approved' then raise exception 'Si può fare ricorso solo su una multa da pagare.'; end if;
   if f.appeal_status is not null then raise exception 'Su questa multa hai già fatto ricorso.'; end if;

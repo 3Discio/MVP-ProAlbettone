@@ -2786,7 +2786,8 @@ const fCanWaive = f => (fJudge() || fTreas()) && !f.double_waived && ((f.status 
 const fAppealing = f => f.appeal_status === 'pending';
 const fMineF = f => !!me && (f.profile_id === me.id || (!!myPidF && f.player_id === myPidF));
 let myPidF = null;
-const fCanAppeal = f => f.status === 'approved' && !f.appeal_status && fMineF(f);
+// il giudice non può contestare le proprie multe (anche guardando il sito «da giocatore»)
+const fCanAppeal = f => !(prof && prof.is_judge) && f.status === 'approved' && !f.appeal_status && fMineF(f);
 function fAppeal(f) {
   if (!f.appeal_status) return '';
   const by = f.appeal_by_name && (fStaff() || !fMineF(f)) ? ' di ' + esc(f.appeal_by_name) : '';
@@ -3176,7 +3177,7 @@ async function walletView() {
   return `<button class="g s" onclick="go('p')">← Partite</button><h2>👛 Le mie multe</h2>${live ? '' : FINES_TEST_MSG}
   <div class="stats" style="grid-template-columns:1fr 1fr"><div><b>${eur(fSumE(fs))}</b><span>Da pagare</span></div><div><b>${fs.length}</b><span>${fs.length === 1 ? 'Multa' : 'Multe'}</span></div></div>
   <div class="card">${fs.map(f => fineRow(f, null, acts(f))).join('') || '<span class="mut">Niente da pagare, bravo 😇</span>'}</div>
-  ${fs.length ? '<p class="mut" style="font-size:13px">Non sei d’accordo con una multa? Tocca «⚖️ Fai ricorso» e spiega perché: decide il giudice. Se il ricorso viene respinto la multa raddoppia, e raddoppia ancora se poi non la paghi entro la scadenza.</p>' : ''}
+  ${fs.length && !prof.is_judge ? '<p class="mut" style="font-size:13px">Non sei d’accordo con una multa? Tocca «⚖️ Fai ricorso» e spiega perché: decide il giudice. Se il ricorso viene respinto la multa raddoppia, e raddoppia ancora se poi non la paghi entro la scadenza.</p>' : ''}
   ${treas.length ? `<div class="card">💰 Le multe si pagano a <b>${listIt(treas)}</b>.</div>` : ''}
   <button class="g" onclick="fT='rk';fRk='listino';go('f')">📒 Listino multe</button>`;
 }
