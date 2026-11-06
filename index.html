@@ -312,7 +312,7 @@ body{min-height:calc(100vh + 1px);min-height:calc(100dvh + 1px)}
 .topc .tc1{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topc .wbig{display:block;margin:2px 0}
 .fbar{height:12px;border-radius:99px;background:var(--in);border:1px solid var(--line);overflow:hidden}.fbar i{display:block;height:100%;background:#fff;border-radius:99px}
 .mchips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}.mchips button{flex:none;text-transform:capitalize}
-.frow small.flate,.flate{color:#ffb4ab;font-weight:600}.frow small.fsoon{color:#f5c518;font-weight:600}
+.frow small.flate,.flate{color:#ffb4ab;font-weight:600}.frow small.fsoon{color:#f5c518;font-weight:600}.frow small.fapp{font-style:italic;overflow-wrap:anywhere}
 @keyframes tapx{0%,70%{opacity:1}100%{opacity:0;visibility:hidden}}
 @media (prefers-reduced-motion:reduce){.tapx{animation-duration:.01s;animation-delay:2.5s}}
 </style>
@@ -515,7 +515,7 @@ async function navCounts(admin) {
   const my = pl.find(p => p.profile_id === me.id);
   const next = prof.is_coach && !admin ? vis.filter(m => m.status === 'draft' && m.played_on >= now).sort((a, b) => a.played_on.localeCompare(b.played_on))[0] : null;
   const ids = open.map(m => m.id).concat(next ? [next.id] : []);
-  const fpP = fJudge() ? safe(sb.from('fines').select('id').eq('status', 'proposed')) : Promise.resolve([]);
+  const fpP = fJudge() ? Promise.all([safe(sb.from('fines').select('id').eq('status', 'proposed')), safe(sb.from('fines').select('id').eq('status', 'approved').eq('appeal_status', 'pending'))]).then(([a, b]) => a.concat(b)) : Promise.resolve([]);
   const [conv, xv, myv, sg, pf, gl] = await Promise.all([
     ids.length ? safe(sb.from('match_players').select('match_id,player_id').in('match_id', ids)) : [],
     open.length ? safe(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', open.map(m => m.id))) : [],
@@ -538,7 +538,7 @@ async function navCounts(admin) {
   // avviso cartellini per me: diffidato o squalificato
   const mine = my ? cardStats(ms, cev, rules, curCardPh(ms, rules)).find(x => x.pid === my.id) : null;
   const card = mine && mine.st ? 1 : 0;
-  const multe = (await fpP).length; // proposte di multa in attesa (solo giudice)
+  const multe = (await fpP).length; // proposte di multa e ricorsi in attesa (solo giudice)
 
   return { vote, conv: convTodo, gest, nuovi, card, multe };
 }
@@ -559,7 +559,7 @@ function navHtml(admin, cnt) {
     b(tab === 'c', "go('c')", 'Albo', 'MVP'),
     b(tab === 'g' || tab === 't', `go('${cnt.card ? 't' : 'g'}')`, 'Marcatori', 'e cartellini', nb(cnt.card, 'avviso cartellini per te'), 'wide')];
   // multe: giudice e tesoriere le gestiscono; il pallino conta le proposte da approvare (giudice)
-  const fRole = fJudge() || fTreas(), fN = cnt.multe || 0, fLb = 'multe da approvare';
+  const fRole = fJudge() || fTreas(), fN = cnt.multe || 0, fLb = 'multe e ricorsi da decidere';
   if (admin) items.push(b(tab === 'n' || tab === 'f', "mg=null;go('n')", 'Gestione', 'partite e multe', nb((cnt.gest || 0) + fN, 'cose da sistemare in partite e multe'), 'wide'),
     b(tab === 'a', "go('a')", 'Menu', 'admin', nb(cnt.nuovi, 'nuovi iscritti da sistemare')));
   else if (prof.is_coach) items.push(b(tab === 'k' || tab === 'f', "ck=null;go('k')", fRole ? 'Gestione' : 'Gestione partite', fRole ? 'partite e multe' : 'e classifica multe', nb((cnt.conv || 0) + fN, 'cose da sistemare in partite e multe'), fRole ? 'wide' : 'wide wrap'));
@@ -2759,7 +2759,7 @@ const setU = (id, k, el) => quiet(() => upP(id, { [k]: el.checked }), el);
 //   Tutti gli altri:          vedono le proprie multe e la classifica
 // Le multe si danno a chiunque: giocatori (anche senza account), mister, staff, spettatori.
 // Chi ha un giocatore collegato viene multato su quello (player_id); chi è solo un account, sull'account (profile_id).
-// Le regole vere stanno su Supabase (script multe.sql): qui si decide solo cosa mostrare.
+// Le regole vere stanno su Supabase (script multe.sql e ricorsi-multe.sql, eseguiti su Supabase): qui si decide solo cosa mostrare.
 // Multe di tutti visibili ai giocatori: predisposto ma spento. Per accenderlo, su Supabase:
 //   insert into app_settings(key, value) values ('fines', '{"public": true}') on conflict (key) do update set value = excluded.value;
 const fJudge = () => !!(prof && prof.is_judge && !asPlayer);
@@ -2778,8 +2778,26 @@ const seasonStartNow = () => { const t = new Date(); return t.getFullYear() - (t
 const seasonName = y => y + '/' + String(y + 1).slice(2);
 // Scadenza: ogni multa approvata va pagata entro «due_on»; dopo, l'importo raddoppia (una volta sola).
 // Il raddoppio si calcola qui finché la multa è da pagare; quando il tesoriere la incassa, il database salva l'importo raddoppiato.
-const fLate = f => f.status === 'approved' && !!f.due_on && !f.double_waived && f.due_on < todayStr();
-const fCanWaive = f => (fJudge() || fTreas()) && !f.double_waived && ((f.status === 'approved' && !!f.due_on) || (f.status === 'paid' && f.doubled));
+const fLate = f => f.status === 'approved' && !fAppealing(f) && !!f.due_on && !f.double_waived && f.due_on < todayStr();
+const fCanWaive = f => (fJudge() || fTreas()) && !f.double_waived && ((f.status === 'approved' && !!f.due_on && !fAppealing(f)) || (f.status === 'paid' && f.doubled));
+// Ricorsi (script ricorsi-multe.sql su Supabase): chi ha preso la multa può contestarla una volta, con una motivazione.
+// Mentre il giudice decide la scadenza è sospesa e la multa non si incassa. Il giudice risponde sempre:
+// accolto = multa annullata; respinto = importo ×2 (salvato dal database). Il raddoppio per ritardo si somma: fino a ×4.
+const fAppealing = f => f.appeal_status === 'pending';
+const fMineF = f => !!me && (f.profile_id === me.id || (!!myPidF && f.player_id === myPidF));
+let myPidF = null;
+// il giudice non può contestare le proprie multe (anche guardando il sito «da giocatore»)
+const fCanAppeal = f => !(prof && prof.is_judge) && f.status === 'approved' && !f.appeal_status && fMineF(f);
+function fAppeal(f) {
+  if (!f.appeal_status) return '';
+  const by = f.appeal_by_name && (fStaff() || !fMineF(f)) ? ' di ' + esc(f.appeal_by_name) : '';
+  const rs = f.appeal_reason ? `<small class="fapp">📝 Ricorso${by}${f.appeal_at ? ' del ' + fDay(f.appeal_at) : ''}: «${esc(f.appeal_reason)}»</small>` : '';
+  const rp = f.appeal_reply ? `<small class="fapp">💬 Risposta${f.appeal_decided_by_name ? ' di ' + esc(f.appeal_decided_by_name) : ' del giudice'}: «${esc(f.appeal_reply)}»</small>` : '';
+  const st = fAppealing(f) ? `<small class="fsoon">⚖️ Ricorso in attesa del giudice: scadenza sospesa. Se viene respinto la multa raddoppia a ${eur(f.amount * 2)}</small>`
+    : f.appeal_status === 'accepted' ? '<small>✅ Ricorso accolto: multa annullata</small>'
+    : `<small class="flate">❌ Ricorso respinto: raddoppiata${f.appeal_base_amount ? ` (era ${eur(f.appeal_base_amount)})` : ''}</small>`;
+  return st + rs + rp;
+}
 const fAmt = f => fLate(f) ? Number(f.amount) * 2 : Number(f.amount);
 const fSumE = fs => (fs || []).reduce((t, f) => t + fAmt(f), 0);
 function fDue(f) {
@@ -2836,7 +2854,7 @@ function fineRow(f, nm, actions = '', chk = '') {
   return `<div class="frow fs-${f.status}">${chk}<div class="f"><b>${esc(f.type_name)}</b>${nm ? ` <span class="fnm">· ${esc(nm(f))}</span>` : ''}
     <small>${fDay(f.fined_on)}${f.note ? ' · ' + esc(f.note) : ''}</small>
     <small>${st[0]} ${st[1]}${f.review_note ? ' · «' + esc(f.review_note) + '»' : ''}</small>
-    ${fDue(f)}${who && fStaff() ? `<small class="fwho">${who}</small>` : ''}${actions ? `<span class="ab" style="margin-top:6px">${actions}</span>` : ''}</div><b class="famt">${eur(fAmt(f))}</b></div>`;
+    ${fAppeal(f)}${fDue(f)}${who && fStaff() ? `<small class="fwho">${who}</small>` : ''}${actions ? `<span class="ab" style="margin-top:6px">${actions}</span>` : ''}</div><b class="famt">${eur(fAmt(f))}</b></div>`;
 }
 
 async function finesView() {
@@ -2845,7 +2863,7 @@ async function finesView() {
   if (!tabsL.some(t => t[0] === fT)) fT = 'rk';
   const setts = await pdfOverrides('fines', true);
   const nm = fName;
-  const tabs = tabsL.length < 2 ? '' : `<div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin:8px 0">${tabsL.map(([k, l]) => `<button class="s ${fT === k ? '' : 'g'}" onclick="fT='${k}';render()"><span class="nl">${l}${k === 'gest' ? nb(navCnt.multe, 'proposte da approvare') : ''}</span></button>`).join('')}</div>`;
+  const tabs = tabsL.length < 2 ? '' : `<div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin:8px 0">${tabsL.map(([k, l]) => `<button class="s ${fT === k ? '' : 'g'}" onclick="fT='${k}';render()"><span class="nl">${l}${k === 'gest' ? nb(navCnt.multe, 'proposte e ricorsi da decidere') : ''}</span></button>`).join('')}</div>`;
   let body;
   const live = await fLive();
   try {
@@ -2890,7 +2908,9 @@ async function finesManage(nm) {
     q(sb.from('fines').select('*').order('fined_on', { ascending: false }).order('created_at', { ascending: false })),
     q(sb.from('fine_types').select('*').order('name')), fRoles(), fDueDays()]);
   curFines = fs; curTypes = types;
-  fSel = new Set([...fSel].filter(id => fs.some(f => f.id === id && f.status === 'approved')));
+  fSel = new Set([...fSel].filter(id => fs.some(f => f.id === id && f.status === 'approved' && !fAppealing(f))));
+  const apps = fs.filter(fAppealing);
+  if (apps.length && judge && !autoOpen.has('fapp')) { autoOpen.add('fapp'); openG.add('f-app'); }
   const prop = fs.filter(f => f.status === 'proposed'), due = fs.filter(f => f.status === 'approved'), hist = fs.filter(f => ['paid', 'rejected', 'cancelled'].includes(f.status));
   if (prop.length && judge && !autoOpen.has('fprop')) { autoOpen.add('fprop'); openG.add('f-prop'); }
   const actT = types.filter(t => t.active);
@@ -2908,6 +2928,11 @@ async function finesManage(nm) {
     prop.map(f => fineRow(f, nm, judge ? fBtn('✓ Approva', `fineReview('${f.id}',true)`, '') + fBtn('✕ Respingi', `fineReview('${f.id}',false)`, 'r')
       : f.created_by === me.id ? fBtn('Ritira', `fineWithdraw('${f.id}')`) : '')).join(''),
     judge ? 'Multe proposte dall’admin o dal tesoriere: se le approvi diventano da pagare.' : 'Le approva o le respinge il giudice.', prop.length ? 'c-todo' : '');
+  // ricorsi in attesa
+  if (apps.length || judge) h += grp('f-app', '⚖️ Ricorsi da decidere', apps.length,
+    apps.map(f => fineRow(f, nm, judge ? fBtn('✅ Accogli', `fineAppealDecide('${f.id}',true)`, '') + fBtn('❌ Respingi', `fineAppealDecide('${f.id}',false)`, 'r') : '')).join(''),
+    judge ? 'Multe contestate da chi le ha prese. Rispondi sempre con una motivazione: se accogli il ricorso la multa viene annullata, se lo respingi l’importo raddoppia (e raddoppia ancora se poi non viene pagata entro la scadenza).'
+      : 'Li decide il giudice. Finché il ricorso è in attesa la multa non si incassa e la scadenza è sospesa.', apps.length && judge ? 'c-todo' : '');
   // nuova multa
   h += `<h3>${judge ? '⚖️ Assegna una multa' : '📨 Proponi una multa'}</h3><div class="card">
     <select id="fxp"><option value="">Chi?</option>${F_KIND.map(([k, l]) => { const xs = fPeople.filter(x => x.kind === k).sort((a, b) => fByName(a.name, b.name));
@@ -2930,7 +2955,7 @@ async function finesManage(nm) {
     ${due.length ? `<p class="mut" style="font-size:13px">In ordine alfabetico.${treas ? ' Spunta le multe che ti hanno pagato (anche più di una insieme, o «Tutte» per una persona) e premi «Segna pagate».' : ''} «📸 Card» prepara l’elenco da condividere nel gruppo.</p>` : ''}
     ${groups.map(([pid, list]) => `<div class="fpg"><div class="fph"><b>${esc(nm(pid))}</b><span><b>${eur(fSumE(list))}</b>${treas ? ` <button class="g s" onclick="fSelAll('${pid}')">Tutte</button>` : ''}</span></div>
       ${list.map(f => fineRow(f, null, (fCanWaive(f) ? fBtn('🙏 Togli raddoppio', `fineWaive('${f.id}')`) : '') + (judge ? fBtn('🚫 Annulla', `fineCancel('${f.id}')`) : ''),
-        treas ? `<input type="checkbox" class="fck" data-id="${f.id}" data-amt="${fAmt(f)}" data-pid="${pid}" ${fSel.has(f.id) ? 'checked' : ''} onchange="fSelToggle(this)" aria-label="Seleziona">` : '')).join('')}</div>`).join('') || '<div class="card mut">Nessuna multa da incassare.</div>'}
+        treas && !fAppealing(f) ? `<input type="checkbox" class="fck" data-id="${f.id}" data-amt="${fAmt(f)}" data-pid="${pid}" ${fSel.has(f.id) ? 'checked' : ''} onchange="fSelToggle(this)" aria-label="Seleziona">` : '')).join('')}</div>`).join('') || '<div class="card mut">Nessuna multa da incassare.</div>'}
     ${treas ? `<div class="cbar" id="fpay" style="display:none"><span><b id="fpn">0</b> <span id="fpt"></span></span><button class="s" onclick="payFines()">💰 Segna pagate</button></div>` : ''}`;
   // storico
   h += grp('f-hist', '📜 Storico', hist.length, hist.slice(0, 100).map(f => fineRow(f, nm, (fCanWaive(f) ? fBtn('🙏 Togli raddoppio', `fineWaive('${f.id}')`) : '') + (treas && f.status === 'paid' ? fBtn('↩️ Annulla incasso', `fineUnpay('${f.id}')`) : ''))).join(''),
@@ -2939,7 +2964,7 @@ async function finesManage(nm) {
   h += grp('f-due', '⏰ Scadenza e raddoppio', dueDays ? `${dueDays} giorni` : 'spenta', lst
     ? `<div class="row"><span class="f">Giorni per pagare prima che la multa raddoppi (0 = mai)</span><input id="fdd" type="number" min="0" max="365" inputmode="numeric" value="${dueDays}" style="width:90px"></div><button onclick="saveDueDays()">💾 Salva</button>`
     : `<p class="mut" style="margin:0">${dueDays ? `Le multe vanno pagate entro ${dueDays} giorni, poi raddoppiano.` : 'Le multe non hanno scadenza.'}</p>`,
-    'I giorni contano da quando la multa diventa valida (assegnata dal giudice o approvata). La regola vale per le multe date da quel momento in poi: quelle già date tengono la loro scadenza. Una multa raddoppia una volta sola. Se è giusto (per esempio la scadenza cade in giorni senza allenamenti), giudice e tesoriere possono toccare «🙏 Togli raddoppio» sulla multa: anche prima della scadenza, anche dopo, anche se è già stata pagata raddoppiata.');
+    'I giorni contano da quando la multa diventa valida (assegnata dal giudice o approvata). La regola vale per le multe date da quel momento in poi: quelle già date tengono la loro scadenza. Una multa raddoppia una volta sola. Se è giusto (per esempio la scadenza cade in giorni senza allenamenti), giudice e tesoriere possono toccare «🙏 Togli raddoppio» sulla multa: anche prima della scadenza, anche dopo, anche se è già stata pagata raddoppiata. Ricorsi: chi fa ricorso e lo perde paga il doppio, e i due raddoppi si sommano (ricorso respinto e pagata in ritardo = ×4). Mentre il ricorso è in attesa la scadenza è sospesa; se viene respinto riparte, allungata dei giorni passati in attesa.');
   // listino
   const typeForm = (t, pfx) => `<input id="${pfx}c" list="fcats" placeholder="Tipologia (es. Partita)" value="${esc(t ? tCat(t) : '')}">
       <input id="${pfx}n" placeholder="Nome (es. «Ritardo ingiustificato»)" value="${esc(t ? t.name : '')}">
@@ -3009,6 +3034,22 @@ function fineWaive(id) {
     : fLate(f) ? `Togliere il raddoppio? La multa torna a ${eur(f.amount)}.` : 'Togliere il raddoppio? Questa multa non raddoppierà, anche se viene pagata dopo la scadenza.';
   if (!confirm(msg)) return;
   act(() => q(sb.rpc('fine_waive', { p_fine: id })), true, 'Raddoppio tolto ✓');
+}
+function fineAppeal(id) {
+  const f = curFines.find(x => x.id === id); if (!f) return;
+  const r = prompt(`Perché contesti la multa «${f.type_name}»? (obbligatorio: lo legge il giudice)\n\nAttenzione: se il ricorso viene respinto la multa raddoppia a ${eur(f.amount * 2)}, e raddoppia ancora se poi non la paghi entro la scadenza.`, '');
+  if (r === null) return;
+  if (r.trim().length < 5) return alert('Scrivi la motivazione del ricorso (almeno qualche parola).');
+  act(() => q(sb.rpc('fine_appeal', { p_fine: id, p_reason: r.trim() })), true, 'Ricorso inviato al giudice ✓').then(pokeNotif);
+}
+const fineAppealWithdraw = id => confirm('Ritirare il ricorso? La multa torna da pagare, con la scadenza di prima.') && act(() => q(sb.rpc('fine_appeal_withdraw', { p_fine: id })), true, 'Ricorso ritirato ✓');
+function fineAppealDecide(id, ok) {
+  const f = curFines.find(x => x.id === id); if (!f) return;
+  const r = prompt(ok ? 'Accogli il ricorso: la multa viene annullata.\n\nScrivi la risposta (obbligatoria: la legge chi ha fatto ricorso):'
+    : `Respingi il ricorso: la multa raddoppia da ${eur(f.amount)} a ${eur(f.amount * 2)}.\n\nScrivi la risposta (obbligatoria: la legge chi ha fatto ricorso):`, '');
+  if (r === null) return;
+  if (r.trim().length < 2) return alert('Scrivi la risposta al ricorso.');
+  act(() => q(sb.rpc('fine_appeal_decide', { p_fine: id, p_ok: ok, p_reply: r.trim() })), true, ok ? 'Ricorso accolto: multa annullata ✓' : 'Ricorso respinto: multa raddoppiata ✓').then(pokeNotif);
 }
 const fineWithdraw = id => confirm('Ritirare questa proposta?') && act(() => q(sb.from('fines').delete().eq('id', id)), true, 'Proposta ritirata ✓');
 const fineUnpay = id => confirm('Annullare l’incasso? La multa torna «da pagare».') && act(() => q(sb.rpc('fine_unpay', { p_fine: id })), true, 'Incasso annullato ✓');
@@ -3103,7 +3144,7 @@ function pmSwitch(on) {
   if (!admin && !prof.is_coach) return '';
   const staff = admin || fJudge() || fTreas();
   return `<div class="row" style="justify-content:flex-start;margin-bottom:4px"><button class="s ${on === 'p' ? '' : 'g'}" onclick="${admin ? "mg=null;go('n')" : "ck=null;go('k')"}">${admin ? '⚽ Partite' : '📋 Convocazioni'}</button>`
-    + `<button class="s ${on === 'f' ? '' : 'g'}" onclick="go('f')"><span class="nl">${staff ? '💰 Multe' : '🏆 Classifica multe'}${nb(navCnt.multe, 'multe da approvare')}</span></button></div>`;
+    + `<button class="s ${on === 'f' ? '' : 'g'}" onclick="go('f')"><span class="nl">${staff ? '💰 Multe' : '🏆 Classifica multe'}${nb(navCnt.multe, 'multe e ricorsi da decidere')}</span></button></div>`;
 }
 
 // In cima a Lista partite, per tutti: a sinistra il borsellino (le mie multe da pagare), a destra il calendario
@@ -3127,12 +3168,16 @@ async function topCardsHtml(my) {
 // Borsellino: solo le mie multe ancora da pagare, e a chi pagarle
 async function walletView() {
   const [pl, roles, live] = await Promise.all([q(sb.from('players').select('id').eq('profile_id', me.id)), fRoles(), fLive()]);
-  const fs = (await q(sb.from('fines').select('*').or(fMineOr(pl[0] && pl[0].id)).eq('status', 'approved')))
+  myPidF = (pl[0] && pl[0].id) || null;
+  const fs = (await q(sb.from('fines').select('*').or(fMineOr(myPidF)).eq('status', 'approved')))
     .sort((a, b) => String(a.due_on || '9999').localeCompare(String(b.due_on || '9999')));
+  curFines = fs;
+  const acts = f => fCanAppeal(f) ? fBtn('⚖️ Fai ricorso', `fineAppeal('${f.id}')`) : fAppealing(f) && f.appeal_by === me.id ? fBtn('Ritira ricorso', `fineAppealWithdraw('${f.id}')`) : '';
   const treas = roles.filter(r => r.is_treasurer).map(r => esc(r.display_name));
   return `<button class="g s" onclick="go('p')">← Partite</button><h2>👛 Le mie multe</h2>${live ? '' : FINES_TEST_MSG}
   <div class="stats" style="grid-template-columns:1fr 1fr"><div><b>${eur(fSumE(fs))}</b><span>Da pagare</span></div><div><b>${fs.length}</b><span>${fs.length === 1 ? 'Multa' : 'Multe'}</span></div></div>
-  <div class="card">${fs.map(f => fineRow(f)).join('') || '<span class="mut">Niente da pagare, bravo 😇</span>'}</div>
+  <div class="card">${fs.map(f => fineRow(f, null, acts(f))).join('') || '<span class="mut">Niente da pagare, bravo 😇</span>'}</div>
+  ${fs.length && !prof.is_judge ? '<p class="mut" style="font-size:13px">Non sei d’accordo con una multa? Tocca «⚖️ Fai ricorso» e spiega perché: decide il giudice. Se il ricorso viene respinto la multa raddoppia, e raddoppia ancora se poi non la paghi entro la scadenza.</p>' : ''}
   ${treas.length ? `<div class="card">💰 Le multe si pagano a <b>${listIt(treas)}</b>.</div>` : ''}
   <button class="g" onclick="fT='rk';fRk='listino';go('f')">📒 Listino multe</button>`;
 }
