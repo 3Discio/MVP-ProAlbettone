@@ -2079,7 +2079,9 @@ const NOTIF_KINDS = [
   ['cartellini', '🟨 Cartellini', 'se diventi diffidato o squalificato'],
   ['iscritti', '👤 Nuovi iscritti', 'quando qualcuno si registra e va sistemato', true],
   ['multe', '💸 Multe', 'quando ricevi una multa, 3 giorni prima della scadenza e se raddoppia'],
-  ['proposte', '⚖️ Multe da approvare', 'quando qualcuno propone una multa (solo per il giudice)', 'judge']
+  ['proposte', '⚖️ Multe da approvare', 'quando qualcuno propone una multa (solo per il giudice)', 'judge'],
+  ['ricorsi', '⚖️ Ricorsi da decidere', 'quando qualcuno fa ricorso su una multa (solo per il giudice)', 'judge'],
+  ['esito', '📨 Esito del ricorso', 'quando il giudice accoglie o respinge un tuo ricorso, con la sua risposta', 'nojudge']
 ];
 const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 let pushSub = null, pushChecked = false, notifInfo = null;
@@ -2188,7 +2190,7 @@ async function notifView(admin) {
         <button class="g s" onclick="removeDevice(${i})" aria-label="Rimuovi">✕ Rimuovi</button></div>`; }).join('')}
     ${mine.length > 1 ? '<p class="mut" style="font-size:12px;margin:2px 0 6px">Se hai disinstallato e reinstallato l’app, quello vecchio è il dispositivo senza «questo»: rimuovilo. (Comunque sparisce da solo alla prima notifica che non riesce a ricevere.)</p>' : ''}
     <button class="g" onclick="disableAll()">🔕 Disattiva su tutti i dispositivi</button></div>` : '';
-  const kinds = NOTIF_KINDS.filter(k => !k[3] || (k[3] === 'judge' ? prof.is_judge : prof.is_admin)).map(([k, t, d]) => `<label class="row" style="justify-content:flex-start;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)">
+  const kinds = NOTIF_KINDS.filter(k => !k[3] || (k[3] === 'judge' ? prof.is_judge : k[3] === 'nojudge' ? !prof.is_judge : prof.is_admin)).map(([k, t, d]) => `<label class="row" style="justify-content:flex-start;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)">
     <input type="checkbox" style="width:auto;margin-top:3px" ${prefs[k] === false ? '' : 'checked'} ${notifInfo ? '' : 'disabled'} onchange="setNotifPref('${k}', this)"><span><b>${t}</b><br><span class="mut" style="font-size:13px">${d}</span></span></label>`).join('');
   let adminBox = '';
   if (prof.is_admin) {
