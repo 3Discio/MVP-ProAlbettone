@@ -321,14 +321,15 @@ body{min-height:calc(100vh + 1px);min-height:calc(100dvh + 1px)}
 <div id="busy" aria-hidden="true"></div><div class="w" id="app"></div>
 <script>
 const sb = supabase.createClient(SB_URL, SB_KEY);
-sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') { me = null; prof = null; authView(); } });
+sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') { me = null; prof = null; mustPw = null; authView(); } });
 const $ = id => document.getElementById(id), A = $('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const q = async p => { const r = await p; if (r.error) throw r.error; return r.data; };
 // Logo del sito su sfondo scuro: logo-bianco.png, se manca logo.png, se manca anche quello ⚽
 const LOGO = `<img class="lg" src="logo-bianco.png" alt="Logo" onerror="if(this.dataset.f){this.replaceWith('⚽')}else{this.dataset.f=1;this.src='logo.png'}">`;
 let lPh = null; // girone scelto nell'elenco partite
-let me, prof, tab = 'p', cur = null, pick = null, regMode = false;
+let me, prof, tab = 'p', cur = null, pick = null, regMode = false, forgotMode = false;
+let mustPw = null; // true = è entrato con la password provvisoria e deve cambiarla (null = da controllare)
 
 // ---------- VISTA GIOCATORE (solo per admin) ----------
 // Se attiva, l'admin vede l'interfaccia come un compagno di squadra. Viene ricordata sul dispositivo.
@@ -423,13 +424,15 @@ const v = id => $(id).value.trim();
 
 // ---------- ACCESSO ----------
 function authView(err = '') {
+  if (forgotMode) return forgotView(err);
   A.innerHTML = `<h1>${LOGO} Pro Albettone</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
   ${regMode ? `<ol class="mut"><li>Scrivi nome e cognome, come ti chiamano in squadra.</li><li>Inserisci email e password (minimo 6 caratteri) e premi Registrati.</li><li>Aspetta che l’admin ti colleghi al tuo giocatore e ti abiliti al voto: fino ad allora puoi entrare, ma non votare.</li><li>Quando l’admin condivide nel gruppo il link di una partita, aprilo: se la votazione è aperta, puoi votare.</li><li>Consiglio: aggiungi il sito alla schermata Home del telefono.</li></ol>` : ''}
   ${err ? `<div class="err">${esc(err)}</div>` : ''}
   ${regMode ? '<div class="row"><input id="fn" placeholder="Nome"><input id="ln" placeholder="Cognome"></div>' : ''}
   <input id="em" type="email" placeholder="Email" autocomplete="email"><input id="pw" type="password" placeholder="Password (min. 6 caratteri)">
   <button onclick="${regMode ? 'signUp()' : 'signIn()'}">${regMode ? 'Registrati' : 'Entra'}</button>
-  <button class="g" onclick="regMode=!regMode;render()">${regMode ? 'Ho già un account' : 'Nuovo? Registrati'}</button></div>`;
+  <button class="g" onclick="regMode=!regMode;render()">${regMode ? 'Ho già un account' : 'Nuovo? Registrati'}</button>
+  ${regMode ? '' : '<button class="g" onclick="forgotMode=true;authView()">Password dimenticata?</button>'}</div>`;
 }
 const signIn = () => withBusy(signInNow);
 async function signInNow() {
@@ -446,6 +449,52 @@ async function signUpNow() {
   if (!r.data.session) { regMode = false; return authView('Registrazione fatta! Controlla la mail per confermare, poi accedi.'); }
   render();
 }
+// ---------- PASSWORD DIMENTICATA ----------
+// Si scrive email o nome e cognome: arriva una richiesta agli admin (pallino su «Menu admin» e notifica),
+// l'admin genera una password provvisoria e la manda (es. su WhatsApp). Script password-provvisoria.sql su Supabase.
+function forgotView(err = '', ok = '') {
+  A.innerHTML = `<h1>${LOGO} Pro Albettone</h1><div class="card"><h3>Password dimenticata</h3>
+  ${ok ? `<div class="warn">${esc(ok)}</div>` : `<p class="mut">Scrivi la tua email oppure nome e cognome: un admin riceve la richiesta e ti manda una password provvisoria (per esempio su WhatsApp). Appena entri ti chiederemo di sceglierne una nuova.</p>
+  ${err ? `<div class="err">${esc(err)}</div>` : ''}
+  <input id="em" placeholder="Email oppure Nome Cognome" autocomplete="email" autocapitalize="off" spellcheck="false">
+  <button onclick="sendPwReq()">Invia la richiesta</button>`}
+  <button class="g" onclick="forgotMode=false;authView()">Torna all’accesso</button></div>`;
+}
+const sendPwReq = () => withBusy(sendPwReqNow);
+async function sendPwReqNow() {
+  const t = v('em');
+  if (t.length < 3) return forgotView('Scrivi la tua email oppure nome e cognome.');
+  const r = await sb.rpc('pw_request', { p_text: t });
+  if (r.error) return forgotView(/function|schema cache|does not exist/i.test(r.error.message || '')
+    ? 'Il recupero password non è ancora attivo: scrivi direttamente a un admin.' : (r.error.message || 'Richiesta non inviata, riprova.'));
+  sb.functions.invoke('notifiche', { body: { action: 'tick' } }).catch(() => {}); // avvisa subito gli admin
+  forgotView('', 'Richiesta inviata ✓ Un admin ti manderà una password provvisoria. Quando la ricevi, torna qui ed entra con quella.');
+}
+// Entrato con la password provvisoria: deve sceglierne una nuova, altrimenti non vede l'app
+function newPwView(err = '') {
+  A.innerHTML = `<h1>${LOGO} Pro Albettone</h1><div class="card"><h3>Scegli la tua nuova password</h3>
+  <p class="mut">Sei entrato con una password provvisoria. Per usare l’app scegline una tua (minimo 6 caratteri): da adesso entrerai con questa.</p>
+  ${err ? `<div class="err">${esc(err)}</div>` : ''}
+  <input id="pw" type="password" placeholder="Nuova password" autocomplete="new-password">
+  <input id="pw2" type="password" placeholder="Ripeti la nuova password" autocomplete="new-password">
+  <button onclick="saveNewPw()">Salva la password</button>
+  <button class="g" onclick="logout()">Esci</button></div>`;
+}
+const saveNewPw = () => withBusy(saveNewPwNow);
+async function saveNewPwNow() {
+  const a = $('pw').value, b = $('pw2').value;
+  if (a.length < 6) return newPwView('La password deve avere almeno 6 caratteri.');
+  if (a !== b) return newPwView('Le due password non coincidono.');
+  const r = await sb.auth.updateUser({ password: a });
+  if (r.error) {
+    const m = r.error.message || '';
+    return newPwView(/different/i.test(m) ? 'La nuova password deve essere diversa da quella provvisoria.' : 'Password non salvata: ' + m);
+  }
+  mustPw = null; // ricontrolla su Supabase: con la password cambiata l'obbligo sparisce (l'account risulta «recuperato»)
+  await render();
+  toast('Password aggiornata ✓');
+  pokeNotif(); // avvisa subito gli admin: ✅ account recuperato
+}
 
 // ---------- SCHERMATE ----------
 async function render(keep) { busyOn(); try { return await renderNow(keep); } finally { busyOff(); } }
@@ -455,7 +504,10 @@ async function renderNow(keep) {
   const snap = keep ? formSnap() : null;
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return authView();
+  if (me && me.id !== session.user.id) mustPw = null;
   me = session.user;
+  if (mustPw === null) { try { const r = await sb.rpc('pw_must_change'); mustPw = !r.error && r.data === true; } catch (e) { mustPw = false; } }
+  if (mustPw) return newPwView();
   startPresence();
   if (!clockOk) { try { const t = await sb.rpc('server_now'); if (t.data) { clockOffset = new Date(t.data) - Date.now(); clockOk = true; } } catch (e) {} }
   // il profilo si aggiorna in parallelo alla pagina: se cambia qualcosa di importante, la pagina si ridisegna
@@ -478,7 +530,7 @@ async function renderNow(keep) {
   ${prof.is_admin && asPlayer ? '<div class="pv"><span><b>Vista giocatore.</b> Vedi il sito come un compagno di squadra. I voti che dai qui sono veri.</span><button class="s" onclick="togglePreview()">Torna admin</button></div>' : ''}
   ${prof.can_vote ? '' : '<div class="card mut"><b>Account in attesa.</b> L’admin deve collegarti al tuo giocatore e abilitarti al voto. Intanto puoi vedere partite e podio.</div>'}${body}
   ${navHtml(admin, cnt)}`;
-  setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0) + (cnt.card || 0) + (cnt.multe || 0));
+  setAppBadge((cnt.vote || 0) + (cnt.conv || 0) + (cnt.gest || 0) + (cnt.nuovi || 0) + (cnt.pw || 0) + (cnt.card || 0) + (cnt.multe || 0));
   formRestore(snap);
   if ($('xk')) onEvKind();
   if ($('sk')) onSugKind();
@@ -516,13 +568,14 @@ async function navCounts(admin) {
   const next = prof.is_coach && !admin ? vis.filter(m => m.status === 'draft' && m.played_on >= now).sort((a, b) => a.played_on.localeCompare(b.played_on))[0] : null;
   const ids = open.map(m => m.id).concat(next ? [next.id] : []);
   const fpP = fJudge() ? Promise.all([safe(sb.from('fines').select('id').eq('status', 'proposed')), safe(sb.from('fines').select('id').eq('status', 'approved').eq('appeal_status', 'pending'))]).then(([a, b]) => a.concat(b)) : Promise.resolve([]);
-  const [conv, xv, myv, sg, pf, gl] = await Promise.all([
+  const [conv, xv, myv, sg, pf, gl, pwr] = await Promise.all([
     ids.length ? safe(sb.from('match_players').select('match_id,player_id').in('match_id', ids)) : [],
     open.length ? safe(sb.from('match_voters').select('match_id').eq('profile_id', me.id).in('match_id', open.map(m => m.id))) : [],
     open.length ? safe(sb.from('votes').select('match_id').in('match_id', open.map(m => m.id))) : [], // solo i miei voti (regole di Supabase)
     admin ? safe(sb.from('chron_suggestions').select('match_id').eq('status', 'pending')) : [],
     admin ? safe(sb.from('profiles').select('id,is_staff,is_out')) : [],
-    admin ? safe(sb.from('goals').select('match_id')) : []]);
+    admin ? safe(sb.from('goals').select('match_id')) : [],
+    admin ? safe(sb.from('pw_requests').select('id').in('status', ['pending', 'sent'])) : []]);
   const vote = !prof.can_vote ? 0 : open.filter(m => !myv.some(x => x.match_id === m.id)
     && canVote(m, conv.filter(c => c.match_id === m.id).map(c => c.player_id), my, xv.some(x => x.match_id === m.id))).length;
   const nConv = next ? conv.filter(c => c.match_id === next.id).length : 0;
@@ -540,7 +593,7 @@ async function navCounts(admin) {
   const card = mine && mine.st ? 1 : 0;
   const multe = (await fpP).length; // proposte di multa e ricorsi in attesa (solo giudice)
 
-  return { vote, conv: convTodo, gest, nuovi, card, multe };
+  return { vote, conv: convTodo, gest, nuovi, card, multe, pw: pwr.length };
 }
 // Numerino sull'icona dell'app installata (dove il telefono lo permette; su iPhone servono le notifiche attive)
 function setAppBadge(n) {
@@ -561,7 +614,7 @@ function navHtml(admin, cnt) {
   // multe: giudice e tesoriere le gestiscono; il pallino conta le proposte da approvare (giudice)
   const fRole = fJudge() || fTreas(), fN = cnt.multe || 0, fLb = 'multe e ricorsi da decidere';
   if (admin) items.push(b(tab === 'n' || tab === 'f', "mg=null;go('n')", 'Gestione', 'partite e multe', nb((cnt.gest || 0) + fN, 'cose da sistemare in partite e multe'), 'wide'),
-    b(tab === 'a', "go('a')", 'Menu', 'admin', nb(cnt.nuovi, 'nuovi iscritti da sistemare')));
+    b(tab === 'a', "go('a')", 'Menu', 'admin', nb((cnt.nuovi || 0) + (cnt.pw || 0), 'nuovi iscritti e password da recuperare')));
   else if (prof.is_coach) items.push(b(tab === 'k' || tab === 'f', "ck=null;go('k')", fRole ? 'Gestione' : 'Gestione partite', fRole ? 'partite e multe' : 'e classifica multe', nb((cnt.conv || 0) + fN, 'cose da sistemare in partite e multe'), fRole ? 'wide' : 'wide wrap'));
   else if (fRole) items.push(b(tab === 'f', "go('f')", 'Gestione', 'multe', nb(fN, fLb), 'wide'));
   else items.push(b(tab === 'f', "go('f')", 'Classifica', 'multe', '', 'wide'));
@@ -2078,6 +2131,7 @@ const NOTIF_KINDS = [
   ['convocazione', '📋 Convocazioni', 'quando vieni convocato per una partita'],
   ['cartellini', '🟨 Cartellini', 'se diventi diffidato o squalificato'],
   ['iscritti', '👤 Nuovi iscritti', 'quando qualcuno si registra e va sistemato', true],
+  ['password', '🔑 Password dimenticate', 'quando qualcuno chiede una password provvisoria e quando l’account è stato recuperato', true],
   ['multe', '💸 Multe', 'quando ricevi una multa, 3 giorni prima della scadenza e se raddoppia'],
   ['proposte', '⚖️ Multe da approvare', 'quando qualcuno propone una multa (solo per il giudice)', 'judge'],
   ['ricorsi', '⚖️ Ricorsi da decidere', 'quando qualcuno fa ricorso su una multa (solo per il giudice)', 'judge'],
@@ -2672,7 +2726,8 @@ function admChip(i) {
   admSearch(serQ(P), true);
 }
 async function adminView() {
-  const [pl, pf] = await Promise.all([q(sb.from('players').select('*').order('name')), q(sb.from('profiles').select('*').order('display_name'))]);
+  const [pl, pf, pwr] = await Promise.all([q(sb.from('players').select('*').order('name')), q(sb.from('profiles').select('*').order('display_name')),
+    sb.rpc('pw_admin_list').then(r => r.data || [], () => [])]);
   const nm = id => (pf.find(x => x.id === id) || {}).display_name;
   pf.forEach(u => { onlineNames[u.id] = u.display_name; });
   const free = pl.filter(p => !p.profile_id);
@@ -2680,7 +2735,8 @@ async function adminView() {
   const cat = u => linked(u) ? (u.is_out ? 'fuori' : 'rosa') : u.is_staff ? 'staff' : u.is_out ? 'spett' : 'nuovo';
   const by = k => pf.filter(u => cat(u) === k);
   const nuovi = by('nuovo').sort((x, y) => String(y.created_at || '').localeCompare(String(x.created_at || '')));
-  const tags = u => `${u.is_admin ? ' <span class="tag">admin</span>' : ''}${u.is_coach ? MS_TAG : ''}${u.is_judge ? ' <span class="tag">⚖️ giudice</span>' : ''}${u.is_treasurer ? ' <span class="tag">💰 tesoriere</span>' : ''}`;
+  const pwWait = new Set(pwr.filter(r => r.status === 'sent').map(r => r.profile_id));
+  const tags = u => `${pwWait.has(u.id) ? ' <span class="tag">🔑 in sospeso</span>' : ''}${u.is_admin ? ' <span class="tag">admin</span>' : ''}${u.is_coach ? MS_TAG : ''}${u.is_judge ? ' <span class="tag">⚖️ giudice</span>' : ''}${u.is_treasurer ? ' <span class="tag">💰 tesoriere</span>' : ''}`;
   const box = (u, k, label) => `<label><input type="checkbox" ${u[k] ? 'checked' : ''} onchange="setF('${u.id}','${k}',this)"> ${label}</label>`;
   const props = u => `<div class="chk">${box(u, 'can_vote', 'Può votare')}${box(u, 'is_coach', '⭐ Mister (voto doppio)')}${box(u, 'is_judge', '⚖️ Giudice multe')}${box(u, 'is_treasurer', '💰 Tesoriere')}</div>`;
   const linkOpts = () => free.map(p => `<option value="p:${p.id}">Collega a: ${esc(p.name)}</option>`).join('');
@@ -2690,7 +2746,8 @@ async function adminView() {
       : `${c === 'nuovo' ? '<option value="" selected>Scegli la categoria…</option>' : ''}${['staff', 'spett'].map(k => `<option value="${k}" ${c === k ? 'selected' : ''}>${CAT[k]}</option>`).join('')}${free.length ? '<option disabled>──────────</option>' + linkOpts() : ''}`;
     return `<select onchange="setCat('${u.id}', this.value)" aria-label="Categoria">${opts}</select>`; };
   const acc = u => { const mp = linked(u); return `<div class="ac"><b>${esc(u.display_name)}</b>${tags(u)}
-    ${mp ? `<div class="row"><span class="mut f">Giocatore: ${esc(mp.name)}</span><button class="g s" onclick="unlink('${mp.id}')">Scollega</button></div>` : '<div class="mut">Nessun giocatore collegato</div>'}${catSel(u)}${props(u)}</div>`; };
+    ${mp ? `<div class="row"><span class="mut f">Giocatore: ${esc(mp.name)}</span><button class="g s" onclick="unlink('${mp.id}')">Scollega</button></div>` : '<div class="mut">Nessun giocatore collegato</div>'}${catSel(u)}${props(u)}
+    <button class="g s" onclick="pwReset('${u.id}')">🔑 Reimposta password</button></div>`; };
   const nuovo = u => `<div class="card nuovo"><b>${esc(u.display_name)}</b>${tags(u)}${u.created_at ? `<span class="mut"> · iscritto il ${new Date(u.created_at).toLocaleDateString('it-IT')}</span>` : ''}
     ${props(u)}${catSel(u)}</div>`;
   const msPl = p => p.profile_id && (pf.find(u => u.id === p.profile_id) || {}).is_coach;
@@ -2716,7 +2773,25 @@ async function adminView() {
     <div id="admChips" class="chips">${admChipsHtml()}</div>
     <p class="mut" style="font-size:13px;margin:4px 0 0">Scrivi un nome (anche solo l’inizio) e/o tocca i pulsanti: le condizioni valgono tutte insieme. «non» davanti esclude, es. «mister non votanti».</p>
     <div id="admRes">${admResHtml()}</div></div>`;
-  return `${searchCard}
+  // ---- password dimenticate: nuove → in sospeso (password provvisoria mandata) → recuperate ----
+  const when = d => new Date(d).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const accOpts = sel => pf.map(x => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.display_name)}</option>`).join('');
+  const pwNew = r => `<div class="card nuovo"><b>«${esc(r.typed)}»</b><span class="mut"> · ha chiesto il ${when(r.created_at)}</span>
+    <div class="mut">Associa la richiesta all’account giusto${r.profile_id ? ' (proposto in automatico: controlla)' : ''}:</div>
+    <select id="pwu-${r.id}" aria-label="Account" onchange="pwMail(this.value,'pwe-${r.id}')"><option value="">Scegli l’account…</option>${accOpts(r.profile_id)}</select>
+    <div class="mut" id="pwe-${r.id}">${r.email ? 'Registrato con ' + esc(r.email) : ''}</div>
+    <div class="row"><button class="s" onclick="pwReset($('pwu-${r.id}').value, '${r.id}')">Genera password provvisoria</button><button class="g s" onclick="pwDismiss('${r.id}', 'Ignorare questa richiesta?')">Ignora</button></div></div>`;
+  const pwSent = r => `<div class="card"><b>⏳ ${esc(r.display_name || '')}</b><div class="mut">${esc(r.email || '')}</div>
+    <div class="mut">Password provvisoria generata il ${when(r.sent_at)}${r.handled_by_name ? ' da ' + esc(r.handled_by_name) : ''}: in attesa che entri e ne scelga una nuova.</div>
+    <div class="row"><button class="g s" onclick="pwReset('${r.profile_id}', '${r.id}')">Genera di nuovo</button><button class="g s" onclick="pwDismiss('${r.id}', 'Smettere di seguire questa richiesta? (La password provvisoria resta valida.)')">Archivia</button></div></div>`;
+  const pwDone = r => `<div class="ac"><b>✅ ${esc(r.display_name || '')}</b><div class="mut">Ha scelto la nuova password il ${when(r.recovered_at)}</div></div>`;
+  const pwN = pwr.filter(r => r.status === 'pending'), pwS = pwr.filter(r => r.status === 'sent'), pwD = pwr.filter(r => r.status === 'done');
+  const pwBox = pwr.length ? `<h2>🔑 Password dimenticate</h2>
+    ${pwN.length ? `<h3>Nuove richieste (${pwN.length})</h3><p class="mut">Scegli l’account, genera la password provvisoria e mandala su WhatsApp.</p>${pwN.map(pwNew).join('')}` : ''}
+    ${pwS.length ? `<h3>In sospeso (${pwS.length})</h3><p class="mut">Il pallino resta finché non entrano e cambiano la password.</p>${pwS.map(pwSent).join('')}` : ''}
+    ${pwD.length ? `<h3>Recuperati negli ultimi 7 giorni</h3>${pwD.map(pwDone).join('')}` : ''}` : '';
+  return `${pwBox}
+  ${searchCard}
   <h2>Da sistemare (${nuovi.length})</h2>${nuovi.length
     ? `<p class="mut">Spunta «Può votare» (ed eventualmente «Mister»), poi scegli la categoria: collegalo al suo giocatore della rosa, oppure indica se è staff o spettatore. Se il giocatore non è in rosa, aggiungilo qui sotto.</p>${nuovi.map(nuovo).join('')}`
     : '<p class="mut">Nessun nuovo iscritto da sistemare.</p>'}
@@ -2736,6 +2811,36 @@ async function adminView() {
   ${grp('xp', 'Spettatori', exP.length, exP.map(exRow).join(''), '', 'c-sp')}`;
 }
 const upP = (uid, o) => q(sb.from('profiles').update(o).eq('id', uid));
+// Password provvisoria (funzioni pw_admin_* su Supabase): la vecchia smette di funzionare, la richiesta va «in sospeso»
+// e, al primo accesso, la persona deve sceglierne una nuova (allora risulta «recuperato»)
+const pwMail = (uid, elId) => { const el = $(elId); if (!el) return; el.textContent = '';
+  if (uid) sb.rpc('pw_admin_email', { p_profile: uid }).then(r => { if (r.data) el.textContent = 'Registrato con ' + r.data; }); };
+async function pwReset(uid, reqId = null) {
+  if (!uid) return alert('Scegli prima l’account a cui associare la richiesta.');
+  const [pr, em] = await Promise.all([q(sb.from('profiles').select('display_name').eq('id', uid).single()), sb.rpc('pw_admin_email', { p_profile: uid })]);
+  const name = pr.display_name || '';
+  if (!confirm(`Generare una password provvisoria per ${name}${em.data ? ' (' + em.data + ')' : ''}?\nLa sua password attuale smetterà di funzionare.`)) return;
+  let res = null;
+  await act(async () => { res = await q(sb.rpc('pw_admin_reset', { p_profile: uid, p_request: reqId })); }, true, '');
+  if (res && res.password) pwShow(name, res.password, res.email);
+}
+const pwDismiss = (id, ask) => confirm(ask) && act(() => q(sb.rpc('pw_request_dismiss', { p_request: id })), true, 'Fatto ✓');
+function pwShow(name, pw, email) {
+  const url = location.origin + location.pathname;
+  const msg = `Ciao ${name.split(' ')[0]}, ti sei registrato su Pro Albettone con l’email ${email}\n`
+    + `Questa è la tua password provvisoria per il primo accesso: ${pw}\n`
+    + `Entra da ${url} con email e password provvisoria: subito dopo dovrai sceglierne una nuova.`;
+  const ov = document.createElement('div'); ov.id = 'ov'; ov.className = 'sqov';
+  ov.innerHTML = `<div class="card" style="max-width:400px;width:100%;margin:auto 0"><h3>🔑 Password provvisoria</h3>
+    <p class="mut">Per <b>${esc(name)}</b> · ${esc(email)}<br>Mandagliela adesso: chiusa questa finestra non si può più rivedere (al massimo ne generi un’altra). La richiesta resta «in sospeso» finché non sceglie la nuova password.</p>
+    <div style="font:600 24px monospace;text-align:center;padding:12px;margin:8px 0;border:2px dashed var(--line);border-radius:10px;user-select:all">${esc(pw)}</div>
+    <a class="btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Manda su WhatsApp</a>
+    <button class="g" id="pwcp">Copia il messaggio</button><button class="g" id="pwx">Chiudi</button></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector('#pwx').onclick = close; window.addEventListener('popstate', close, { once: true });
+  ov.querySelector('#pwcp').onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(msg) : Promise.reject()).then(() => toast('Messaggio copiato ✓'), () => prompt('Copia il messaggio:', msg));
+}
 const setF = (uid, k, el) => act(() => upP(uid, { [k]: el.checked }));
 // Cambia categoria; "p:<id>" collega l'account a quel giocatore
 function setCat(uid, val) {
