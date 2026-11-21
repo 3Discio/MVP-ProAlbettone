@@ -320,8 +320,26 @@ body{min-height:calc(100vh + 1px);min-height:calc(100dvh + 1px)}
 <body>
 <div id="busy" aria-hidden="true"></div><div class="w" id="app"></div>
 <script>
+// ---------- RECUPERO PASSWORD: ritorno dal link dell'email ----------
+// Il link dell'email riapre il sito con …#access_token=…&type=recovery: Supabase crea una sessione,
+// ma prima di entrare nell'app chiediamo la nuova password. Se il link è scaduto o già usato
+// arriva …#error=…&error_code=otp_expired: mostriamo un messaggio e il modulo per chiederne un altro.
+const _authP = new URLSearchParams(location.hash.slice(1) + '&' + location.search.slice(1));
+let recovering = _authP.get('type') === 'recovery';
+let authNote = '', forgotMode = false;
+if (_authP.get('error') || _authP.get('error_code')) {
+  const c = _authP.get('error_code') || '';
+  authNote = /expired|invalid/i.test(c + ' ' + (_authP.get('error_description') || ''))
+    ? 'Il link è scaduto o è già stato usato: richiedine uno nuovo qui sotto.'
+    : 'Il link non funziona: richiedine uno nuovo qui sotto.';
+  forgotMode = true;
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+}
 const sb = supabase.createClient(SB_URL, SB_KEY);
-sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') { me = null; prof = null; authView(); } });
+sb.auth.onAuthStateChange(ev => {
+  if (ev === 'SIGNED_OUT') { me = null; prof = null; recovering = false; authView(); }
+  if (ev === 'PASSWORD_RECOVERY') { recovering = true; setTimeout(newPwView, 0); }
+});
 const $ = id => document.getElementById(id), A = $('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const q = async p => { const r = await p; if (r.error) throw r.error; return r.data; };
@@ -423,13 +441,65 @@ const v = id => $(id).value.trim();
 
 // ---------- ACCESSO ----------
 function authView(err = '') {
+  if (!err && authNote) { err = authNote; authNote = ''; }
+  if (forgotMode) return forgotView(err);
   A.innerHTML = `<h1>${LOGO} Pro Albettone</h1><div class="card"><h3>${regMode ? 'Registrati' : 'Accedi'}</h3>
   ${regMode ? `<ol class="mut"><li>Scrivi nome e cognome, come ti chiamano in squadra.</li><li>Inserisci email e password (minimo 6 caratteri) e premi Registrati.</li><li>Aspetta che l’admin ti colleghi al tuo giocatore e ti abiliti al voto: fino ad allora puoi entrare, ma non votare.</li><li>Quando l’admin condivide nel gruppo il link di una partita, aprilo: se la votazione è aperta, puoi votare.</li><li>Consiglio: aggiungi il sito alla schermata Home del telefono.</li></ol>` : ''}
   ${err ? `<div class="err">${esc(err)}</div>` : ''}
   ${regMode ? '<div class="row"><input id="fn" placeholder="Nome"><input id="ln" placeholder="Cognome"></div>' : ''}
   <input id="em" type="email" placeholder="Email" autocomplete="email"><input id="pw" type="password" placeholder="Password (min. 6 caratteri)">
   <button onclick="${regMode ? 'signUp()' : 'signIn()'}">${regMode ? 'Registrati' : 'Entra'}</button>
-  <button class="g" onclick="regMode=!regMode;render()">${regMode ? 'Ho già un account' : 'Nuovo? Registrati'}</button></div>`;
+  <button class="g" onclick="regMode=!regMode;render()">${regMode ? 'Ho già un account' : 'Nuovo? Registrati'}</button>
+  ${regMode ? '' : '<button class="g" onclick="forgotMode=true;authView()">Password dimenticata?</button>'}</div>`;
+}
+// Password dimenticata: Supabase manda un'email con il link per sceglierne una nuova.
+// Il messaggio è lo stesso che l'email sia registrata o no, così non si scopre chi è iscritto.
+function forgotView(err = '', ok = '') {
+  A.innerHTML = `<h1>${LOGO} Pro Albettone</h1><div class="card"><h3>Password dimenticata</h3>
+  <p class="mut">Scrivi l’email con cui ti sei registrato: ti mandiamo un link per scegliere una nuova password. Il link vale un’ora.</p>
+  ${err ? `<div class="err">${esc(err)}</div>` : ''}${ok ? `<div class="warn">${esc(ok)}</div>` : ''}
+  <input id="em" type="email" placeholder="Email" autocomplete="email">
+  <button onclick="sendReset()">Inviami il link</button>
+  <button class="g" onclick="forgotMode=false;authView()">Torna all’accesso</button></div>`;
+}
+const sendReset = () => withBusy(sendResetNow);
+async function sendResetNow() {
+  const em = v('em');
+  if (!/^\S+@\S+\.\S+$/.test(em)) return forgotView('Scrivi un indirizzo email valido.');
+  const r = await sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + location.pathname });
+  if (r.error) {
+    const m = r.error.message || '';
+    return forgotView(r.error.status === 429 || /seconds|rate limit/i.test(m)
+      ? 'Hai già chiesto un link da poco: aspetta un minuto e riprova.'
+      : 'Non riesco a mandare l’email adesso. Riprova più tardi o chiedi a un admin.');
+  }
+  forgotView('', 'Se l’email è registrata, tra poco ricevi il link (guarda anche nello spam). Aprilo da questo dispositivo e scegli la nuova password.');
+  $('em').value = em;
+}
+// Arrivati dal link dell'email: si sceglie la nuova password prima di entrare
+function newPwView(err = '') {
+  A.innerHTML = `<h1>${LOGO} Pro Albettone</h1><div class="card"><h3>Nuova password</h3>
+  <p class="mut">Scegli la nuova password (minimo 6 caratteri). Da adesso entrerai con questa.</p>
+  ${err ? `<div class="err">${esc(err)}</div>` : ''}
+  <input id="pw" type="password" placeholder="Nuova password" autocomplete="new-password">
+  <input id="pw2" type="password" placeholder="Ripeti la nuova password" autocomplete="new-password">
+  <button onclick="saveNewPw()">Salva la password</button></div>`;
+}
+const saveNewPw = () => withBusy(saveNewPwNow);
+async function saveNewPwNow() {
+  const a = $('pw').value, b = $('pw2').value;
+  if (a.length < 6) return newPwView('La password deve avere almeno 6 caratteri.');
+  if (a !== b) return newPwView('Le due password non coincidono.');
+  const r = await sb.auth.updateUser({ password: a });
+  if (r.error) {
+    const m = r.error.message || '';
+    return newPwView(/different/i.test(m) ? 'La nuova password deve essere diversa da quella vecchia.'
+      : /session|jwt|expired/i.test(m) ? 'Il link è scaduto: torna all’accesso e richiedine uno nuovo.'
+      : 'Password non salvata: ' + m);
+  }
+  recovering = false;
+  await render();
+  toast('Password aggiornata ✓');
 }
 const signIn = () => withBusy(signInNow);
 async function signInNow() {
@@ -454,7 +524,8 @@ async function renderNow(keep) {
   // ridisegno della stessa schermata (es. dopo un «Salva»): ricorda campi e spunte non ancora salvati
   const snap = keep ? formSnap() : null;
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) return authView();
+  if (!session) { recovering = false; return authView(); }
+  if (recovering) return newPwView();
   me = session.user;
   startPresence();
   if (!clockOk) { try { const t = await sb.rpc('server_now'); if (t.data) { clockOffset = new Date(t.data) - Date.now(); clockOk = true; } } catch (e) {} }
