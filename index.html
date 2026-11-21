@@ -490,9 +490,10 @@ async function saveNewPwNow() {
     const m = r.error.message || '';
     return newPwView(/different/i.test(m) ? 'La nuova password deve essere diversa da quella provvisoria.' : 'Password non salvata: ' + m);
   }
-  mustPw = null; // ricontrolla su Supabase: con la password cambiata l'obbligo sparisce
+  mustPw = null; // ricontrolla su Supabase: con la password cambiata l'obbligo sparisce (l'account risulta «recuperato»)
   await render();
   toast('Password aggiornata ✓');
+  pokeNotif(); // avvisa subito gli admin: ✅ account recuperato
 }
 
 // ---------- SCHERMATE ----------
